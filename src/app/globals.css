@@ -1,0 +1,306 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+/*
+ * ============================================================================
+ * El-Imtiyaz Client Web Portal — Design Tokens
+ * ============================================================================
+ * Source of truth: Entire_Project_Plan.txt → "03. UI and UX Design"
+ *   01. Color Palette and Design Tokens
+ *   02. Typography and Visual Identity
+ *
+ * Dark theme is the DEFAULT (operational tool, long shifts, easier on eyes).
+ * Light theme is provided as an accessible alternative.
+ *
+ * Brand palette (hex → mapped into Tailwind semantic tokens):
+ *   Primary Blue   #349BD4   → primary
+ *   Deep Blue      #2B7FB0   → primary hover/pressed
+ *   Light Blue     #6EC1E4   → ring / focus / cyan glow
+ *   Slate Gray     #3B464C   → muted / dividers
+ *   Warm Gold      #C8A98C   → accent / KPIs
+ *   Success Green  #3FA66E
+ *   Warning Gold   #C8A98C   (shared with accent)
+ *   Danger Red     #C0504D
+ *   Dark BG        #242526   → background (dark)
+ *   Panel BG       #1E1F20   → card / sidebar (dark)
+ *   Elevated       #2A2B2D   → popover / modal (dark)
+ *   Off-White      #EFF2F3   → foreground (dark)
+ * ============================================================================
+ */
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-jetbrains-mono), ui-monospace, "Cascadia Code", monospace;
+  --font-arabic: var(--font-noto-arabic), var(--font-inter), sans-serif;
+
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-info: var(--info);
+  --color-info-foreground: var(--info-foreground);
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+}
+
+/* ----------------------------------------------------------------------------
+ * DARK THEME (default)
+ * ---------------------------------------------------------------------------- */
+:root,
+.dark {
+  --radius: 0.75rem;
+
+  /* Surfaces */
+  --background: #242526;          /* Dark Background */
+  --foreground: #EFF2F3;          /* Off-White Text */
+  --card: #1E1F20;                /* Panel Background */
+  --card-foreground: #EFF2F3;
+  --popover: #2A2B2D;             /* Elevated Surface */
+  --popover-foreground: #EFF2F3;
+
+  /* Brand */
+  --primary: #349BD4;             /* Primary Blue */
+  --primary-foreground: #FFFFFF;
+  --secondary: #2A2B2D;
+  --secondary-foreground: #EFF2F3;
+
+  /* Muted / Accent */
+  --muted: #2A2B2D;
+  --muted-foreground: #9CA3AF;    /* Slate Gray lighter */
+  --accent: #C8A98C;              /* Warm Gold */
+  --accent-foreground: #1E1F20;
+
+  /* Status */
+  --destructive: #C0504D;         /* Danger Red */
+  --destructive-foreground: #FFFFFF;
+  --success: #3FA66E;             /* Success Green */
+  --success-foreground: #FFFFFF;
+  --warning: #C8A98C;             /* Warning Gold (shared with accent) */
+  --warning-foreground: #1E1F20;
+  --info: #6EC1E4;                /* Light Blue / Cyan Glow */
+  --info-foreground: #1E1F20;
+
+  /* Lines / Inputs / Focus */
+  --border: rgba(239, 242, 243, 0.10);
+  --input: rgba(239, 242, 243, 0.12);
+  --ring: #6EC1E4;                /* Light Blue / Cyan Glow */
+
+  /* Charts */
+  --chart-1: #349BD4;
+  --chart-2: #6EC1E4;
+  --chart-3: #C8A98C;
+  --chart-4: #3FA66E;
+  --chart-5: #C0504D;
+
+  /* Sidebar (kept for shadcn sidebar primitive) */
+  --sidebar: #1E1F20;
+  --sidebar-foreground: #EFF2F3;
+  --sidebar-primary: #349BD4;
+  --sidebar-primary-foreground: #FFFFFF;
+  --sidebar-accent: #2A2B2D;
+  --sidebar-accent-foreground: #EFF2F3;
+  --sidebar-border: rgba(239, 242, 243, 0.10);
+  --sidebar-ring: #6EC1E4;
+}
+
+/* ----------------------------------------------------------------------------
+ * LIGHT THEME (accessible alternative)
+ * ---------------------------------------------------------------------------- */
+.light {
+  --radius: 0.75rem;
+
+  --background: #F7F9FB;
+  --foreground: #1E1F20;
+  --card: #FFFFFF;
+  --card-foreground: #1E1F20;
+  --popover: #FFFFFF;
+  --popover-foreground: #1E1F20;
+
+  --primary: #2B7FB0;             /* Deep Blue (better contrast on white) */
+  --primary-foreground: #FFFFFF;
+  --secondary: #EFF2F3;
+  --secondary-foreground: #1E1F20;
+
+  --muted: #EFF2F3;
+  --muted-foreground: #3B464C;    /* Slate Gray */
+  --accent: #C8A98C;
+  --accent-foreground: #1E1F20;
+
+  --destructive: #C0504D;
+  --destructive-foreground: #FFFFFF;
+  --success: #3FA66E;
+  --success-foreground: #FFFFFF;
+  --warning: #C8A98C;
+  --warning-foreground: #1E1F20;
+  --info: #6EC1E4;
+  --info-foreground: #1E1F20;
+
+  --border: rgba(30, 31, 32, 0.10);
+  --input: rgba(30, 31, 32, 0.12);
+  --ring: #6EC1E4;
+
+  --chart-1: #2B7FB0;
+  --chart-2: #6EC1E4;
+  --chart-3: #C8A98C;
+  --chart-4: #3FA66E;
+  --chart-5: #C0504D;
+
+  --sidebar: #FFFFFF;
+  --sidebar-foreground: #1E1F20;
+  --sidebar-primary: #2B7FB0;
+  --sidebar-primary-foreground: #FFFFFF;
+  --sidebar-accent: #EFF2F3;
+  --sidebar-accent-foreground: #1E1F20;
+  --sidebar-border: rgba(30, 31, 32, 0.10);
+  --sidebar-ring: #6EC1E4;
+}
+
+/* ----------------------------------------------------------------------------
+ * Base layer
+ * ---------------------------------------------------------------------------- */
+@layer base {
+  * {
+    border-color: var(--border);
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+    scroll-behavior: smooth;
+  }
+
+  body {
+    background-color: var(--background);
+    color: var(--foreground);
+    font-feature-settings: "rlig" 1, "calt" 1, "tnum" 1;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+    overscroll-behavior-y: none;
+  }
+
+  /* Numeric precision for currency / IDs / codes */
+  .font-mono,
+  .tabular-nums {
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Mobile safe-area insets (iOS notch / home indicator) */
+  .safe-pt {
+    padding-top: env(safe-area-inset-top);
+  }
+  .safe-pb {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  /* Custom scrollbar — subtle, dark-themed */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: rgba(239, 242, 243, 0.15);
+    border-radius: 4px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: rgba(239, 242, 243, 0.25);
+  }
+
+  /* Hide scrollbar but keep scroll */
+  .scrollbar-none {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* ----------------------------------------------------------------------------
+ * Utilities
+ * ---------------------------------------------------------------------------- */
+@layer utilities {
+  /* Glass / blur surface for top app bar */
+  .glass-bar {
+    background: color-mix(in srgb, var(--background) 80%, transparent);
+    backdrop-filter: saturate(180%) blur(16px);
+    -webkit-backdrop-filter: saturate(180%) blur(16px);
+  }
+
+  /* Brand gradient for hero / login */
+  .brand-gradient {
+    background:
+      radial-gradient(1200px 600px at 10% -10%, color-mix(in srgb, var(--primary) 25%, transparent), transparent),
+      radial-gradient(900px 500px at 110% 10%, color-mix(in srgb, var(--info) 18%, transparent), transparent),
+      var(--background);
+  }
+
+  /* Touch target — minimum 44px (mobile-first) */
+  .touch-target {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  /* Card hover lift */
+  .card-hover {
+    transition: transform 200ms ease, border-color 200ms ease, background-color 200ms ease;
+  }
+  .card-hover:hover {
+    transform: translateY(-1px);
+  }
+
+  /* Status pill base */
+  .status-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.125rem 0.5rem;
+    border-radius: 9999px;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "name": "El-Imtiyaz Portal",
+  "short_name": "El-Imtiyaz",
+  "description": "Espace Parent & Élève — portail client El-Imtiyaz",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#242526",
+  "theme_color": "#242526",
+  "orientation": "portrait-primary",
+  "lang": "fr",
+  "categories": ["education", "productivity"],
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
