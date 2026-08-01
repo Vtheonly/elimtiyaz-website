@@ -21,16 +21,17 @@
  * cookies/localStorage. This provider wraps that with React state so
  * components can subscribe via useAuth().
  *
- * ─── TEMPORARY MOCK AUTH ────────────────────────────────────────────────────
- * When NEXT_PUBLIC_MOCK_AUTH_ENABLED=true, a mock administrator session can
- * be created that bypasses Google OAuth entirely. This is for development
- * and testing only. See src/lib/auth/mock-auth.ts.
+ * ─── TEMPORARY MOCK AUTH (DEVELOPMENT & TESTING ONLY) ───────────────────────
+ * During the testing phase, a direct "Admin" entry allows entering the app
+ * with full administrator permissions without Google OAuth. This is ALWAYS
+ * functional (no feature-flag gating) so testers can use the app immediately.
+ * Remove this once production authentication is implemented.
+ * See src/lib/auth/mock-auth.ts.
  */
 
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { supabase, isSupabaseConfigured } from "@/lib/supabase/client";
-import { isMockAuthEnabled } from "@/lib/env";
 import {
   getMockSession,
   saveMockSession,
@@ -52,11 +53,8 @@ interface AuthContextValue {
   signOut: () => Promise<void>;
   refresh: () => Promise<void>;
   // ─── TEMPORARY MOCK AUTH ───────────────────────────────────────────────
-  // Mock auth feature flag (exposed so the LoginScreen can conditionally
-  // render the mock login button). See src/lib/auth/mock-auth.ts.
-  mockAuthEnabled: boolean;
   // Mock sign-in: bypasses Google OAuth and sets a mock admin session.
-  // Only functional when isMockAuthEnabled is true.
+  // Always functional during the testing phase.
   signInWithMock: () => Promise<void>;
   // True when the current session is a mock session (not a real Supabase
   // session). Used to show a "mock mode" indicator in the UI.
@@ -192,13 +190,10 @@ export function AuthProvider({ children: reactChildren }: { children: ReactNode 
   }, [loadProfile]);
 
   // ─── TEMPORARY MOCK AUTH ───────────────────────────────────────────────
-  // On mount, check for an existing mock session in localStorage. If present
-  // (and the feature flag is enabled), hydrate the auth state from it instead
-  // of querying Supabase. This runs before the Supabase subscription so the
-  // mock session takes priority.
+  // On mount, check for an existing mock session in localStorage. If present,
+  // hydrate the auth state from it instead of querying Supabase. This runs
+  // before the Supabase subscription so the mock session takes priority.
   useEffect(() => {
-    if (!isMockAuthEnabled) return;
-
     const mockSession = getMockSession();
     if (mockSession && isMockUser(mockSession.user.auth_user_id)) {
       setUser(mockSession.user);
@@ -270,12 +265,8 @@ export function AuthProvider({ children: reactChildren }: { children: ReactNode 
   // Mock sign-in: bypasses Google OAuth entirely. Creates a mock admin
   // session in localStorage and transitions to the "active" state so the
   // user lands directly on the admin dashboard.
+  // ALWAYS functional during the testing phase — remove with mock auth.
   const signInWithMock = useCallback(async () => {
-    if (!isMockAuthEnabled) {
-      console.warn("[auth] signInWithMock called but mock auth is disabled");
-      return;
-    }
-
     setError(null);
     const session = saveMockSession();
     setUser(session.user);
@@ -321,7 +312,6 @@ export function AuthProvider({ children: reactChildren }: { children: ReactNode 
     signOut,
     refresh,
     // ─── TEMPORARY MOCK AUTH ─────────────────────────────────────────────
-    mockAuthEnabled: isMockAuthEnabled,
     signInWithMock,
     isMockSession,
   };

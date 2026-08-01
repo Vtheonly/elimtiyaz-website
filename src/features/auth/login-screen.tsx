@@ -3,19 +3,18 @@
 /**
  * LoginScreen — the only public surface of the portal.
  *
- * Workflow (per user requirements):
- *   - Single CTA: "Sign in with Google"
- *   - No registration form, no invitations, no activation code entry.
- *   - Account activation is handled entirely by the desktop application.
+ * ─── TEMPORARY MOCK AUTH (DEVELOPMENT & TESTING ONLY) ──────────────────────
+ * During the testing phase, a direct "Admin" entry is ALWAYS shown on the
+ * login screen so developers and testers can enter the application instantly
+ * with full administrator permissions — no Google OAuth, no Supabase, no
+ * activation flow required.
  *
- * If Supabase env vars are missing, we render a helpful config message
- * instead of crashing — useful for first-time deployments.
+ * This is a TEMPORARY shortcut for development/testing only and MUST be
+ * removed once the production authentication (Google via Supabase) is fully
+ * implemented.
  *
- * ─── TEMPORARY MOCK AUTH ────────────────────────────────────────────────────
- * When NEXT_PUBLIC_MOCK_AUTH_ENABLED=true, an additional "Mock Admin Login"
- * button is rendered below the Google button. It bypasses Google OAuth and
- * signs in as a mock administrator with full permissions. This is for
- * development and testing only. See src/lib/auth/mock-auth.ts.
+ * To disable during this testing phase, set NEXT_PUBLIC_MOCK_AUTH_ENABLED=false
+ * in .env.local. See src/lib/auth/mock-auth.ts.
  */
 
 import { useAuth } from "@/app/providers/auth-provider";
@@ -26,7 +25,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { useState } from "react";
 
 export function LoginScreen() {
-  const { signInWithGoogle, signInWithMock, configured, error, mockAuthEnabled } = useAuth();
+  const { signInWithGoogle, signInWithMock, configured, error } = useAuth();
   const { t } = useT();
   const [busy, setBusy] = useState(false);
   const [mockBusy, setMockBusy] = useState(false);
@@ -97,43 +96,38 @@ export function LoginScreen() {
             </div>
           )}
 
+          {/* ─── TEMPORARY: Direct Admin Entry (testing only) ─────────────── */}
+          <Button
+            onClick={handleMockSignIn}
+            disabled={mockBusy}
+            className="w-full touch-target"
+            size="lg"
+            variant="default"
+          >
+            <FlaskConical className="mr-2 h-5 w-5" />
+            {t("auth.signin.mock")}
+          </Button>
+
+          <p className="mt-2 text-center text-[11px] text-muted-foreground">
+            {t("auth.signin.mockHint")}
+          </p>
+
+          <div className="my-4 flex items-center gap-3">
+            <div className="h-px flex-1 bg-border" />
+            <span className="text-xs text-muted-foreground">{t("auth.signin.or")}</span>
+            <div className="h-px flex-1 bg-border" />
+          </div>
+
           <Button
             onClick={handleSignIn}
             disabled={!configured || busy}
             className="w-full touch-target"
             size="lg"
+            variant="outline"
           >
             <GoogleIcon className="mr-2 h-5 w-5" />
             {t("auth.signin.google")}
           </Button>
-
-          {/* ─── TEMPORARY MOCK AUTH ───────────────────────────────────────
-              Only rendered when NEXT_PUBLIC_MOCK_AUTH_ENABLED=true.
-              Bypasses Google OAuth and signs in as a mock administrator. */}
-          {mockAuthEnabled && (
-            <>
-              <div className="my-4 flex items-center gap-3">
-                <div className="h-px flex-1 bg-border" />
-                <span className="text-xs text-muted-foreground">{t("auth.signin.or")}</span>
-                <div className="h-px flex-1 bg-border" />
-              </div>
-
-              <Button
-                onClick={handleMockSignIn}
-                disabled={mockBusy}
-                variant="outline"
-                className="w-full touch-target"
-                size="lg"
-              >
-                <FlaskConical className="mr-2 h-5 w-5 text-warning" />
-                {t("auth.signin.mock")}
-              </Button>
-
-              <p className="mt-2 text-center text-[11px] text-muted-foreground">
-                {t("auth.signin.mockHint")}
-              </p>
-            </>
-          )}
 
           <div className="mt-5 flex items-center justify-center gap-1.5 text-xs text-muted-foreground">
             <ShieldCheck className="h-3.5 w-3.5" />

@@ -77,15 +77,17 @@ export const isFcmConfigured =
   !isPlaceholder(env.NEXT_PUBLIC_FIREBASE_VAPID_KEY);
 
 // ─── TEMPORARY MOCK AUTH ───────────────────────────────────────────────────
-// Feature flag for the mock administrator login. Only active when explicitly
-// set to "true". This ensures the mock auth is completely inert in production
-// unless deliberately enabled. See src/lib/auth/mock-auth.ts.
-export const isMockAuthEnabled = env.NEXT_PUBLIC_MOCK_AUTH_ENABLED === "true";
+// Feature flag for the mock administrator login.
+//   - ENABLED by default in ALL environments (temporary testing phase)
+//   - Set NEXT_PUBLIC_MOCK_AUTH_ENABLED=false to disable
+// This ensures the mock login is always available during development/testing
+// without requiring any .env.local configuration. See src/lib/auth/mock-auth.ts.
+export const isMockAuthEnabled = env.NEXT_PUBLIC_MOCK_AUTH_ENABLED !== "false";
 
 if (isMockAuthEnabled) {
   console.warn(
-    "[env] ⚠️  NEXT_PUBLIC_MOCK_AUTH_ENABLED is 'true' — mock administrator login is active. " +
-      "This MUST be disabled in production. See src/lib/auth/mock-auth.ts."
+    "[env] ⚠️  Mock administrator login is ACTIVE (temporary testing feature). " +
+      "Set NEXT_PUBLIC_MOCK_AUTH_ENABLED=false to disable. See src/lib/auth/mock-auth.ts."
   );
 }
 
