@@ -20,11 +20,23 @@
  * Session persistence: Supabase Auth manages the JWT + refresh token in
  * cookies/localStorage. This provider wraps that with React state so
  * components can subscribe via useAuth().
+ *
+ * ─── TEMPORARY MOCK AUTH ────────────────────────────────────────────────────
+ * When NEXT_PUBLIC_MOCK_AUTH_ENABLED=true, a mock administrator session can
+ * be created that bypasses Google OAuth entirely. This is for development
+ * and testing only. See src/lib/auth/mock-auth.ts.
  */
 
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { supabase, isSupabaseConfigured } from "@/lib/supabase/client";
+import { isMockAuthEnabled } from "@/lib/env";
+import {
+  getMockSession,
+  saveMockSession,
+  clearMockSession,
+  isMockUser,
+} from "@/lib/auth/mock-auth";
 import type { ParentRow, StudentRow, UserProfileRow } from "@/lib/types/database";
 
 type AuthState = "loading" | "unauthenticated" | "pending" | "active" | "suspended" | "rejected";
@@ -39,6 +51,16 @@ interface AuthContextValue {
   signInWithGoogle: () => Promise<void>;
   signOut: () => Promise<void>;
   refresh: () => Promise<void>;
+  // ─── TEMPORARY MOCK AUTH ───────────────────────────────────────────────
+  // Mock auth feature flag (exposed so the LoginScreen can conditionally
+  // render the mock login button). See src/lib/auth/mock-auth.ts.
+  mockAuthEnabled: boolean;
+  // Mock sign-in: bypasses Google OAuth and sets a mock admin session.
+  // Only functional when isMockAuthEnabled is true.
+  signInWithMock: () => Promise<void>;
+  // True when the current session is a mock session (not a real Supabase
+  // session). Used to show a "mock mode" indicator in the UI.
+  isMockSession: boolean;
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -52,6 +74,9 @@ export function AuthProvider({ children: reactChildren }: { children: ReactNode 
   const [parent, setParent] = useState<ParentRow | null>(null);
   const [childrenList, setChildrenList] = useState<StudentRow[]>([]);
   const [error, setError] = useState<string | null>(null);
+  // ─── TEMPORARY MOCK AUTH ───────────────────────────────────────────────
+  // Tracks whether the current session is a mock session. See mock-auth.ts.
+  const [isMockSession, setIsMockSession] = useState(false);
 
   const profileIdRef = useRef<string | null>(null);
 
@@ -166,9 +191,32 @@ export function AuthProvider({ children: reactChildren }: { children: ReactNode 
     setState(next);
   }, [loadProfile]);
 
+  // ─── TEMPORARY MOCK AUTH ───────────────────────────────────────────────
+  // On mount, check for an existing mock session in localStorage. If present
+  // (and the feature flag is enabled), hydrate the auth state from it instead
+  // of querying Supabase. This runs before the Supabase subscription so the
+  // mock session takes priority.
+  useEffect(() => {
+    if (!isMockAuthEnabled) return;
+
+    const mockSession = getMockSession();
+    if (mockSession && isMockUser(mockSession.user.auth_user_id)) {
+      setUser(mockSession.user);
+      setParent(mockSession.parent);
+      setChildrenList(mockSession.children);
+      setIsMockSession(true);
+      setError(null);
+      setState("active");
+    }
+  }, []);
+
   // Subscribe to auth state changes once on mount.
   useEffect(() => {
     if (!isSupabaseConfigured) return;
+    // If a mock session is active, skip the Supabase subscription entirely
+    // so we don't override the mock state with a real (unauthenticated)
+    // Supabase session.
+    if (isMockSession) return;
 
     let mounted = true;
 
@@ -194,7 +242,7 @@ export function AuthProvider({ children: reactChildren }: { children: ReactNode 
       mounted = false;
       sub.subscription.unsubscribe();
     };
-  }, [loadProfile]);
+  }, [loadProfile, isMockSession]);
 
   const signInWithGoogle = useCallback(async () => {
     if (!supabase) return;
@@ -218,7 +266,40 @@ export function AuthProvider({ children: reactChildren }: { children: ReactNode 
     }
   }, []);
 
+  // ─── TEMPORARY MOCK AUTH ───────────────────────────────────────────────
+  // Mock sign-in: bypasses Google OAuth entirely. Creates a mock admin
+  // session in localStorage and transitions to the "active" state so the
+  // user lands directly on the admin dashboard.
+  const signInWithMock = useCallback(async () => {
+    if (!isMockAuthEnabled) {
+      console.warn("[auth] signInWithMock called but mock auth is disabled");
+      return;
+    }
+
+    setError(null);
+    const session = saveMockSession();
+    setUser(session.user);
+    setParent(session.parent);
+    setChildrenList(session.children);
+    setIsMockSession(true);
+    setState("active");
+  }, []);
+
   const signOut = useCallback(async () => {
+    // ─── TEMPORARY MOCK AUTH ─────────────────────────────────────────────
+    // If this is a mock session, clear the mock session from localStorage
+    // and skip the Supabase signOut call (there's no real session to revoke).
+    if (isMockSession) {
+      clearMockSession();
+      setIsMockSession(false);
+      setUser(null);
+      setParent(null);
+      setChildrenList([]);
+      setState("unauthenticated");
+      router.refresh();
+      return;
+    }
+
     if (!supabase) return;
     // Revoke the session server-side before clearing local state.
     await supabase.auth.signOut({ scope: "global" });
@@ -227,7 +308,7 @@ export function AuthProvider({ children: reactChildren }: { children: ReactNode 
     setChildrenList([]);
     setState("unauthenticated");
     router.refresh();
-  }, [router]);
+  }, [router, isMockSession]);
 
   const value: AuthContextValue = {
     state,
@@ -239,6 +320,10 @@ export function AuthProvider({ children: reactChildren }: { children: ReactNode 
     signInWithGoogle,
     signOut,
     refresh,
+    // ─── TEMPORARY MOCK AUTH ─────────────────────────────────────────────
+    mockAuthEnabled: isMockAuthEnabled,
+    signInWithMock,
+    isMockSession,
   };
 
   return <AuthContext.Provider value={value}>{reactChildren}</AuthContext.Provider>;

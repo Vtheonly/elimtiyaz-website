@@ -25,6 +25,10 @@ const envSchema = z.object({
   NEXT_PUBLIC_FIREBASE_VAPID_KEY: z.string().default(""),
   NEXT_PUBLIC_APP_NAME: z.string().default("El-Imtiyaz Portal"),
   NEXT_PUBLIC_DEFAULT_LOCALE: z.enum(["fr", "ar", "en"]).default("fr"),
+  // ─── TEMPORARY MOCK AUTH ───────────────────────────────────────────────
+  // When "true", enables the mock administrator login for development/testing.
+  // MUST be unset or "false" in production. See src/lib/auth/mock-auth.ts.
+  NEXT_PUBLIC_MOCK_AUTH_ENABLED: z.string().default(""),
 });
 
 export type Env = z.infer<typeof envSchema>;
@@ -55,6 +59,7 @@ const parsed = envSchema.safeParse({
   NEXT_PUBLIC_FIREBASE_VAPID_KEY: process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY ?? "",
   NEXT_PUBLIC_APP_NAME: process.env.NEXT_PUBLIC_APP_NAME ?? "",
   NEXT_PUBLIC_DEFAULT_LOCALE: process.env.NEXT_PUBLIC_DEFAULT_LOCALE ?? "",
+  NEXT_PUBLIC_MOCK_AUTH_ENABLED: process.env.NEXT_PUBLIC_MOCK_AUTH_ENABLED ?? "",
 });
 
 export const env: Env = parsed.success
@@ -70,6 +75,19 @@ export const isFcmConfigured =
   !isPlaceholder(env.NEXT_PUBLIC_FIREBASE_PROJECT_ID) &&
   !isPlaceholder(env.NEXT_PUBLIC_FIREBASE_APP_ID) &&
   !isPlaceholder(env.NEXT_PUBLIC_FIREBASE_VAPID_KEY);
+
+// ─── TEMPORARY MOCK AUTH ───────────────────────────────────────────────────
+// Feature flag for the mock administrator login. Only active when explicitly
+// set to "true". This ensures the mock auth is completely inert in production
+// unless deliberately enabled. See src/lib/auth/mock-auth.ts.
+export const isMockAuthEnabled = env.NEXT_PUBLIC_MOCK_AUTH_ENABLED === "true";
+
+if (isMockAuthEnabled) {
+  console.warn(
+    "[env] ⚠️  NEXT_PUBLIC_MOCK_AUTH_ENABLED is 'true' — mock administrator login is active. " +
+      "This MUST be disabled in production. See src/lib/auth/mock-auth.ts."
+  );
+}
 
 if (!isSupabaseConfigured) {
   console.warn(

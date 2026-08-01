@@ -10,19 +10,26 @@
  *
  * If Supabase env vars are missing, we render a helpful config message
  * instead of crashing — useful for first-time deployments.
+ *
+ * ─── TEMPORARY MOCK AUTH ────────────────────────────────────────────────────
+ * When NEXT_PUBLIC_MOCK_AUTH_ENABLED=true, an additional "Mock Admin Login"
+ * button is rendered below the Google button. It bypasses Google OAuth and
+ * signs in as a mock administrator with full permissions. This is for
+ * development and testing only. See src/lib/auth/mock-auth.ts.
  */
 
 import { useAuth } from "@/app/providers/auth-provider";
 import { useT } from "@/lib/i18n/use-t";
-import { AlertCircle, GraduationCap, ShieldCheck } from "lucide-react";
+import { AlertCircle, GraduationCap, ShieldCheck, FlaskConical } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { useState } from "react";
 
 export function LoginScreen() {
-  const { signInWithGoogle, configured, error } = useAuth();
+  const { signInWithGoogle, signInWithMock, configured, error, mockAuthEnabled } = useAuth();
   const { t } = useT();
   const [busy, setBusy] = useState(false);
+  const [mockBusy, setMockBusy] = useState(false);
 
   const handleSignIn = async () => {
     setBusy(true);
@@ -31,6 +38,15 @@ export function LoginScreen() {
     } finally {
       // OAuth redirect takes time; reset only if we didn't redirect.
       setTimeout(() => setBusy(false), 3000);
+    }
+  };
+
+  const handleMockSignIn = async () => {
+    setMockBusy(true);
+    try {
+      await signInWithMock();
+    } finally {
+      setMockBusy(false);
     }
   };
 
@@ -90,6 +106,34 @@ export function LoginScreen() {
             <GoogleIcon className="mr-2 h-5 w-5" />
             {t("auth.signin.google")}
           </Button>
+
+          {/* ─── TEMPORARY MOCK AUTH ───────────────────────────────────────
+              Only rendered when NEXT_PUBLIC_MOCK_AUTH_ENABLED=true.
+              Bypasses Google OAuth and signs in as a mock administrator. */}
+          {mockAuthEnabled && (
+            <>
+              <div className="my-4 flex items-center gap-3">
+                <div className="h-px flex-1 bg-border" />
+                <span className="text-xs text-muted-foreground">{t("auth.signin.or")}</span>
+                <div className="h-px flex-1 bg-border" />
+              </div>
+
+              <Button
+                onClick={handleMockSignIn}
+                disabled={mockBusy}
+                variant="outline"
+                className="w-full touch-target"
+                size="lg"
+              >
+                <FlaskConical className="mr-2 h-5 w-5 text-warning" />
+                {t("auth.signin.mock")}
+              </Button>
+
+              <p className="mt-2 text-center text-[11px] text-muted-foreground">
+                {t("auth.signin.mockHint")}
+              </p>
+            </>
+          )}
 
           <div className="mt-5 flex items-center justify-center gap-1.5 text-xs text-muted-foreground">
             <ShieldCheck className="h-3.5 w-3.5" />
