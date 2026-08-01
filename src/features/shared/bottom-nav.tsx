@@ -24,7 +24,7 @@ import { useAppStore, type AppView } from "@/lib/store/app-store";
 import { useT } from "@/lib/i18n/use-t";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/app/providers/auth-provider";
-import { useNotifications } from "@/lib/hooks/portal-queries";
+import { useNotifications, useUnreadChatCount } from "@/lib/hooks/portal-queries";
 
 interface NavItem {
   view: AppView;
@@ -56,11 +56,14 @@ export function BottomNav() {
   const setActiveView = useAppStore((s) => s.setActiveView);
   const { t } = useT();
   const { user } = useAuth();
-  const { data: unread } = useNotifications(user?.id ?? null, {
+  // Bell badge uses notifications; Messages badge uses chat unread count.
+  const { data: unreadNotifications } = useNotifications(user?.id ?? null, {
     unreadOnly: true,
     limit: 1,
   });
-  const unreadCount = unread?.length ?? 0;
+  const hasUnreadNotifications = Boolean(unreadNotifications && unreadNotifications.length > 0);
+  const { data: unreadChatCount } = useUnreadChatCount(user?.id ?? null);
+  const unreadChat = unreadChatCount ?? 0;
 
   return (
     <nav
@@ -71,7 +74,7 @@ export function BottomNav() {
         {mobileItems.map((item) => {
           const Icon = item.icon;
           const isActive = activeView === item.view;
-          const showBadge = item.view === "messages" && unreadCount > 0;
+          const showBadge = item.view === "messages" && unreadChat > 0;
           return (
             <li key={item.view}>
               <button
@@ -118,11 +121,13 @@ export function DesktopRail() {
   const setActiveView = useAppStore((s) => s.setActiveView);
   const { t } = useT();
   const { user } = useAuth();
-  const { data: unread } = useNotifications(user?.id ?? null, {
+  const { data: unreadNotifications } = useNotifications(user?.id ?? null, {
     unreadOnly: true,
     limit: 1,
   });
-  const unreadCount = unread?.length ?? 0;
+  const hasUnreadNotifications = Boolean(unreadNotifications && unreadNotifications.length > 0);
+  const { data: unreadChatCount } = useUnreadChatCount(user?.id ?? null);
+  const unreadChat = unreadChatCount ?? 0;
 
   return (
     <aside className="hidden w-60 shrink-0 border-r border-border/60 bg-card/50 lg:flex lg:flex-col">
@@ -140,7 +145,7 @@ export function DesktopRail() {
         {desktopItems.map((item) => {
           const Icon = item.icon;
           const isActive = activeView === item.view;
-          const showBadge = item.view === "messages" && unreadCount > 0;
+          const showBadge = item.view === "messages" && unreadChat > 0;
           return (
             <button
               key={item.view}
@@ -158,7 +163,7 @@ export function DesktopRail() {
               <span className="flex-1 text-left">{t(item.labelKey)}</span>
               {showBadge && (
                 <span className="rounded-full bg-destructive px-1.5 py-0.5 text-[10px] font-semibold text-destructive-foreground">
-                  {unreadCount}
+                  {unreadChat}
                 </span>
               )}
             </button>

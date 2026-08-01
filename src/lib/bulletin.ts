@@ -26,7 +26,7 @@ import type {
   ClassRow,
   AcademicLevelRow,
 } from "@/lib/types/database";
-import { formatFullName, formatDate, formatCurrency } from "@/lib/format";
+import { formatFullName, formatDate } from "@/lib/format";
 
 interface BulletinData {
   student: StudentRow;
@@ -281,6 +281,3 @@ function escapeHtml(s: string): string {
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#039;");
 }
-
-// Keep formatCurrency imported (used by other features in this module's scope).
-void formatCurrency;

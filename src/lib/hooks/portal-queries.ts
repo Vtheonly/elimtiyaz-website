@@ -15,8 +15,6 @@
 import { useQuery, type UseQueryResult } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase/client";
 import type {
-  ParentRow,
-  StudentRow,
   PaymentRow,
   InstallmentRow,
   InvoiceRow,
@@ -34,48 +32,24 @@ import type {
   CalendarEventRow,
   ChatChannelRow,
   ChatMessageRow,
+  ChatMessageReadEntry,
   AccountAdjustmentRow,
+  NotificationPreferenceRow,
+  NotificationCategory,
+  StudentDocumentRow,
+  StudentDocumentKind,
 } from "@/lib/types/database";
 
 /* -------------------------------------------------------------------------- */
 /* Parent + children                                                          */
 /* -------------------------------------------------------------------------- */
-
-export function useParent(parentId: string | null | undefined): UseQueryResult<ParentRow | null> {
-  return useQuery({
-    queryKey: ["parent", parentId],
-    queryFn: async () => {
-      if (!parentId || !supabase) return null;
-      const { data, error } = await supabase
-        .from("parents")
-        .select("*")
-        .eq("id", parentId)
-        .is("deleted_at", null)
-        .maybeSingle();
-      if (error) throw error;
-      return (data as ParentRow) ?? null;
-    },
-    enabled: Boolean(parentId),
-  });
-}
-
-export function useStudents(parentId: string | null | undefined): UseQueryResult<StudentRow[]> {
-  return useQuery({
-    queryKey: ["students", parentId],
-    queryFn: async () => {
-      if (!parentId || !supabase) return [];
-      const { data, error } = await supabase
-        .from("students")
-        .select("*")
-        .eq("parent_id", parentId)
-        .is("deleted_at", null)
-        .order("first_name", { ascending: true });
-      if (error) throw error;
-      return (data ?? []) as StudentRow[];
-    },
-    enabled: Boolean(parentId),
-  });
-}
+/* Note: useParent() and useStudents() are intentionally NOT exposed.
+ * The parent + children data is loaded once by the AuthProvider (which
+ * subscribes to Supabase onAuthStateChange) and shared via React context.
+ * Exposing per-component TanStack Query hooks would duplicate the cache
+ * and risk drift between the auth state and the query cache. If a future
+ * feature needs to re-fetch the parent/children outside of the auth flow,
+ * call `refresh()` from useAuth() instead. */
 
 /* -------------------------------------------------------------------------- */
 /* Academic context                                                           */
@@ -351,7 +325,7 @@ export function useNotifications(
       let q = supabase
         .from("notifications")
         .select("*")
-        .eq("target_user_id", targetUserId)
+        .or(`target_user_id.eq.${targetUserId},target_user_id.is.null`)
         .order("triggered_at", { ascending: false });
       if (options.unreadOnly) q = q.eq("is_read", false);
       if (options.limit) q = q.limit(options.limit);
@@ -374,6 +348,7 @@ export function useUpcomingEvents(
       let q = supabase
         .from("calendar_events")
         .select("*")
+        .is("is_deleted", false)
         .gte("start_at", from)
         .order("start_at", { ascending: true });
       if (options.limit) q = q.limit(options.limit);
@@ -384,26 +359,54 @@ export function useUpcomingEvents(
   });
 }
 
+/** Fetch calendar events in a specific month range (for the month grid view). */
+export function useEventsInRange(
+  rangeStart: string | null,
+  rangeEnd: string | null
+): UseQueryResult<CalendarEventRow[]> {
+  return useQuery({
+    queryKey: ["calendar-events-range", rangeStart, rangeEnd],
+    queryFn: async () => {
+      if (!rangeStart || !rangeEnd || !supabase) return [];
+      const { data, error } = await supabase
+        .from("calendar_events")
+        .select("*")
+        .is("is_deleted", false)
+        .gte("start_at", rangeStart)
+        .lte("start_at", rangeEnd)
+        .order("start_at", { ascending: true });
+      if (error) throw error;
+      return (data ?? []) as CalendarEventRow[];
+    },
+    enabled: Boolean(rangeStart && rangeEnd),
+  });
+}
+
 /* -------------------------------------------------------------------------- */
 /* Messages                                                                   */
 /* -------------------------------------------------------------------------- */
 
+/**
+ * Fetch all chat channels where the current user is a member.
+ * The `member_ids` column is a uuid[] — we filter with `.contains()`.
+ * RLS also enforces this server-side, so even a buggy filter can't leak data.
+ */
 export function useChatChannels(
-  parentId: string | null | undefined
+  userProfileId: string | null | undefined
 ): UseQueryResult<ChatChannelRow[]> {
   return useQuery({
-    queryKey: ["chat-channels", parentId],
+    queryKey: ["chat-channels", userProfileId],
     queryFn: async () => {
-      if (!parentId || !supabase) return [];
+      if (!userProfileId || !supabase) return [];
       const { data, error } = await supabase
         .from("chat_channels")
         .select("*")
-        .eq("parent_id", parentId)
+        .contains("member_ids", [userProfileId])
         .order("updated_at", { ascending: false });
       if (error) throw error;
       return (data ?? []) as ChatChannelRow[];
     },
-    enabled: Boolean(parentId),
+    enabled: Boolean(userProfileId),
   });
 }
 
@@ -420,12 +423,181 @@ export function useChatMessages(
         .select("*")
         .eq("channel_id", channelId)
         .is("deleted_at", null)
-        .order("created_at", { ascending: true });
+        .order("sent_at", { ascending: true });
       if (options.limit) q = q.limit(options.limit);
       const { data, error } = await q;
       if (error) throw error;
       return (data ?? []) as ChatMessageRow[];
     },
     enabled: Boolean(channelId),
+  });
+}
+
+/**
+ * Count of unread chat messages across all of the user's channels.
+ * A message is unread when its `read_by` jsonb array does NOT contain an
+ * entry with `user_id = current_user`.
+ *
+ * The bottom-nav badge uses this instead of the previous (incorrect) count
+ * from the `notifications` table.
+ */
+export function useUnreadChatCount(
+  userProfileId: string | null | undefined
+): UseQueryResult<number> {
+  return useQuery({
+    queryKey: ["chat-unread-count", userProfileId],
+    queryFn: async () => {
+      if (!userProfileId || !supabase) return 0;
+      // We fetch the latest 200 messages per channel via a single query —
+      // RLS limits this to channels the user is a member of. Then we count
+      // client-side how many have no read_by entry for this user.
+      const { data, error } = await supabase
+        .from("chat_messages")
+        .select("id, author_id, read_by, channel_id")
+        .is("deleted_at", null)
+        .order("sent_at", { ascending: false })
+        .limit(500);
+      if (error) throw error;
+      const rows = (data ?? []) as unknown as Array<{
+        id: string;
+        author_id: string;
+        read_by: ChatMessageReadEntry[] | null;
+      }>;
+      // Only count messages authored by someone OTHER than this user.
+      const unread = rows.filter((r) => {
+        if (r.author_id === userProfileId) return false;
+        const reads = Array.isArray(r.read_by) ? r.read_by : [];
+        return !reads.some((entry) => entry.user_id === userProfileId);
+      });
+      return unread.length;
+    },
+    enabled: Boolean(userProfileId),
+    // Refetch on window focus so the badge updates when the user returns.
+    refetchOnWindowFocus: true,
+  });
+}
+
+/* -------------------------------------------------------------------------- */
+/* Notification preferences                                                    */
+/* -------------------------------------------------------------------------- */
+
+export const NOTIFICATION_CATEGORIES: NotificationCategory[] = [
+  "payment",
+  "absence",
+  "message",
+  "announcement",
+  "grade",
+  "homework",
+  "calendar",
+  "account",
+  "system",
+];
+
+/**
+ * Fetch the user's per-category notification preferences.
+ * Missing rows are treated as "both push and in-app enabled" (default opt-in).
+ * The hook returns a complete map keyed by category so callers don't need
+ * to handle missing rows themselves.
+ */
+export function useNotificationPreferences(
+  userProfileId: string | null | undefined
+): UseQueryResult<Map<NotificationCategory, NotificationPreferenceRow>> {
+  return useQuery({
+    queryKey: ["notification-preferences", userProfileId],
+    queryFn: async () => {
+      const map = new Map<NotificationCategory, NotificationPreferenceRow>();
+      if (!userProfileId || !supabase) return map;
+      const { data, error } = await supabase
+        .from("notification_preferences")
+        .select("*")
+        .eq("user_profile_id", userProfileId);
+      if (error) throw error;
+      for (const row of (data ?? []) as NotificationPreferenceRow[]) {
+        map.set(row.category, row);
+      }
+      return map;
+    },
+    enabled: Boolean(userProfileId),
+  });
+}
+
+/* -------------------------------------------------------------------------- */
+/* Student documents                                                          */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Fetch all documents uploaded for a given student.
+ * RLS limits this to the parent's own children (migration 0027).
+ */
+export function useStudentDocuments(
+  studentId: string | null | undefined
+): UseQueryResult<StudentDocumentRow[]> {
+  return useQuery({
+    queryKey: ["student-documents", studentId],
+    queryFn: async () => {
+      if (!studentId || !supabase) return [];
+      const { data, error } = await supabase
+        .from("student_documents")
+        .select("*")
+        .eq("student_id", studentId)
+        .order("uploaded_at", { ascending: false });
+      if (error) throw error;
+      return (data ?? []) as StudentDocumentRow[];
+    },
+    enabled: Boolean(studentId),
+  });
+}
+
+/**
+ * Fetch all documents for all of the parent's children, merged.
+ * Useful for a "family documents" overview.
+ */
+export function useAllStudentDocuments(
+  studentIds: string[]
+): UseQueryResult<StudentDocumentRow[]> {
+  return useQuery({
+    queryKey: ["student-documents-all", studentIds],
+    queryFn: async () => {
+      if (studentIds.length === 0 || !supabase) return [];
+      const { data, error } = await supabase
+        .from("student_documents")
+        .select("*")
+        .in("student_id", studentIds)
+        .order("uploaded_at", { ascending: false });
+      if (error) throw error;
+      return (data ?? []) as StudentDocumentRow[];
+    },
+    enabled: studentIds.length > 0,
+  });
+}
+
+/* -------------------------------------------------------------------------- */
+/* Receipts (parent-scoped, both kinds)                                       */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Fetch all receipts (recent_payment + account_statement) for the parent.
+ * Used by the financial view to surface downloadable PDFs.
+ */
+export function useReceipts(
+  parentId: string | null | undefined,
+  options: { limit?: number; kind?: "recent_payment" | "account_statement" } = {}
+): UseQueryResult<ReceiptRow[]> {
+  return useQuery({
+    queryKey: ["receipts", parentId, options.limit, options.kind],
+    queryFn: async () => {
+      if (!parentId || !supabase) return [];
+      let q = supabase
+        .from("receipts")
+        .select("*")
+        .eq("parent_id", parentId)
+        .order("generated_at", { ascending: false });
+      if (options.kind) q = q.eq("receipt_kind", options.kind);
+      if (options.limit) q = q.limit(options.limit);
+      const { data, error } = await q;
+      if (error) throw error;
+      return (data ?? []) as ReceiptRow[];
+    },
+    enabled: Boolean(parentId),
   });
 }

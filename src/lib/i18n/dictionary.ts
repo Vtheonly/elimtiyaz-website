@@ -13,10 +13,12 @@
  * page reload, which matches the mobile-first UX.
  */
 
+import { env } from "@/lib/env";
+
 export type Locale = "fr" | "ar" | "en";
 
 export const LOCALES: Locale[] = ["fr", "ar", "en"];
-export const DEFAULT_LOCALE: Locale = "fr";
+export const DEFAULT_LOCALE: Locale = env.NEXT_PUBLIC_DEFAULT_LOCALE;
 
 type Dict = Record<string, string>;
 
@@ -142,6 +144,7 @@ const fr: Dict = {
   "calendar.eventType.deadline": "Échéance",
   "calendar.eventType.activity": "Activité",
   "calendar.eventType.other": "Autre",
+  "calendar.eventType.payment": "Paiement",
   "calendar.filter": "Filtrer",
   "calendar.filterAll": "Tous",
   "calendar.exams": "Examens",
@@ -184,6 +187,33 @@ const fr: Dict = {
   "finance.status.overdue": "En retard",
   "finance.status.pending": "En attente",
   "finance.status.refunded": "Remboursé",
+  "finance.status.due": "Échéance",
+  "finance.adjustments": "Ajustements",
+  "finance.adjustment.title": "Ajustements de compte",
+  "finance.adjustment.reason": "Motif",
+  "finance.adjustment.amount": "Montant",
+  "finance.adjustment.date": "Date",
+  "finance.adjustment.note": "Note de l'administration",
+  "finance.adjustment.empty": "Aucun ajustement enregistré.",
+  "finance.adjustment.reason.sibling_discount": "Remise fratrie",
+  "finance.adjustment.reason.staff_family": "Famille du personnel",
+  "finance.adjustment.reason.early_payment": "Paiement anticipé",
+  "finance.adjustment.reason.passage_palier": "Passage de palier",
+  "finance.adjustment.reason.seniority_5y": "Ancienneté 5 ans",
+  "finance.adjustment.reason.highest_average": "Meilleure moyenne",
+  "finance.adjustment.reason.full_annual": "Paiement annuel",
+  "finance.adjustment.reason.scholarship_replacement": "Bourse de remplacement",
+  "finance.adjustment.reason.hardship": "Difficulté sociale",
+  "finance.adjustment.reason.correction": "Correction",
+  "finance.adjustment.reason.late_fee_waiver": "Annulation de pénalité",
+  "finance.adjustment.reason.other": "Autre",
+  "finance.receipt.download": "Télécharger le reçu (PDF)",
+  "finance.statement.download": "Télécharger le relevé de compte (PDF)",
+  "finance.statement.generate": "Générer un relevé",
+  "finance.restrictions.title": "Accès financier restreint",
+  "finance.restrictions.body":
+    "L'accès à certaines fonctionnalités financières de votre compte est actuellement restreint. " +
+    "Veuillez contacter l'administration pour régulariser votre situation.",
 
   // Messages
   "messages.title": "Messages",
@@ -246,6 +276,98 @@ const fr: Dict = {
   "common.syncing": "Synchronisation…",
   "common.updated": "Mis à jour",
   "common.justNow": "À l'instant",
+
+  // Activation code entry (Path A self-service)
+  "activation.code.title": "J'ai un code d'activation",
+  "activation.code.subtitle":
+    "Si l'établissement vous a remis un code d'activation à 6 ou 7 chiffres, " +
+    "saisissez-le ci-dessous pour lier votre compte Google à votre dossier familial.",
+  "activation.code.input": "Code d'activation",
+  "activation.code.submit": "Activer mon compte",
+  "activation.code.submitting": "Activation en cours…",
+  "activation.code.success.title": "Compte activé",
+  "activation.code.success.body":
+    "Votre compte est maintenant lié à votre dossier familial. " +
+    "L'administration va finaliser l'activation. Vous pouvez rafraîchir cette page.",
+  "activation.code.error.invalid": "Code d'activation invalide ou déjà utilisé.",
+  "activation.code.error.expired": "Ce code d'activation a expiré. Veuillez en demander un nouveau à l'administration.",
+  "activation.code.error.generic": "Impossible d'activer le compte. Veuillez réessayer.",
+  "activation.code.haveCode": "J'ai déjà un code d'activation",
+  "activation.code.dontHaveCode": "Je n'ai pas de code d'activation",
+  "activation.code.adminApproval": "Demander l'activation par l'administration",
+
+  // Notification preferences
+  "prefs.notifications.title": "Préférences de notifications",
+  "prefs.notifications.body":
+    "Choisissez les catégories de notifications que vous souhaitez recevoir " +
+    "par push et/ou dans l'application.",
+  "prefs.notifications.push": "Push",
+  "prefs.notifications.inApp": "In-app",
+  "prefs.notifications.category.payment": "Paiements et échéances",
+  "prefs.notifications.category.absence": "Absences et justifications",
+  "prefs.notifications.category.message": "Messages de l'établissement",
+  "prefs.notifications.category.announcement": "Annonces générales",
+  "prefs.notifications.category.grade": "Notes et bulletins",
+  "prefs.notifications.category.homework": "Travaux à faire",
+  "prefs.notifications.category.calendar": "Événements du calendrier",
+  "prefs.notifications.category.account": "Sécurité du compte",
+  "prefs.notifications.category.system": "Système",
+  "prefs.notifications.saved": "Préférences enregistrées",
+
+  // Student documents
+  "documents.title": "Documents",
+  "documents.body":
+    "Téléversez les documents demandés par l'établissement : " +
+    "certificat de naissance, certificat médical, contrat, etc.",
+  "documents.upload": "Téléverser un document",
+  "documents.kind.birth_certificate": "Acte de naissance",
+  "documents.kind.medical_certificate": "Certificat médical",
+  "documents.kind.contract": "Contrat",
+  "documents.kind.justification_letter": "Lettre de justification",
+  "documents.kind.id_photo": "Photo d'identité",
+  "documents.kind.report_card": "Bulletin précédent",
+  "documents.kind.other": "Autre",
+  "documents.file": "Fichier",
+  "documents.description": "Description (optionnel)",
+  "documents.empty": "Aucun document téléversé pour le moment.",
+  "documents.uploadedAt": "Téléversé le",
+  "documents.delete": "Supprimer",
+  "documents.delete.confirm": "Supprimer ce document ?",
+
+  // Profile — edit contact info
+  "profile.edit.title": "Modifier mes informations",
+  "profile.edit.phone": "Téléphone principal",
+  "profile.edit.secondaryPhone": "Téléphone secondaire",
+  "profile.edit.email": "Email",
+  "profile.edit.address": "Adresse",
+  "profile.edit.city": "Ville",
+  "profile.edit.postalCode": "Code postal",
+  "profile.edit.occupation": "Profession",
+  "profile.edit.save": "Enregistrer",
+  "profile.edit.cancel": "Annuler",
+  "profile.edit.saved": "Informations mises à jour",
+
+  // Notifications extras
+  "notifications.dismiss": "Ignorer",
+  "notifications.open": "Ouvrir",
+  "notifications.empty.unread": "Aucune notification non lue.",
+
+  // Attendance — justification status
+  "attendance.justification.status.none": "Aucune justification",
+  "attendance.justification.status.submitted": "Justification soumise",
+  "attendance.justification.status.accepted": "Justification acceptée",
+  "attendance.justification.status.rejected": "Justification refusée",
+  "attendance.justification.reviewedBy": "Examinée par l'administration",
+  "attendance.justification.reviewNote": "Note de l'administration",
+
+  // Common — generic
+  "common.upload": "Téléverser",
+  "common.download": "Télécharger",
+  "common.yes": "Oui",
+  "common.no": "Non",
+  "common.loading": "Chargement…",
+  "common.success": "Succès",
+  "common.failed": "Échec",
 };
 
 const ar: Dict = {
@@ -434,6 +556,35 @@ const ar: Dict = {
   "finance.empty.noPayments": "لا توجد مدفوعات مسجلة حالياً.",
   "finance.empty.noInstallments": "لا توجد أقساط لعرضها.",
 
+  // Finance additions
+  "finance.status.due": "الاستحقاق",
+  "finance.adjustments": "التسويات",
+  "finance.adjustment.title": "تسويات الحساب",
+  "finance.adjustment.reason": "السبب",
+  "finance.adjustment.amount": "المبلغ",
+  "finance.adjustment.date": "التاريخ",
+  "finance.adjustment.note": "ملاحظة الإدارة",
+  "finance.adjustment.empty": "لا توجد تسويات مسجلة.",
+  "finance.adjustment.reason.sibling_discount": "خصم الإخوة",
+  "finance.adjustment.reason.staff_family": "عائلة الموظف",
+  "finance.adjustment.reason.early_payment": "دفع مبكر",
+  "finance.adjustment.reason.passage_palier": "تجاوز مستوى",
+  "finance.adjustment.reason.seniority_5y": "أقدمية 5 سنوات",
+  "finance.adjustment.reason.highest_average": "أعلى معدل",
+  "finance.adjustment.reason.full_annual": "دفع سنوي",
+  "finance.adjustment.reason.scholarship_replacement": "منحة استبدال",
+  "finance.adjustment.reason.hardship": "صعوبة اجتماعية",
+  "finance.adjustment.reason.correction": "تصحيح",
+  "finance.adjustment.reason.late_fee_waiver": "إلغاء غرامة التأخير",
+  "finance.adjustment.reason.other": "أخرى",
+  "finance.receipt.download": "تحميل الإيصال (PDF)",
+  "finance.statement.download": "تحميل كشف الحساب (PDF)",
+  "finance.statement.generate": "إنشاء كشف",
+  "finance.restrictions.title": "الوصول المالي مقيد",
+  "finance.restrictions.body":
+    "الوصول إلى بعض الوظائف المالية لحسابكم مقيد حالياً. " +
+    "يرجى الاتصال بالإدارة لتسوية وضعيتكم.",
+
   // Messages (complete)
   "messages.title": "الرسائل",
   "messages.empty": "لا توجد رسائل.",
@@ -519,6 +670,99 @@ const ar: Dict = {
   "calendar.exam.time": "الوقت",
   "calendar.exam.empty": "لا توجد امتحانات مجدولة.",
   "calendar.allDay": "طوال اليوم",
+  "calendar.eventType.payment": "دفع",
+
+  // Activation code entry
+  "activation.code.title": "لديّ رمز التفعيل",
+  "activation.code.subtitle":
+    "إذا سلمتكم المؤسسة رمز تفعيل من 6 أو 7 أرقام، " +
+    "أدخلوه أدناه لربط حساب Google بملف عائلتكم.",
+  "activation.code.input": "رمز التفعيل",
+  "activation.code.submit": "تفعيل حسابي",
+  "activation.code.submitting": "جارٍ التفعيل…",
+  "activation.code.success.title": "تم تفعيل الحساب",
+  "activation.code.success.body":
+    "تم ربط حسابكم بملف عائلتكم. " +
+    "ستقوم الإدارة بإنهاء التفعيل. يمكنكم تحديث هذه الصفحة.",
+  "activation.code.error.invalid": "رمز التفعيل غير صالح أو مستخدم بالفعل.",
+  "activation.code.error.expired": "انتهت صلاحية رمز التفعيل. يرجى طلب رمز جديد من الإدارة.",
+  "activation.code.error.generic": "تعذر تفعيل الحساب. يرجى إعادة المحاولة.",
+  "activation.code.haveCode": "لديّ رمز تفعيل بالفعل",
+  "activation.code.dontHaveCode": "ليس لديّ رمز تفعيل",
+  "activation.code.adminApproval": "طلب التفعيل من الإدارة",
+
+  // Notification preferences
+  "prefs.notifications.title": "تفضيلات الإشعارات",
+  "prefs.notifications.body":
+    "اختروا فئات الإشعارات التي ترغبون في استلامها " +
+    "عبر Push و/أو داخل التطبيق.",
+  "prefs.notifications.push": "Push",
+  "prefs.notifications.inApp": "داخل التطبيق",
+  "prefs.notifications.category.payment": "المدفوعات والاستحقاقات",
+  "prefs.notifications.category.absence": "الغيابات والتبريرات",
+  "prefs.notifications.category.message": "رسائل المؤسسة",
+  "prefs.notifications.category.announcement": "الإعلانات العامة",
+  "prefs.notifications.category.grade": "النقاط والكشوف",
+  "prefs.notifications.category.homework": "الواجبات",
+  "prefs.notifications.category.calendar": "أحداث التقويم",
+  "prefs.notifications.category.account": "أمان الحساب",
+  "prefs.notifications.category.system": "النظام",
+  "prefs.notifications.saved": "تم حفظ التفضيلات",
+
+  // Student documents
+  "documents.title": "الوثائق",
+  "documents.body":
+    "قم بتحميل الوثائق التي تطلبها المؤسسة: " +
+    "عقد الميلاد، الشهادة الطبية، العقد، إلخ.",
+  "documents.upload": "تحميل وثيقة",
+  "documents.kind.birth_certificate": "عقد الميلاد",
+  "documents.kind.medical_certificate": "شهادة طبية",
+  "documents.kind.contract": "العقد",
+  "documents.kind.justification_letter": "رسالة تبرير",
+  "documents.kind.id_photo": "صورة الهوية",
+  "documents.kind.report_card": "كشف النقاط السابق",
+  "documents.kind.other": "أخرى",
+  "documents.file": "الملف",
+  "documents.description": "الوصف (اختياري)",
+  "documents.empty": "لا توجد وثائق مرفوعة حالياً.",
+  "documents.uploadedAt": "تم التحميل في",
+  "documents.delete": "حذف",
+  "documents.delete.confirm": "حذف هذه الوثيقة؟",
+
+  // Profile — edit contact info
+  "profile.edit.title": "تعديل معلوماتي",
+  "profile.edit.phone": "الهاتف الرئيسي",
+  "profile.edit.secondaryPhone": "الهاتف الثانوي",
+  "profile.edit.email": "البريد الإلكتروني",
+  "profile.edit.address": "العنوان",
+  "profile.edit.city": "المدينة",
+  "profile.edit.postalCode": "الرمز البريدي",
+  "profile.edit.occupation": "المهنة",
+  "profile.edit.save": "حفظ",
+  "profile.edit.cancel": "إلغاء",
+  "profile.edit.saved": "تم تحديث المعلومات",
+
+  // Notifications extras
+  "notifications.dismiss": "تجاهل",
+  "notifications.open": "فتح",
+  "notifications.empty.unread": "لا توجد إشعارات غير مقروءة.",
+
+  // Attendance — justification status
+  "attendance.justification.status.none": "لا توجد تبرير",
+  "attendance.justification.status.submitted": "تم تقديم التبرير",
+  "attendance.justification.status.accepted": "تم قبول التبرير",
+  "attendance.justification.status.rejected": "تم رفض التبرير",
+  "attendance.justification.reviewedBy": "تمت المراجعة من الإدارة",
+  "attendance.justification.reviewNote": "ملاحظة الإدارة",
+
+  // Common — generic
+  "common.upload": "تحميل",
+  "common.download": "تنزيل",
+  "common.yes": "نعم",
+  "common.no": "لا",
+  "common.loading": "جارٍ التحميل…",
+  "common.success": "نجاح",
+  "common.failed": "فشل",
 };
 
 const en: Dict = {
@@ -751,6 +995,128 @@ const en: Dict = {
   "common.syncing": "Syncing…",
   "common.updated": "Updated",
   "common.justNow": "Just now",
+
+  // Finance additions
+  "finance.status.due": "Due",
+  "finance.adjustments": "Adjustments",
+  "finance.adjustment.title": "Account adjustments",
+  "finance.adjustment.reason": "Reason",
+  "finance.adjustment.amount": "Amount",
+  "finance.adjustment.date": "Date",
+  "finance.adjustment.note": "Admin note",
+  "finance.adjustment.empty": "No adjustments recorded.",
+  "finance.adjustment.reason.sibling_discount": "Sibling discount",
+  "finance.adjustment.reason.staff_family": "Staff family",
+  "finance.adjustment.reason.early_payment": "Early payment",
+  "finance.adjustment.reason.passage_palier": "Level promotion",
+  "finance.adjustment.reason.seniority_5y": "5-year seniority",
+  "finance.adjustment.reason.highest_average": "Highest average",
+  "finance.adjustment.reason.full_annual": "Full annual payment",
+  "finance.adjustment.reason.scholarship_replacement": "Scholarship replacement",
+  "finance.adjustment.reason.hardship": "Hardship",
+  "finance.adjustment.reason.correction": "Correction",
+  "finance.adjustment.reason.late_fee_waiver": "Late fee waiver",
+  "finance.adjustment.reason.other": "Other",
+  "finance.receipt.download": "Download receipt (PDF)",
+  "finance.statement.download": "Download account statement (PDF)",
+  "finance.statement.generate": "Generate statement",
+  "finance.restrictions.title": "Financial access restricted",
+  "finance.restrictions.body":
+    "Access to some financial features on your account is currently restricted. " +
+    "Please contact the administration to regularize your situation.",
+  "calendar.eventType.payment": "Payment",
+
+  // Activation code entry
+  "activation.code.title": "I have an activation code",
+  "activation.code.subtitle":
+    "If the school gave you a 6 or 7 digit activation code, " +
+    "enter it below to link your Google account to your family record.",
+  "activation.code.input": "Activation code",
+  "activation.code.submit": "Activate my account",
+  "activation.code.submitting": "Activating…",
+  "activation.code.success.title": "Account activated",
+  "activation.code.success.body":
+    "Your account is now linked to your family record. " +
+    "The administration will finalize the activation. You can refresh this page.",
+  "activation.code.error.invalid": "Invalid or already-used activation code.",
+  "activation.code.error.expired": "This activation code has expired. Please request a new one from the administration.",
+  "activation.code.error.generic": "Could not activate the account. Please try again.",
+  "activation.code.haveCode": "I already have an activation code",
+  "activation.code.dontHaveCode": "I don't have an activation code",
+  "activation.code.adminApproval": "Request activation by the administration",
+
+  // Notification preferences
+  "prefs.notifications.title": "Notification preferences",
+  "prefs.notifications.body":
+    "Choose which notification categories you want to receive " +
+    "via push and/or in the app.",
+  "prefs.notifications.push": "Push",
+  "prefs.notifications.inApp": "In-app",
+  "prefs.notifications.category.payment": "Payments & due dates",
+  "prefs.notifications.category.absence": "Absences & justifications",
+  "prefs.notifications.category.message": "Messages from the school",
+  "prefs.notifications.category.announcement": "General announcements",
+  "prefs.notifications.category.grade": "Grades & report cards",
+  "prefs.notifications.category.homework": "Homework",
+  "prefs.notifications.category.calendar": "Calendar events",
+  "prefs.notifications.category.account": "Account security",
+  "prefs.notifications.category.system": "System",
+  "prefs.notifications.saved": "Preferences saved",
+
+  // Student documents
+  "documents.title": "Documents",
+  "documents.body":
+    "Upload the documents requested by the school: " +
+    "birth certificate, medical certificate, contract, etc.",
+  "documents.upload": "Upload a document",
+  "documents.kind.birth_certificate": "Birth certificate",
+  "documents.kind.medical_certificate": "Medical certificate",
+  "documents.kind.contract": "Contract",
+  "documents.kind.justification_letter": "Justification letter",
+  "documents.kind.id_photo": "ID photo",
+  "documents.kind.report_card": "Previous report card",
+  "documents.kind.other": "Other",
+  "documents.file": "File",
+  "documents.description": "Description (optional)",
+  "documents.empty": "No documents uploaded yet.",
+  "documents.uploadedAt": "Uploaded on",
+  "documents.delete": "Delete",
+  "documents.delete.confirm": "Delete this document?",
+
+  // Profile — edit contact info
+  "profile.edit.title": "Edit my information",
+  "profile.edit.phone": "Primary phone",
+  "profile.edit.secondaryPhone": "Secondary phone",
+  "profile.edit.email": "Email",
+  "profile.edit.address": "Address",
+  "profile.edit.city": "City",
+  "profile.edit.postalCode": "Postal code",
+  "profile.edit.occupation": "Occupation",
+  "profile.edit.save": "Save",
+  "profile.edit.cancel": "Cancel",
+  "profile.edit.saved": "Information updated",
+
+  // Notifications extras
+  "notifications.dismiss": "Dismiss",
+  "notifications.open": "Open",
+  "notifications.empty.unread": "No unread notifications.",
+
+  // Attendance — justification status
+  "attendance.justification.status.none": "No justification",
+  "attendance.justification.status.submitted": "Justification submitted",
+  "attendance.justification.status.accepted": "Justification accepted",
+  "attendance.justification.status.rejected": "Justification rejected",
+  "attendance.justification.reviewedBy": "Reviewed by the administration",
+  "attendance.justification.reviewNote": "Admin note",
+
+  // Common — generic
+  "common.upload": "Upload",
+  "common.download": "Download",
+  "common.yes": "Yes",
+  "common.no": "No",
+  "common.loading": "Loading…",
+  "common.success": "Success",
+  "common.failed": "Failed",
 };
 
 export const dictionaries: Record<Locale, Dict> = { fr, ar, en };

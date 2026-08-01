@@ -9,15 +9,23 @@
  *    message such as: 'Your account has not yet been activated. Please contact
  *    your school administrator.'"
  *
- * This screen does NOT attempt to:
- *   - Re-trigger activation
- *   - Bind the user to a parent profile
- *   - Submit any kind of activation code
+ * Path A — self-service activation code:
+ *   For the `pending` variant, the user can also tap "I have an activation
+ *   code" to enter the 6–7 digit code the school issued via the desktop app.
+ *   This calls the `bind-activation-code` Edge Function (see
+ *   `src/features/auth/activation-code-screen.tsx`).
+ *
+ * Path B — admin approval:
+ *   If the user doesn't have a code, they wait for the desktop admin to
+ *   approve their account_request. The refresh button re-checks the status.
  *
  * The desktop application remains the authoritative system for account
- * provisioning, activation, role assignment, and tenant management.
+ * provisioning, activation, role assignment, and tenant management —
+ * Path A simply speeds up the parent-binding step using an existing SQL
+ * function that the desktop app already invokes server-side.
  */
 
+import { useState } from "react";
 import { useAuth } from "@/app/providers/auth-provider";
 import { useT } from "@/lib/i18n/use-t";
 import { Button } from "@/components/ui/button";
@@ -28,9 +36,10 @@ import {
   UserX,
   LogOut,
   Mail,
-  CheckCircle2,
   RefreshCw,
+  KeyRound,
 } from "lucide-react";
+import { ActivationCodeScreen } from "@/features/auth/activation-code-screen";
 
 type Variant = "pending" | "suspended" | "rejected";
 
@@ -68,6 +77,13 @@ export function PendingActivationScreen({ variant = "pending" }: Props) {
   const { t } = useT();
   const cfg = config[variant];
   const Icon = cfg.icon;
+  const [showCodeEntry, setShowCodeEntry] = useState(false);
+
+  // Path A self-service code entry is only offered on the `pending` variant
+  // (suspended/rejected users need to talk to the admin, not enter a code).
+  if (variant === "pending" && showCodeEntry) {
+    return <ActivationCodeScreen onDismiss={() => setShowCodeEntry(false)} />;
+  }
 
   return (
     <main className="brand-gradient relative flex min-h-[100dvh] flex-col items-center justify-center px-5 py-10">
@@ -113,6 +129,15 @@ export function PendingActivationScreen({ variant = "pending" }: Props) {
           )}
 
           <div className="flex flex-col gap-2">
+            {variant === "pending" && (
+              <Button
+                className="w-full touch-target"
+                onClick={() => setShowCodeEntry(true)}
+              >
+                <KeyRound className="mr-2 h-4 w-4" />
+                {t("activation.code.haveCode")}
+              </Button>
+            )}
             <Button variant="outline" className="w-full touch-target" onClick={refresh}>
               <RefreshCw className="mr-2 h-4 w-4" />
               {t("common.refresh")}

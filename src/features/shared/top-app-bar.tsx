@@ -19,6 +19,17 @@ import { useNotifications } from "@/lib/hooks/portal-queries";
 import { cn } from "@/lib/utils";
 import { formatInitials } from "@/lib/format";
 
+/**
+ * Split a display name like "John Doe" or "John Middle Doe" into the first
+ * word and the last word, so we can render proper two-letter initials.
+ */
+function splitInitials(displayName?: string | null): { first: string; last: string } {
+  const parts = (displayName ?? "").trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return { first: "", last: "" };
+  if (parts.length === 1) return { first: parts[0], last: "" };
+  return { first: parts[0], last: parts[parts.length - 1] };
+}
+
 const titleByView: Record<string, string> = {
   home: "nav.home",
   academic: "nav.academic",
@@ -104,7 +115,10 @@ export function TopAppBar() {
                   color: "var(--primary)",
                 }}
               >
-                {formatInitials(user?.display_name ?? undefined, undefined)}
+                {(() => {
+                  const { first, last } = splitInitials(user?.display_name);
+                  return formatInitials(first, last);
+                })()}
               </span>
             )}
           </button>

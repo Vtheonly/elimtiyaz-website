@@ -80,11 +80,13 @@ function HomeworkItem({ hw }: { hw: HomeworkAssignmentRow }) {
   const { t } = useT();
   const [open, setOpen] = useState(false);
   const days = daysUntil(hw.due_date);
+  // is_locked is computed at query time per the schema (due_date < today).
+  const isLocked = new Date(hw.due_date) < new Date(new Date().toDateString());
 
-  let tone: "success" | "warning" | "danger" | "info" = "info";
+  let tone: "success" | "warning" | "danger" | "info" | "muted" = "info";
   let label = formatDate(hw.due_date);
-  if (hw.is_locked) {
-    tone = "muted" as never;
+  if (isLocked) {
+    tone = "muted";
     label = t("homework.locked");
   } else if (days < 0) {
     tone = "danger";
@@ -121,12 +123,12 @@ function HomeworkItem({ hw }: { hw: HomeworkAssignmentRow }) {
         <CardContent className="p-4">
           <div className="flex items-start gap-3">
             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-              {hw.is_locked ? <Lock className="h-4 w-4" /> : <BookOpen className="h-4 w-4" />}
+              {isLocked ? <Lock className="h-4 w-4" /> : <BookOpen className="h-4 w-4" />}
             </div>
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2">
                 <p className="truncate font-medium">{hw.title}</p>
-                <StatusPill tone={tone as never}>{label}</StatusPill>
+                <StatusPill tone={tone}>{label}</StatusPill>
               </div>
               {hw.description && (
                 <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">
@@ -138,10 +140,10 @@ function HomeworkItem({ hw }: { hw: HomeworkAssignmentRow }) {
                   <Clock className="h-3 w-3" />
                   {t("homework.due")}: {formatDate(hw.due_date)}
                 </span>
-                {hw.attachment_paths.length > 0 && (
+                {hw.attachment_path && (
                   <span className="flex items-center gap-1">
                     <Paperclip className="h-3 w-3" />
-                    {hw.attachment_paths.length}
+                    1
                   </span>
                 )}
               </div>
@@ -154,7 +156,7 @@ function HomeworkItem({ hw }: { hw: HomeworkAssignmentRow }) {
         <DialogContent className="max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              {hw.is_locked && <Lock className="h-4 w-4 text-muted-foreground" />}
+              {isLocked && <Lock className="h-4 w-4 text-muted-foreground" />}
               {hw.title}
             </DialogTitle>
             <DialogDescription>
@@ -169,21 +171,18 @@ function HomeworkItem({ hw }: { hw: HomeworkAssignmentRow }) {
               </div>
             )}
 
-            {hw.attachment_paths.length > 0 && (
+            {hw.attachment_path && (
               <div className="space-y-2">
                 <p className="text-sm font-medium">{t("homework.attachments")}</p>
-                {hw.attachment_paths.map((path, idx) => (
-                  <Button
-                    key={idx}
-                    variant="outline"
-                    size="sm"
-                    className="w-full justify-start"
-                    onClick={() => openAttachment(path)}
-                  >
-                    <Paperclip className="mr-2 h-3.5 w-3.5" />
-                    {path.split("/").pop() ?? `Attachment ${idx + 1}`}
-                  </Button>
-                ))}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full justify-start"
+                  onClick={() => openAttachment(hw.attachment_path!)}
+                >
+                  <Paperclip className="mr-2 h-3.5 w-3.5" />
+                  {hw.attachment_path.split("/").pop() ?? "Attachment"}
+                </Button>
               </div>
             )}
           </div>

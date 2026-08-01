@@ -50,10 +50,14 @@ import { isFcmConfigured, onForegroundPush } from "@/lib/fcm";
 import {
   registerDeviceToken,
   unregisterDeviceToken,
+  subscribeToFcmTokenRefresh,
 } from "@/lib/hooks/fcm-registration";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { NotificationPreferencesCard } from "@/features/profile/notification-preferences-card";
+import { StudentDocumentsCard } from "@/features/profile/student-documents-card";
+import { ParentContactEditCard } from "@/features/profile/parent-contact-edit-card";
 
 const localeLabels: Record<Locale, string> = {
   fr: "Français",
@@ -98,6 +102,14 @@ export function ProfileView() {
     });
     return unsub;
   }, [pushEnabled]);
+
+  // Listen for FCM_TOKEN_REFRESH messages from the service worker.
+  // FCM rotates tokens rarely; when it does, we re-register the new token.
+  useEffect(() => {
+    if (!pushEnabled || !user) return;
+    const unsub = subscribeToFcmTokenRefresh(user.id);
+    return unsub;
+  }, [pushEnabled, user]);
 
   const togglePush = async (enabled: boolean) => {
     if (!user) return;
@@ -179,8 +191,28 @@ export function ProfileView() {
             value={user ? t(statusLabels[user.status] ?? "profile.status.pending") : "—"}
             tone={user?.status === "active" ? "success" : "warning"}
           />
+          {parent?.is_financially_restricted && (
+            <>
+              <Separator />
+              <InfoRow
+                icon={<ShieldCheck className="h-4 w-4" />}
+                label={t("finance.restrictions.title")}
+                value={t("finance.restrictions.title")}
+                tone="warning"
+              />
+            </>
+          )}
         </CardContent>
       </Card>
+
+      {/* Parent contact info (self-edit) */}
+      {parent && <ParentContactEditCard />}
+
+      {/* Notification preferences (per-category opt-in/out) */}
+      <NotificationPreferencesCard />
+
+      {/* Student documents (parent uploads) */}
+      <StudentDocumentsCard />
 
       {/* Preferences */}
       <Card className="border-border/60">

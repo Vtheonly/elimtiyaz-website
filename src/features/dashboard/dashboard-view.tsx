@@ -145,6 +145,17 @@ export function DashboardView() {
         </h1>
       </div>
 
+      {/* Financial restriction banner */}
+      {parent?.is_financially_restricted && (
+        <div className="flex items-start gap-3 rounded-lg border border-warning/40 bg-warning/10 p-3 text-sm">
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-warning" />
+          <div className="flex-1">
+            <p className="font-medium text-warning">{t("finance.restrictions.title")}</p>
+            <p className="mt-1 text-muted-foreground">{t("finance.restrictions.body")}</p>
+          </div>
+        </div>
+      )}
+
       {/* KPI grid */}
       {installments.isLoading ? (
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">

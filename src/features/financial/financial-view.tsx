@@ -7,8 +7,9 @@
  *   - View Dues (balance + installments)
  *   - View Schedule (installment tranches)
  *   - View Scans (check/transfer proof images)
- *   - View Balance (debt dashboard)
- *   - PDF Download (receipts)
+ *   - View Balance (debt dashboard — own family only)
+ *   - PDF Download (receipts + statements)
+ *   - View Adjustments (discounts with reason code + admin note)
  *
  * The portal CANNOT:
  *   - Make payments (use desktop counter-payment flow)
@@ -25,6 +26,8 @@ import {
   usePayments,
   useInvoices,
   useReceiptsForPayment,
+  useReceipts,
+  useAccountAdjustments,
 } from "@/lib/hooks/portal-queries";
 import { useFinancialRealtime } from "@/lib/hooks/use-realtime";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -49,7 +52,8 @@ import {
   FileText,
   Download,
   CheckCircle2,
-  ChevronRight,
+  AlertTriangle,
+  Scale,
 } from "lucide-react";
 import { formatCurrency, formatDate, formatFullName, daysUntil } from "@/lib/format";
 import { useMemo, useState } from "react";
@@ -63,7 +67,9 @@ import {
 } from "@/components/ui/dialog";
 import { supabase } from "@/lib/supabase/client";
 import { toast } from "sonner";
-import type { PaymentRow, InstallmentRow } from "@/lib/types/database";
+import type { PaymentRow, InstallmentRow, AccountAdjustmentRow, ReceiptRow } from "@/lib/types/database";
+
+type TabKey = "installments" | "payments" | "invoices" | "adjustments" | "receipts";
 
 export function FinancialView() {
   const { t } = useT();
@@ -84,8 +90,10 @@ export function FinancialView() {
     limit: 50,
   });
   const invoices = useInvoices(parent?.id ?? null, { limit: 50 });
+  const adjustments = useAccountAdjustments(parent?.id ?? null, { limit: 50 });
+  const receipts = useReceipts(parent?.id ?? null, { limit: 50 });
 
-  const [activeTab, setActiveTab] = useState<"installments" | "payments" | "invoices">("installments");
+  const [activeTab, setActiveTab] = useState<TabKey>("installments");
 
   // Aggregate balance
   const balance = useMemo(() => {
@@ -100,6 +108,8 @@ export function FinancialView() {
     );
   }, [installments.data]);
 
+  const isRestricted = Boolean(parent?.is_financially_restricted);
+
   return (
     <div className="mx-auto max-w-5xl space-y-6 px-4 py-5">
       {/* Header with student filter */}
@@ -107,6 +117,17 @@ export function FinancialView() {
         <h1 className="text-xl font-semibold">{t("finance.title")}</h1>
         {kids.length > 1 && <StudentSwitcherDropdown />}
       </div>
+
+      {/* Financial restriction banner */}
+      {isRestricted && (
+        <div className="flex items-start gap-3 rounded-lg border border-warning/40 bg-warning/10 p-3 text-sm">
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-warning" />
+          <div className="flex-1">
+            <p className="font-medium text-warning">{t("finance.restrictions.title")}</p>
+            <p className="mt-1 text-muted-foreground">{t("finance.restrictions.body")}</p>
+          </div>
+        </div>
+      )}
 
       {/* KPI row */}
       {installments.isLoading ? (
@@ -140,11 +161,13 @@ export function FinancialView() {
       )}
 
       {/* Tabs */}
-      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as typeof activeTab)}>
-        <TabsList className="grid w-full grid-cols-3">
+      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as TabKey)}>
+        <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="installments">{t("finance.installments")}</TabsTrigger>
           <TabsTrigger value="payments">{t("finance.payments")}</TabsTrigger>
           <TabsTrigger value="invoices">{t("finance.invoices")}</TabsTrigger>
+          <TabsTrigger value="adjustments">{t("finance.adjustments")}</TabsTrigger>
+          <TabsTrigger value="receipts">{t("finance.receipts")}</TabsTrigger>
         </TabsList>
 
         {/* Installments */}
@@ -156,7 +179,7 @@ export function FinancialView() {
           ) : installments.data && installments.data.length > 0 ? (
             <div className="space-y-2">
               {installments.data.map((inst) => (
-                <InstallmentRow key={inst.id} inst={inst} kidName={activeKid ? formatFullName(activeKid) : undefined} />
+                <InstallmentRowView key={inst.id} inst={inst} kidName={activeKid ? formatFullName(activeKid) : undefined} />
               ))}
             </div>
           ) : (
@@ -200,7 +223,7 @@ export function FinancialView() {
                       </div>
                     }
                     title={`${inv.invoice_number} • ${formatCurrency(inv.amount)}`}
-                    subtitle={`${formatDate(inv.invoice_date)} • ${t("finance.installment.due")} ${formatDate(inv.due_date)}`}
+                    subtitle={`${formatDate(inv.issue_date)} • ${t("finance.installment.due")} ${formatDate(inv.due_date)}`}
                     trailing={<StatusPill tone={tone.tone}>{t(tone.key)}</StatusPill>}
                   />
                 );
@@ -210,6 +233,16 @@ export function FinancialView() {
             <EmptyState title={t("finance.empty.noPayments")} icon={<FileText className="h-6 w-6" />} />
           )}
         </TabsContent>
+
+        {/* Adjustments */}
+        <TabsContent value="adjustments" className="mt-4 space-y-3">
+          <AdjustmentsTab adjustments={adjustments} />
+        </TabsContent>
+
+        {/* Receipts + Statements */}
+        <TabsContent value="receipts" className="mt-4 space-y-3">
+          <ReceiptsTab receipts={receipts} />
+        </TabsContent>
       </Tabs>
     </div>
   );
@@ -217,7 +250,7 @@ export function FinancialView() {
 
 /* -------------------------------------------------------------------------- */
 
-function InstallmentRow({ inst, kidName }: { inst: InstallmentRow; kidName?: string }) {
+function InstallmentRowView({ inst, kidName }: { inst: InstallmentRow; kidName?: string }) {
   const { t } = useT();
   const remaining = Math.max(0, inst.amount_due - inst.amount_paid);
   const days = daysUntil(inst.due_date);
@@ -373,6 +406,140 @@ function PaymentRowItem({ payment, kidName }: { payment: PaymentRow; kidName?: s
           </div>
         </DialogContent>
       </Dialog>
+    </div>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+
+function AdjustmentsTab({
+  adjustments,
+}: {
+  adjustments: ReturnType<typeof useAccountAdjustments>;
+}) {
+  const { t } = useT();
+
+  if (adjustments.isLoading) {
+    return <ListSkeleton count={4} />;
+  }
+  if (adjustments.isError) {
+    return <ErrorState title={t("common.error.title")} onRetry={() => adjustments.refetch()} />;
+  }
+  if (!adjustments.data || adjustments.data.length === 0) {
+    return (
+      <EmptyState
+        title={t("finance.adjustment.empty")}
+        icon={<Scale className="h-6 w-6" />}
+      />
+    );
+  }
+
+  return (
+    <div className="space-y-2">
+      {adjustments.data.map((adj) => (
+        <AdjustmentRow key={adj.id} adj={adj} />
+      ))}
+    </div>
+  );
+}
+
+function AdjustmentRow({ adj }: { adj: AccountAdjustmentRow }) {
+  const { t } = useT();
+  const isCredit = adj.amount < 0;
+  const reasonLabel = t(`finance.adjustment.reason.${adj.reason_code}`, {});
+  // Fallback: if the i18n key returns the key itself (no translation), render the raw code.
+  const displayReason = reasonLabel.startsWith("finance.adjustment.reason.") ? adj.reason_code : reasonLabel;
+
+  return (
+    <CardListItem
+      leading={
+        <div
+          className={`flex h-10 w-10 items-center justify-center rounded-lg ${
+            isCredit ? "bg-success/10 text-success" : "bg-warning/10 text-warning"
+          }`}
+        >
+          <Scale className="h-4 w-4" />
+        </div>
+      }
+      title={`${isCredit ? "−" : "+"}${formatCurrency(Math.abs(adj.amount))}`}
+      subtitle={`${displayReason} • ${formatDate(adj.performed_at)}`}
+      trailing={
+        <StatusPill tone={isCredit ? "success" : "warning"}>
+          {isCredit ? "Crédit" : "Débit"}
+        </StatusPill>
+      }
+    />
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+
+function ReceiptsTab({
+  receipts,
+}: {
+  receipts: ReturnType<typeof useReceipts>;
+}) {
+  const { t } = useT();
+
+  const downloadReceipt = async (r: ReceiptRow) => {
+    if (!r.pdf_path || !supabase) {
+      toast.error("PDF indisponible");
+      return;
+    }
+    const { data, error } = await supabase.storage
+      .from("receipts")
+      .download(r.pdf_path);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    const url = URL.createObjectURL(data);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${r.receipt_kind === "account_statement" ? "releve" : "recu"}-${r.receipt_number}.pdf`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  if (receipts.isLoading) {
+    return <ListSkeleton count={4} />;
+  }
+  if (receipts.isError) {
+    return <ErrorState title={t("common.error.title")} onRetry={() => receipts.refetch()} />;
+  }
+  if (!receipts.data || receipts.data.length === 0) {
+    return (
+      <EmptyState
+        title={t("finance.empty.noPayments")}
+        icon={<Receipt className="h-6 w-6" />}
+      />
+    );
+  }
+
+  return (
+    <div className="space-y-2">
+      {receipts.data.map((r) => (
+        <CardListItem
+          key={r.id}
+          leading={
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
+              <FileText className="h-4 w-4" />
+            </div>
+          }
+          title={`${r.receipt_number} • ${r.receipt_kind === "account_statement" ? t("finance.statement.download") : t("finance.receipt.download")}`}
+          subtitle={formatDate(r.generated_at)}
+          trailing={
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => downloadReceipt(r)}
+              aria-label={t("common.download")}
+            >
+              <Download className="h-4 w-4" />
+            </Button>
+          }
+        />
+      ))}
     </div>
   );
 }

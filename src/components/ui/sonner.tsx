@@ -1,14 +1,18 @@
-"use client"
+"use client";
 
-import { useTheme } from "next-themes"
-import { Toaster as Sonner, ToasterProps } from "sonner"
+import { Toaster as Sonner, ToasterProps } from "sonner";
+import { useAppStore } from "@/lib/store/app-store";
 
+/**
+ * Thin wrapper around Sonner's Toaster that picks up the current theme from
+ * our Zustand store (so toasts match the dark/light UI without needing the
+ * `next-themes` package).
+ */
 const Toaster = ({ ...props }: ToasterProps) => {
-  const { theme = "system" } = useTheme()
-
+  const theme = useAppStore((s) => s.theme);
   return (
     <Sonner
-      theme={theme as ToasterProps["theme"]}
+      theme={theme}
       className="toaster group"
       style={
         {
@@ -19,7 +23,7 @@ const Toaster = ({ ...props }: ToasterProps) => {
       }
       {...props}
     />
-  )
-}
+  );
+};
 
-export { Toaster }
+export { Toaster };

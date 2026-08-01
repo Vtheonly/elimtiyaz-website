@@ -45,6 +45,20 @@ const statusLabels: Record<string, string> = {
   late: "Retard",
 };
 
+function justificationTone(status: string): "info" | "success" | "warning" | "danger" | "muted" {
+  switch (status) {
+    case "accepted":
+      return "success";
+    case "submitted":
+      return "info";
+    case "rejected":
+      return "danger";
+    case "none":
+    default:
+      return "warning";
+  }
+}
+
 export function AttendanceView() {
   const { t } = useT();
   const { children: kids } = useAuth();
@@ -125,7 +139,8 @@ export function AttendanceView() {
             const Icon = statusIcons[rec.status] ?? AlertCircle;
             const tone = attendanceStatusTone(rec.status);
             const hasJustification = Boolean(rec.justification_note || rec.justification_path || rec.justification_drive_link);
-            const canJustify = rec.status !== "present" && !hasJustification;
+            const justStatus = rec.justification_status ?? "none";
+            const canJustify = rec.status !== "present" && justStatus === "none";
             return (
               <div key={rec.id} className="space-y-1">
                 <CardListItem
@@ -138,8 +153,8 @@ export function AttendanceView() {
                   subtitle={rec.justification_note ?? (hasJustification ? t("attendance.justification.uploaded") : rec.status !== "present" ? t("attendance.justification.pending") : undefined)}
                   trailing={
                     rec.status !== "present" && (
-                      <StatusPill tone={hasJustification ? "info" : "warning"}>
-                        {hasJustification ? t("attendance.justification.uploaded") : t("attendance.justification.pending")}
+                      <StatusPill tone={justificationTone(justStatus)}>
+                        {t(`attendance.justification.status.${justStatus}`)}
                       </StatusPill>
                     )
                   }

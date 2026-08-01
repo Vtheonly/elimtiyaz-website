@@ -17,7 +17,11 @@
 import { useT } from "@/lib/i18n/use-t";
 import { useAuth } from "@/app/providers/auth-provider";
 import { useAppStore } from "@/lib/store/app-store";
-import { useUpcomingEvents } from "@/lib/hooks/portal-queries";
+import {
+  useUpcomingEvents,
+  useInstallments,
+  useHomeworkForClass,
+} from "@/lib/hooks/portal-queries";
 import {
   SectionHeader,
   EmptyState,
@@ -34,6 +38,8 @@ import {
   User as UserIcon,
   Clock,
   GraduationCap,
+  Wallet,
+  BookOpen,
 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
@@ -47,12 +53,31 @@ const MONTHS_FR = [
   "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre",
 ];
 
+// Map the database `kind` enum to a UI-facing event_type for i18n keys.
+// The DB schema uses 'payment_received', 'audit_log', 'expense_event',
+// 'follow_up_call', 'reminder', 'meeting', 'custom'. We surface the parent-
+// relevant ones with friendly French labels.
+const kindToUiType: Record<string, "exam" | "holiday" | "meeting" | "deadline" | "activity" | "payment" | "other"> = {
+  // The desktop schema doesn't have a dedicated 'exam' kind — exams are
+  // created as calendar_events with kind='meeting' or 'custom' and
+  // target_entity_type='exam'. We treat 'custom' as 'activity' for the
+  // parent unless target_entity_type hints otherwise.
+  meeting: "meeting",
+  reminder: "deadline",
+  custom: "activity",
+  payment_received: "payment",
+  follow_up_call: "meeting",
+  audit_log: "other",
+  expense_event: "other",
+};
+
 const eventTypeTone: Record<string, "danger" | "info" | "warning" | "success"> = {
   exam: "danger",
   holiday: "success",
   meeting: "info",
   deadline: "warning",
   activity: "info",
+  payment: "warning",
   other: "info",
 };
 
@@ -62,16 +87,24 @@ const eventTypeColor: Record<string, string> = {
   meeting: "bg-info",
   deadline: "bg-warning",
   activity: "bg-info",
+  payment: "bg-warning",
   other: "bg-muted-foreground",
 };
 
 export function CalendarView() {
   const { t } = useT();
-  const { children: kids } = useAuth();
+  const { parent, children: kids } = useAuth();
   const activeStudentId = useAppStore((s) => s.activeStudentId);
   const activeKid = kids.find((k) => k.id === activeStudentId);
 
   const events = useUpcomingEvents({ limit: 200 });
+
+  // Derived events: payment due dates (from installments) + homework due dates
+  // (from homework_assignments). These are NOT stored as calendar_events —
+  // the plan says they are "auto-derived". We fetch them in parallel and
+  // merge into the calendar grid below.
+  const installments = useInstallments(parent?.id ?? null, { limit: 200 });
+  const homework = useHomeworkForClass(activeKid?.class_id ?? null, { limit: 100 });
 
   const [cursor, setCursor] = useState(() => {
     const d = new Date();
@@ -84,34 +117,102 @@ export function CalendarView() {
 
   const grid = useMemo(() => buildMonthGrid(cursor), [cursor]);
 
+  // Build a unified event map: real calendar_events + derived payment/homework events.
+  // Each entry is normalized to { dateKey, uiType, title, time, location }.
+  interface UnifiedEvent {
+    id: string;
+    dateKey: string;
+    uiType: string; // 'exam' | 'holiday' | 'meeting' | 'deadline' | 'activity' | 'payment' | 'other'
+    title: string;
+    description: string | null;
+    allDay: boolean;
+    startAt: string;
+    location: string | null;
+    isExam: boolean;
+    invigilatorId: string | null;
+  }
+
   const eventsByDate = useMemo(() => {
-    const map = new Map<string, CalendarEventRow[]>();
+    const map = new Map<string, UnifiedEvent[]>();
     if (!events.data) return map;
+
     for (const ev of events.data) {
       const dateKey = ev.start_at.slice(0, 10);
+      const uiType = kindToUiType[ev.kind] ?? "other";
+      // Heuristic: if the calendar_event is a 'meeting' or 'custom' and its
+      // target_entity_type is 'exam', surface it as an exam in the UI.
+      const isExam = ev.target_entity_type === "exam" || (ev.kind === "custom" && /examen|exam/i.test(ev.title));
       if (!map.has(dateKey)) map.set(dateKey, []);
-      map.get(dateKey)!.push(ev);
+      map.get(dateKey)!.push({
+        id: ev.id,
+        dateKey,
+        uiType: isExam ? "exam" : uiType,
+        title: ev.title,
+        description: ev.description,
+        allDay: ev.all_day,
+        startAt: ev.start_at,
+        location: ev.location,
+        isExam,
+        invigilatorId: ev.created_by ?? null,
+      });
     }
+
+    // Merge in derived installment due dates.
+    if (installments.data) {
+      for (const inst of installments.data) {
+        if (inst.status === "paid") continue;
+        const dateKey = inst.due_date.slice(0, 10);
+        if (!map.has(dateKey)) map.set(dateKey, []);
+        map.get(dateKey)!.push({
+          id: `inst-${inst.id}`,
+          dateKey,
+          uiType: "payment",
+          title: `${t("finance.installment.tranche")} ${inst.tranche_number} — ${t("finance.status.due",)}`,
+          description: `${t("finance.installment.amount")}: ${inst.amount_due}`,
+          allDay: true,
+          startAt: inst.due_date,
+          location: null,
+          isExam: false,
+          invigilatorId: null,
+        });
+      }
+    }
+
+    // Merge in derived homework due dates.
+    if (homework.data) {
+      for (const hw of homework.data) {
+        const dateKey = hw.due_date.slice(0, 10);
+        if (!map.has(dateKey)) map.set(dateKey, []);
+        map.get(dateKey)!.push({
+          id: `hw-${hw.id}`,
+          dateKey,
+          uiType: "deadline",
+          title: `${t("homework.title")}: ${hw.title}`,
+          description: hw.description,
+          allDay: true,
+          startAt: hw.due_date,
+          location: null,
+          isExam: false,
+          invigilatorId: null,
+        });
+      }
+    }
+
     return map;
-  }, [events.data]);
+  }, [events.data, installments.data, homework.data, t]);
 
   const selectedDayEvents = useMemo(() => {
     const all = eventsByDate.get(selectedDate) ?? [];
     if (activeFilter === "all") return all;
-    return all.filter((e) => e.event_type === activeFilter);
+    return all.filter((e) => e.uiType === activeFilter);
   }, [eventsByDate, selectedDate, activeFilter]);
 
   const upcomingExams = useMemo(() => {
     if (!events.data) return [];
-    const classId = activeKid?.class_id ?? null;
     return events.data
-      .filter((e) => e.event_type === "exam")
-      .filter((e) => {
-        if (!classId) return true;
-        return e.target_class_id === null || e.target_class_id === classId;
-      })
+      .filter((e) => e.target_entity_type === "exam" || (e.kind === "custom" && /examen|exam/i.test(e.title)))
       .slice(0, 10);
-  }, [events.data, activeKid]);
+  }, [events.data]);
 
   const prevMonth = () => setCursor((d) => new Date(d.getFullYear(), d.getMonth() - 1, 1));
   const nextMonth = () => setCursor((d) => new Date(d.getFullYear(), d.getMonth() + 1, 1));
@@ -121,7 +222,7 @@ export function CalendarView() {
     setSelectedDate(now.toISOString().slice(0, 10));
   };
 
-  const filterTypes = ["all", "exam", "holiday", "meeting", "deadline", "activity"];
+  const filterTypes = ["all", "exam", "holiday", "meeting", "deadline", "activity", "payment"];
 
   return (
     <div className="mx-auto max-w-5xl space-y-6 px-4 py-5">
@@ -191,7 +292,7 @@ export function CalendarView() {
                       {dayEvents.slice(0, 3).map((e, i) => (
                         <span
                           key={i}
-                          className={cn("h-1 w-1 rounded-full", eventTypeColor[e.event_type] ?? "bg-muted-foreground")}
+                          className={cn("h-1 w-1 rounded-full", eventTypeColor[e.uiType] ?? "bg-muted-foreground")}
                           aria-hidden
                         />
                       ))}
@@ -217,7 +318,7 @@ export function CalendarView() {
                 : "border-border/60 text-muted-foreground hover:bg-muted/40"
             )}
           >
-            {type === "all" ? t("calendar.filterAll") : t(`calendar.eventType.${type}`)}
+            {type === "all" ? t("calendar.filterAll") : t(`calendar.eventType.${type === "payment" ? "deadline" : type}`)}
           </button>
         ))}
       </div>
@@ -232,7 +333,7 @@ export function CalendarView() {
         ) : selectedDayEvents.length > 0 ? (
           <div className="space-y-2">
             {selectedDayEvents.map((ev) => (
-              <EventCard key={ev.id} ev={ev} />
+              <UnifiedEventCard key={ev.id} ev={ev} />
             ))}
           </div>
         ) : (
@@ -259,9 +360,10 @@ export function CalendarView() {
 
 /* -------------------------------------------------------------------------- */
 
-function EventCard({ ev }: { ev: CalendarEventRow }) {
+function UnifiedEventCard({ ev }: { ev: { id: string; uiType: string; title: string; description: string | null; allDay: boolean; startAt: string; location: string | null; isExam: boolean } }) {
   const { t } = useT();
-  const tone = eventTypeTone[ev.event_type] ?? "info";
+  const tone = eventTypeTone[ev.uiType] ?? "info";
+  const Icon = ev.uiType === "payment" ? Wallet : ev.uiType === "deadline" ? BookOpen : CalendarDays;
   return (
     <Card className="border-border/50 bg-card">
       <CardContent className="p-4">
@@ -275,17 +377,17 @@ function EventCard({ ev }: { ev: CalendarEventRow }) {
                 : "bg-info/15 text-info"
             )}
           >
-            <CalendarDays className="h-4 w-4" />
+            <Icon className="h-4 w-4" />
           </div>
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
               <p className="truncate font-medium">{ev.title}</p>
-              <StatusPill tone={tone}>{t(`calendar.eventType.${ev.event_type}`)}</StatusPill>
+              <StatusPill tone={tone}>{t(`calendar.eventType.${ev.uiType === "payment" ? "deadline" : ev.uiType}`)}</StatusPill>
             </div>
             <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
               <span className="flex items-center gap-1">
                 <Clock className="h-3 w-3" />
-                {ev.all_day ? t("calendar.allDay") : formatDate(ev.start_at, { withTime: true })}
+                {ev.allDay ? t("calendar.allDay") : formatDate(ev.startAt, { withTime: true })}
               </span>
               {ev.location && (
                 <span className="flex items-center gap-1">
@@ -328,10 +430,10 @@ function ExamCard({ exam }: { exam: CalendarEventRow }) {
               {t("calendar.exam.room")}: {exam.location}
             </span>
           )}
-          {exam.created_by && (
+          {exam.target_name && (
             <span className="flex items-center gap-1">
               <UserIcon className="h-3 w-3" />
-              {t("calendar.exam.invigilator")}
+              {t("calendar.exam.invigilator")}: {exam.target_name}
             </span>
           )}
         </span>

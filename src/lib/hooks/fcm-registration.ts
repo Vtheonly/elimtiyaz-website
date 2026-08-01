@@ -5,32 +5,20 @@
  *
  * When a parent enables push notifications, we:
  *   1. Request browser permission + get the FCM token (via initFcm).
- *   2. Upsert the token into the `device_tokens` table (RLS-protected so a
- *      parent can only insert/delete their own tokens).
- *   3. On sign-out or push-disable, delete the token.
+ *   2. Upsert the token into the `device_tokens` table (migration 0025).
+ *      RLS-protected so a parent can only insert/update/delete their own tokens.
+ *   3. On sign-out or push-disable, mark the token as inactive.
  *
- * The matching Supabase Edge Function `send-push-notification` (lives in the
- * desktop repo's `supabase/functions/` directory) reads this table to fan out
- * a notification to every device registered for a given `target_user_id`.
+ * The matching Supabase Edge Function `send-push-notification` reads this
+ * table to fan out a notification to every device registered for a given
+ * `target_user_id`.
  *
- * Backend contract (device_tokens table — to be added as a migration):
- *   CREATE TABLE public.device_tokens (
- *     id              uuid primary key default public.gen_uuid(),
- *     tenant_id       uuid references public.tenants(id) on delete cascade,
- *     user_profile_id uuid not null references public.user_profiles(id) on delete cascade,
- *     token           text not null,
- *     platform        text not null default 'web',  -- 'web' | 'android' | 'ios'
- *     user_agent      text,
- *     is_active       boolean not null default true,
- *     last_seen_at    timestamptz not null default now(),
- *     created_at      timestamptz not null default now(),
- *     unique (user_profile_id, token)
- *   );
- *   ALTER TABLE public.device_tokens ENABLE ROW LEVEL SECURITY;
- *   CREATE POLICY device_tokens_owner ON public.device_tokens
- *     FOR ALL TO authenticated
- *     USING (user_profile_id = public.current_user_profile_id())
- *     WITH CHECK (user_profile_id = public.current_user_profile_id());
+ * Token lifecycle:
+ *   - FCM may refresh the token at any time (rare). The service worker
+ *     receives a `pushsubscriptionchange` event and posts an
+ *     `FCM_TOKEN_REFRESH` message to every open page. The page then
+ *     re-calls `initFcm()` and re-upserts the new token. Stale tokens are
+ *     cleaned up the next time the user opens the portal.
  */
 
 import { supabase } from "@/lib/supabase/client";
@@ -103,4 +91,23 @@ export async function listDeviceTokens(userProfileId: string): Promise<DeviceTok
     .order("created_at", { ascending: false });
   if (error) return [];
   return (data ?? []) as DeviceTokenRow[];
+}
+
+/**
+ * Subscribe to FCM_TOKEN_REFRESH messages from the service worker.
+ * When FCM rotates the token, the SW posts this message; we re-register.
+ *
+ * Returns an unsubscribe function — call it in useEffect cleanup.
+ */
+export function subscribeToFcmTokenRefresh(userProfileId: string | null | undefined): () => void {
+  if (typeof navigator === "undefined" || !("serviceWorker" in navigator) || !userProfileId) {
+    return () => {};
+  }
+  const handler = async (event: MessageEvent) => {
+    if (event.data?.type !== "FCM_TOKEN_REFRESH") return;
+    console.info("[fcm] token refresh requested by SW — re-registering.");
+    await registerDeviceToken(userProfileId);
+  };
+  navigator.serviceWorker.addEventListener("message", handler);
+  return () => navigator.serviceWorker.removeEventListener("message", handler);
 }

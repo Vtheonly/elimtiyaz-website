@@ -184,6 +184,3 @@ export function StudentSwitcherDropdown() {
     </div>
   );
 }
-
-// silence unused import in some builds
-void useT;

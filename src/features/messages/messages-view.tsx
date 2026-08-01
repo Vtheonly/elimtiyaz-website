@@ -30,12 +30,13 @@ import { cn } from "@/lib/utils";
 import { formatRelative } from "@/lib/format";
 import { supabase } from "@/lib/supabase/client";
 import { toast } from "sonner";
+import { chatMessageSchema } from "@/lib/validation";
 import type { ChatChannelRow, ChatMessageRow } from "@/lib/types/database";
 
 export function MessagesView() {
   const { t } = useT();
-  const { parent } = useAuth();
-  const channels = useChatChannels(parent?.id ?? null);
+  const { user } = useAuth();
+  const channels = useChatChannels(user?.id ?? null);
   const [activeChannelId, setActiveChannelId] = useState<string | null>(null);
 
   const activeChannel = channels.data?.find((c) => c.id === activeChannelId) ?? null;
@@ -106,7 +107,7 @@ function ChannelListItem({
   active: boolean;
   onClick: () => void;
 }) {
-  const isAnnouncement = channel.kind === "announcement";
+  const isAnnouncement = channel.channel_type === "announcement";
   return (
     <button
       type="button"
@@ -155,16 +156,22 @@ function Conversation({
   }, [messages.data]);
 
   const send = async () => {
-    if (!draft.trim() || !supabase || !user) return;
+    if (!supabase || !user) return;
+    const body = draft.trim();
+    // Validate the message body with Zod (5000-char ceiling, non-empty).
+    const parsed = chatMessageSchema.safeParse({ body, channelId: channel.id });
+    if (!parsed.success) {
+      toast.error(parsed.error.issues[0]?.message ?? "Message invalide.");
+      return;
+    }
     setSending(true);
     const { error } = await supabase.from("chat_messages").insert({
       tenant_id: channel.tenant_id,
       channel_id: channel.id,
-      sender_id: user.id,
-      sender_type: "user_profile",
-      body: draft.trim(),
-      attachment_paths: [],
-      read_by: [user.id],
+      author_id: user.id,
+      body: parsed.data.body,
+      attachments: [],
+      read_by: [{ user_id: user.id, read_at: new Date().toISOString() }],
     });
     if (error) {
       toast.error(error.message);
@@ -175,7 +182,7 @@ function Conversation({
     setSending(false);
   };
 
-  const isAnnouncement = channel.kind === "announcement";
+  const isAnnouncement = channel.channel_type === "announcement";
 
   return (
     <>
@@ -194,7 +201,7 @@ function Conversation({
         </div>
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-medium">{channel.name}</p>
-          <p className="truncate text-xs text-muted-foreground">{channel.kind}</p>
+          <p className="truncate text-xs text-muted-foreground">{channel.channel_type}</p>
         </div>
       </div>
 
@@ -237,7 +244,7 @@ function Conversation({
 }
 
 function MessageBubble({ msg, ownId }: { msg: ChatMessageRow; ownId?: string }) {
-  const isOwn = msg.sender_id === ownId;
+  const isOwn = msg.author_id === ownId;
   return (
     <div className={cn("flex", isOwn ? "justify-end" : "justify-start")}>
       <div
@@ -250,7 +257,7 @@ function MessageBubble({ msg, ownId }: { msg: ChatMessageRow; ownId?: string }) 
       >
         <p className="whitespace-pre-wrap break-words">{msg.body}</p>
         <p className={cn("mt-1 text-[10px]", isOwn ? "text-primary-foreground/70" : "text-muted-foreground")}>
-          {formatRelative(msg.created_at)}
+          {formatRelative(msg.sent_at)}
         </p>
       </div>
     </div>

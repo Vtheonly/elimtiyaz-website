@@ -415,14 +415,14 @@ export interface InvoiceRow {
 export interface ReceiptRow {
   id: string;
   tenant_id: string;
-  payment_id: string;
-  parent_id: string;
   receipt_number: string;
-  issued_at: string;
-  pdf_path: string | null;
-  amount: number;
-  method: string;
-  created_by: string | null;
+  receipt_kind: "recent_payment" | "account_statement";
+  payment_id: string | null;
+  parent_id: string;
+  pdf_path: string;
+  pdf_size_bytes: number | null;
+  generated_at: string;
+  generated_by: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -431,15 +431,28 @@ export interface ServiceEnrollmentRow {
   id: string;
   tenant_id: string;
   student_id: string;
-  parent_id: string;
   academic_year_id: string;
-  service_kind: "tuition" | "transport" | "canteen" | "complementary" | "additional";
+  service_kind:
+    | "tuition"
+    | "transport"
+    | "canteen"
+    | "club"
+    | "speech_therapy"
+    | "psychology"
+    | "psychotherapy"
+    | "second_apron"
+    | "rattrapage"
+    | "other";
   service_ref_id: string | null;
-  label: string;
+  destination_id: string | null;
+  grade_level_id: string | null;
   annual_amount: number;
   tranche_1_amount: number;
   tranche_2_amount: number;
   tranche_3_amount: number;
+  tranche_1_due_date: string | null;
+  tranche_2_due_date: string | null;
+  tranche_3_due_date: string | null;
   is_active: boolean;
   enrolled_at: string;
   created_at: string;
@@ -449,16 +462,28 @@ export interface ServiceEnrollmentRow {
 export interface AccountAdjustmentRow {
   id: string;
   tenant_id: string;
-  parent_id: string;
+  parent_id: string | null;
   student_id: string | null;
-  amount: number; // signed: positive = credit, negative = charge
-  reason_code: string;
-  reason_label: string | null;
+  amount: number; // signed: positive = charge, negative = credit
+  reason_code:
+    | "sibling_discount"
+    | "staff_family"
+    | "early_payment"
+    | "passage_palier"
+    | "seniority_5y"
+    | "highest_average"
+    | "full_annual"
+    | "scholarship_replacement"
+    | "hardship"
+    | "correction"
+    | "late_fee_waiver"
+    | "other";
   admin_note: string;
-  applied_by: string;
-  applied_at: string;
+  performed_by: string;
+  performed_at: string;
+  before_json: Record<string, unknown>;
+  after_json: Record<string, unknown>;
   created_at: string;
-  updated_at: string;
 }
 
 export interface AttendanceRecordRow {
@@ -466,13 +491,18 @@ export interface AttendanceRecordRow {
   tenant_id: string;
   student_id: string;
   class_id: string;
+  class_subject_id: string | null;
   date: string;
   status: "present" | "absent_excused" | "absent_unexcused" | "late";
+  arrival_time: string | null;
+  note: string | null;
   recorded_by: string | null;
-  recorded_at: string;
   justification_note: string | null;
   justification_path: string | null;
   justification_drive_link: string | null;
+  justification_status: "none" | "submitted" | "accepted" | "rejected";
+  justification_reviewed_by: string | null;
+  justification_reviewed_at: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -483,13 +513,13 @@ export interface HomeworkAssignmentRow {
   class_subject_id: string;
   target_class_id: string;
   title: string;
-  description: string | null;
-  due_date: string;
-  attachment_paths: string[];
-  is_locked: boolean;
+  description: string;
+  attachment_path: string | null; // single storage path under bucket 'homework-attachments'
+  due_date: string; // DATE column (no time)
   created_by: string;
   created_at: string;
   updated_at: string;
+  // is_locked is computed at query time: (due_date < current_date)
 }
 
 export interface AssessmentRow {
@@ -522,16 +552,29 @@ export interface GradeRow {
 export interface CalendarEventRow {
   id: string;
   tenant_id: string;
+  // `kind` is the canonical column name in the database schema. The portal
+  // UI surfaces it as `eventType` for i18n friendliness.
+  kind:
+    | "payment_received"
+    | "audit_log"
+    | "expense_event"
+    | "follow_up_call"
+    | "reminder"
+    | "meeting"
+    | "custom";
   title: string;
   description: string | null;
-  event_type: "exam" | "holiday" | "meeting" | "deadline" | "activity" | "other";
   start_at: string;
-  end_at: string;
+  end_at: string | null;
   all_day: boolean;
   location: string | null;
-  target_class_id: string | null;
-  target_role: string | null;
+  attendee_count: number;
+  target_entity_type: string | null;
+  target_entity_id: string | null;
+  target_name: string | null;
+  target_phone: string | null;
   created_by: string | null;
+  is_deleted: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -539,27 +582,42 @@ export interface CalendarEventRow {
 export interface ChatChannelRow {
   id: string;
   tenant_id: string;
+  code: string; // stable identifier, unique per tenant
   name: string;
-  kind: "direct" | "group" | "department" | "announcement";
-  parent_id: string | null;
-  personnel_id: string | null;
-  department_id: string | null;
-  created_by: string;
+  channel_type: "direct" | "group" | "department" | "announcement";
+  member_ids: string[]; // array of user_profiles.id
+  created_by: string | null;
   created_at: string;
   updated_at: string;
+}
+
+// A single entry inside chat_messages.read_by (jsonb array).
+export interface ChatMessageReadEntry {
+  user_id: string;
+  read_at: string; // ISO timestamp
+}
+
+// A single attachment entry inside chat_messages.attachments (jsonb array).
+export interface ChatMessageAttachment {
+  file_name: string;
+  storage_path: string;
+  mime_type: string | null;
+  size_bytes: number | null;
 }
 
 export interface ChatMessageRow {
   id: string;
   tenant_id: string;
   channel_id: string;
-  sender_id: string;
-  sender_type: "user_profile" | "parent" | "personnel" | "system";
+  author_id: string; // user_profiles.id of the sender
   body: string;
-  attachment_paths: string[];
-  read_by: string[];
   edited_at: string | null;
+  edited_by: string | null;
   deleted_at: string | null;
+  parent_message_id: string | null;
+  read_by: ChatMessageReadEntry[]; // jsonb array of {user_id, read_at}
+  attachments: ChatMessageAttachment[]; // jsonb array of {file_name, storage_path, ...}
+  sent_at: string;
   created_at: string;
 }
 
@@ -573,6 +631,96 @@ export interface ClassSubjectRow {
   is_active: boolean;
   created_at: string;
   updated_at: string;
+}
+
+// ============================================================================
+// Device tokens (FCM push) — migration 0025
+// ============================================================================
+
+export interface DeviceTokenRow {
+  id: string;
+  tenant_id: string | null;
+  user_profile_id: string;
+  token: string;
+  platform: "web" | "android" | "ios";
+  user_agent: string | null;
+  is_active: boolean;
+  last_seen_at: string;
+  created_at: string;
+  updated_at: string;
+}
+
+// ============================================================================
+// Notification preferences (migration 0026) — per-category opt-in/out
+// ============================================================================
+
+export type NotificationCategory =
+  | "payment"
+  | "absence"
+  | "message"
+  | "announcement"
+  | "grade"
+  | "homework"
+  | "calendar"
+  | "account"
+  | "system";
+
+export interface NotificationPreferenceRow {
+  id: string;
+  tenant_id: string | null;
+  user_profile_id: string;
+  category: NotificationCategory;
+  push_enabled: boolean;
+  in_app_enabled: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+// ============================================================================
+// Student documents (migration 0028) — parent-uploaded documents
+// ============================================================================
+
+export type StudentDocumentKind =
+  | "birth_certificate"
+  | "medical_certificate"
+  | "contract"
+  | "justification_letter"
+  | "id_photo"
+  | "report_card"
+  | "other";
+
+export interface StudentDocumentRow {
+  id: string;
+  tenant_id: string;
+  student_id: string;
+  kind: StudentDocumentKind;
+  file_name: string;
+  storage_path: string;
+  mime_type: string;
+  size_bytes: number;
+  uploaded_by: string;
+  uploaded_at: string;
+  description: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+// ============================================================================
+// Activation codes (migration 0005) — Path A self-service activation
+// ============================================================================
+
+export interface ActivationCodeRow {
+  id: string;
+  tenant_id: string;
+  code: string;
+  parent_id: string | null;
+  student_id: string | null;
+  issued_by: string | null;
+  issued_at: string;
+  bound_to_auth_user_id: string | null;
+  bound_at: string | null;
+  expires_at: string;
+  created_at: string;
 }
 
 // ============================================================================
@@ -612,6 +760,10 @@ export interface Database {
       chat_channels: { Row: ChatChannelRow; Insert: Partial<ChatChannelRow>; Update: Partial<ChatChannelRow> };
       chat_messages: { Row: ChatMessageRow; Insert: Partial<ChatMessageRow>; Update: Partial<ChatMessageRow> };
       class_subjects: { Row: ClassSubjectRow; Insert: Partial<ClassSubjectRow>; Update: Partial<ClassSubjectRow> };
+      device_tokens: { Row: DeviceTokenRow; Insert: Partial<DeviceTokenRow>; Update: Partial<DeviceTokenRow> };
+      notification_preferences: { Row: NotificationPreferenceRow; Insert: Partial<NotificationPreferenceRow>; Update: Partial<NotificationPreferenceRow> };
+      student_documents: { Row: StudentDocumentRow; Insert: Partial<StudentDocumentRow>; Update: Partial<StudentDocumentRow> };
+      activation_codes: { Row: ActivationCodeRow; Insert: Partial<ActivationCodeRow>; Update: Partial<ActivationCodeRow> };
     };
     Views: {
       vw_dashboard_kpis: { Row: Record<string, unknown> };

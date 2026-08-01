@@ -113,12 +113,17 @@ export function AbsenceJustificationDialog({
     }
 
     // Update the attendance record with the justification fields.
+    // The BEFORE UPDATE trigger (migration 0027) will auto-flip
+    // justification_status from 'none' to 'submitted' the first time
+    // a parent submits, but we also set it explicitly here so the
+    // status is correct even if the trigger hasn't been applied yet.
     const { error } = await supabase
       .from("attendance_records")
       .update({
         justification_note: note.trim() || null,
         justification_path: path,
         justification_drive_link: driveLink.trim() || null,
+        justification_status: "submitted",
       })
       .eq("id", record.id);
 

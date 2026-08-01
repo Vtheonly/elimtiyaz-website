@@ -52,13 +52,11 @@ export function useRealtimeInvalidation(
     };
     if (filter) filters.filter = filter;
 
-    channel = channel.on("postgres_changes", filters as never, (payload) => {
+    channel = channel.on("postgres_changes", filters as never, () => {
       // Invalidate every matching query key prefix.
       for (const prefix of queryKeyPrefixes) {
         qc.invalidateQueries({ queryKey: prefix });
       }
-      // Touch the body so the linter doesn't complain about unused payload.
-      void payload;
     });
 
     channel.subscribe((status) => {

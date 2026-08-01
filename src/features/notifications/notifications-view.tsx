@@ -13,6 +13,7 @@
 import { useAuth } from "@/app/providers/auth-provider";
 import { useT } from "@/lib/i18n/use-t";
 import { useNotifications } from "@/lib/hooks/portal-queries";
+import { useAppStore, type AppView } from "@/lib/store/app-store";
 import {
   EmptyState,
   ListSkeleton,
@@ -26,11 +27,13 @@ import {
   CheckCircle2,
   AlertCircle,
   CheckCheck,
+  ChevronRight,
 } from "lucide-react";
 import { formatRelative } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/lib/supabase/client";
 import { toast } from "sonner";
+import { markNotificationReadSchema } from "@/lib/validation";
 import type { NotificationRow } from "@/lib/types/database";
 
 const kindIcon: Record<string, typeof Bell> = {
@@ -42,10 +45,42 @@ const kindIcon: Record<string, typeof Bell> = {
   system: Bell,
 };
 
+/**
+ * Map a notification's `link_entity_type` to the portal view that displays
+ * the linked entity. Used for deep-linking when the user taps a notification.
+ */
+function linkEntityTypeToView(linkEntityType: string | null): AppView | null {
+  if (!linkEntityType) return null;
+  const map: Record<string, AppView> = {
+    payment: "finance",
+    installment: "finance",
+    invoice: "finance",
+    receipt: "finance",
+    expense_ticket: "finance",
+    attendance_record: "attendance",
+    student_document: "attendance",
+    chat_message: "messages",
+    chat_channel: "messages",
+    calendar_event: "calendar",
+    grade: "academic",
+    homework_assignment: "homework",
+    academic_history: "academic",
+    parent: "profile",
+    user_profile: "profile",
+    backup_archive: "profile",
+    workflow_run: "notifications",
+    audit_log: "notifications",
+    account_approval_request: "profile",
+  };
+  return map[linkEntityType] ?? null;
+}
+
 export function NotificationsView() {
   const { t } = useT();
   const { user } = useAuth();
   const notifications = useNotifications(user?.id ?? null, { limit: 100 });
+  const setActiveView = useAppStore((s) => s.setActiveView);
+  const setActiveStudentId = useAppStore((s) => s.setActiveStudentId);
 
   const markAllRead = async () => {
     if (!supabase || !user) return;
@@ -64,15 +99,33 @@ export function NotificationsView() {
 
   const markRead = async (n: NotificationRow) => {
     if (!supabase || n.is_read) return;
+    // Validate the notification id (defensive — RLS also rejects bad UUIDs).
+    const parsed = markNotificationReadSchema.safeParse({ notificationId: n.id });
+    if (!parsed.success) {
+      toast.error("Notification invalide.");
+      return;
+    }
     const { error } = await supabase
       .from("notifications")
       .update({ is_read: true, read_at: new Date().toISOString() })
-      .eq("id", n.id);
+      .eq("id", parsed.data.notificationId);
     if (error) {
       toast.error(error.message);
       return;
     }
     notifications.refetch();
+  };
+
+  /**
+   * Handle a click on a notification: mark it as read AND deep-link to the
+   * portal view that displays the linked entity (if `link_entity_type` is set).
+   */
+  const handleClick = (n: NotificationRow) => {
+    markRead(n);
+    const targetView = linkEntityTypeToView(n.link_entity_type);
+    if (targetView) {
+      setActiveView(targetView);
+    }
   };
 
   return (
@@ -103,10 +156,11 @@ export function NotificationsView() {
                   : n.kind === "success"
                     ? "text-success bg-success/10"
                     : "text-info bg-info/10";
+            const linkView = linkEntityTypeToView(n.link_entity_type);
             return (
               <CardListItem
                 key={n.id}
-                onClick={() => markRead(n)}
+                onClick={() => handleClick(n)}
                 className={n.is_read ? "opacity-60" : ""}
                 leading={
                   <div className={`flex h-10 w-10 items-center justify-center rounded-lg ${tone}`}>
@@ -124,9 +178,14 @@ export function NotificationsView() {
                     <span className="text-xs text-muted-foreground">
                       {formatRelative(n.triggered_at)}
                     </span>
-                    {!n.is_read && (
-                      <span className="h-2 w-2 rounded-full bg-primary" aria-label="Non lu" />
-                    )}
+                    <div className="flex items-center gap-1">
+                      {linkView && (
+                        <ChevronRight className="h-3 w-3 text-muted-foreground" aria-hidden />
+                      )}
+                      {!n.is_read && (
+                        <span className="h-2 w-2 rounded-full bg-primary" aria-label="Non lu" />
+                      )}
+                    </div>
                   </div>
                 }
               />
