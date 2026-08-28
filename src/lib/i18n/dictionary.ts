@@ -226,6 +226,7 @@ const fr: Dict = {
   "messages.placeholder": "Écrivez votre message…",
   "messages.fromSchool": "De l'école",
   "messages.convocation": "Convocation",
+  "messages.convocation.notice": "Convocation officielle de la direction — votre présence est requise. Veuillez contacter l'administration pour confirmer.",
 
   // Notifications
   "notifications.title": "Notifications",
@@ -599,6 +600,7 @@ const ar: Dict = {
   "messages.placeholder": "اكتبوا رسالتكم…",
   "messages.fromSchool": "من المدرسة",
   "messages.convocation": "استدعاء",
+  "messages.convocation.notice": "استدعاء رسمي من الإدارة — حضوركم مطلوب. يرجى التواصل مع الإدارة للتأكيد.",
 
   // Notifications (complete)
   "notifications.title": "الإشعارات",
@@ -951,6 +953,7 @@ const en: Dict = {
   "messages.placeholder": "Write your message…",
   "messages.fromSchool": "From school",
   "messages.convocation": "Summons",
+  "messages.convocation.notice": "Official summons from the administration — your attendance is required. Please contact the school office to confirm.",
 
   // Notifications (complete)
   "notifications.title": "Notifications",

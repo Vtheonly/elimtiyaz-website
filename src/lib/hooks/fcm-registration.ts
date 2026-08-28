@@ -39,18 +39,17 @@ export async function registerDeviceToken(userProfileId: string): Promise<boolea
   const token = await initFcm();
   if (!token) return false;
 
-  // Upsert — if the token already exists for this user, just refresh last_seen.
-  const { error } = await supabase.from("device_tokens").upsert(
-    {
-      user_profile_id: userProfileId,
-      token,
-      platform: "web",
-      user_agent: typeof navigator !== "undefined" ? navigator.userAgent : null,
-      is_active: true,
-      last_seen_at: new Date().toISOString(),
-    },
-    { onConflict: "user_profile_id,token" }
-  );
+  // CANONICAL PATH (migration 0027): the `register_fcm_token` RPC is the one
+  // idempotent registration entry point shared with the Android app
+  // (FcmTokenRegistrar). The previous direct upsert targeted a nonexistent
+  // `user_profile_id` column — the canonical table (0027) uses `user_id`
+  // with a (tenant_id, token) unique key, and the RPC resolves the tenant
+  // and performs the upsert SECURITY DEFINER.
+  const { error } = await supabase.rpc("register_fcm_token", {
+    p_user_id: userProfileId,
+    p_token: token,
+    p_platform: "web",
+  });
 
   if (error) {
     console.error("[fcm] failed to register device token:", error);
@@ -67,11 +66,12 @@ export async function unregisterDeviceToken(userProfileId: string): Promise<void
   if (!supabase) return;
   // We don't have the token in scope here (it requires permission to read),
   // so we mark ALL this user's web tokens as inactive. The next time they
-  // re-enable, the upsert will reactivate the current one.
+  // re-enable, the RPC will reactivate the current one.
+  // Column fix: the canonical table (migration 0027) uses `user_id`.
   const { error } = await supabase
     .from("device_tokens")
     .update({ is_active: false })
-    .eq("user_profile_id", userProfileId)
+    .eq("user_id", userProfileId)
     .eq("platform", "web");
   if (error) {
     console.error("[fcm] failed to unregister device token:", error);
@@ -86,7 +86,7 @@ export async function listDeviceTokens(userProfileId: string): Promise<DeviceTok
   const { data, error } = await supabase
     .from("device_tokens")
     .select("id, token, is_active")
-    .eq("user_profile_id", userProfileId)
+    .eq("user_id", userProfileId)
     .eq("platform", "web")
     .order("created_at", { ascending: false });
   if (error) return [];

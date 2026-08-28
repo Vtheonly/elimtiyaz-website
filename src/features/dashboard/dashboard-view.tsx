@@ -25,7 +25,14 @@ import {
   useUpcomingEvents,
   useAttendanceForStudent,
   useGradesForStudent,
+  useLedgerEntries,
 } from "@/lib/hooks/portal-queries";
+import {
+  attendanceRatePercent,
+  overallGpaFor,
+  installmentRemainingAmount,
+  portalFinancialSummary,
+} from "@/lib/canonical/portal-derive";
 import {
   useNotificationsRealtime,
   useFinancialRealtime,
@@ -83,15 +90,15 @@ export function DashboardView() {
   const announcements = useNotifications(user?.id ?? null, { limit: 5 });
   const attendance = useAttendanceForStudent(activeKid?.id ?? null, { limit: 100 });
   const grades = useGradesForStudent(activeKid?.id ?? null);
+  // Canonical balance source (INV-1) — ledger replay, identical to the
+  // desktop debt dashboard / backend compute_parent_summary RPC.
+  const ledgerEntries = useLedgerEntries(parent?.id ?? null, { limit: 500 });
 
-  // Compute balance due = sum of (amount_due - amount_paid) for installments
+  // Balance due — CANONICAL ledger replay (never installment sums).
   const balanceDue = useMemo(() => {
-    if (!installments.data) return 0;
-    return installments.data.reduce((sum, i) => {
-      const remaining = Math.max(0, i.amount_due - i.amount_paid);
-      return sum + remaining;
-    }, 0);
-  }, [installments.data]);
+    if (!ledgerEntries.data || !parent?.id) return 0;
+    return portalFinancialSummary(ledgerEntries.data, parent.id).outstanding;
+  }, [ledgerEntries.data, parent?.id]);
 
   // Next upcoming installment (earliest unpaid)
   const nextInstallment = useMemo(() => {
@@ -102,21 +109,26 @@ export function DashboardView() {
     return unpaid[0] ?? null;
   }, [installments.data]);
 
-  // Attendance rate for active student
+  // Attendance rate — CANONICAL (present + late count as attended, 2-dec
+  // rounding) — identical to desktop calculateAttendanceRate.
   const attendanceRate = useMemo(() => {
     if (!attendance.data || attendance.data.length === 0) return null;
-    const present = attendance.data.filter((a) => a.status === "present").length;
-    return Math.round((present / attendance.data.length) * 100);
+    return attendanceRatePercent(attendance.data);
   }, [attendance.data]);
 
-  // Average grade for active student (simple mean of subject_average)
+  // Average grade — CANONICAL overall GPA (coefficient-weighted, excluding
+  // extracurricular subjects) — identical to desktop/Android/SQL GPA.
   const averageGrade = useMemo(() => {
     if (!grades.data || grades.data.length === 0) return null;
-    const valid = grades.data
-      .map((g) => g.subject_average ?? g.score)
-      .filter((v): v is number => typeof v === "number" && !Number.isNaN(v));
-    if (valid.length === 0) return null;
-    return valid.reduce((s, v) => s + v, 0) / valid.length;
+    const inputs = grades.data.map((a) => ({
+      devoir1: a.devoir1 ?? null,
+      devoir2: a.devoir2 ?? null,
+      examen: a.examen ?? null,
+      coefficient: Number(a.coefficient ?? a.subject?.default_coefficient ?? 1),
+      isExtracurricular: Boolean(a.subject?.is_extracurricular),
+    }));
+    const stored = grades.data.map((a) => (a.subject_average != null ? Number(a.subject_average) : null));
+    return overallGpaFor(inputs, stored);
   }, [grades.data]);
 
   const hour = new Date().getHours();
@@ -240,8 +252,8 @@ export function DashboardView() {
                   title={ev.title}
                   subtitle={`${formatDate(ev.start_at, { withTime: !ev.all_day })}${ev.location ? ` • ${ev.location}` : ""}`}
                   trailing={
-                    <StatusPill tone={ev.event_type === "exam" ? "danger" : "info"}>
-                      {ev.event_type}
+                    <StatusPill tone={ev.kind === "custom" ? "info" : "info"}>
+                      {ev.kind}
                     </StatusPill>
                   }
                 />

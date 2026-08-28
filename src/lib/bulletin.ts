@@ -21,28 +21,20 @@
 
 import type {
   StudentRow,
-  GradeRow,
   AttendanceRecordRow,
   ClassRow,
   AcademicLevelRow,
 } from "@/lib/types/database";
+import type { PortalAssessmentRow } from "@/lib/hooks/portal-queries";
+import { subjectAverageFor, overallGpaFor, isPassing } from "@/lib/canonical/portal-derive";
 import { formatFullName, formatDate } from "@/lib/format";
 
 interface BulletinData {
   student: StudentRow;
   klass: ClassRow | null;
   level: AcademicLevelRow | null;
-  grades: (GradeRow & {
-    assessment?: {
-      term: 1 | 2 | 3;
-      kind: "devoir_1" | "devoir_2" | "examen";
-      max_score: number;
-      class_subject?: {
-        coefficient: number;
-        subject?: { name_fr: string; name_en?: string | null } | null;
-      } | null;
-    } | null;
-  })[];
+  /** Canonical assessment rows (migration 0029 shape) + joined subject. */
+  grades: PortalAssessmentRow[];
   attendance: AttendanceRecordRow[];
   academicYearLabel?: string;
   tenantName?: string;
@@ -92,52 +84,70 @@ function printViaIframe(html: string) {
 function renderBulletinHtml(data: BulletinData): string {
   const { student, klass, level, grades, attendance, academicYearLabel, tenantName } = data;
 
-  // Group grades by subject.
+  // Group assessments by subject (canonical rows already carry D1/D2/Examen).
   const bySubject = new Map<
     string,
     {
       subjectName: string;
       coefficient: number;
-      byTerm: Map<number, { d1?: number; d2?: number; exam?: number; average: number | null }>;
+      isExtracurricular: boolean;
+      byTerm: Map<number, { d1?: number | null; d2?: number | null; exam?: number | null; average: number | null }>;
     }
   >();
 
-  for (const g of grades) {
-    const cs = g.assessment?.class_subject;
-    const subj = cs?.subject;
-    const key = cs?.subject_id ?? "unknown";
+  for (const a of grades) {
+    const key = a.subject_id ?? a.subject?.id ?? "unknown";
+    const coefficient = Number(a.coefficient ?? a.subject?.default_coefficient ?? 1);
+    const isExtracurricular = Boolean(a.subject?.is_extracurricular);
     if (!bySubject.has(key)) {
       bySubject.set(key, {
-        subjectName: subj?.name_fr ?? subj?.name_en ?? "—",
-        coefficient: cs?.coefficient ?? 1,
+        subjectName: a.subject?.name_fr ?? a.subject?.name_en ?? "—",
+        coefficient,
+        isExtracurricular,
         byTerm: new Map(),
       });
     }
     const entry = bySubject.get(key)!;
-    const term = g.assessment?.term ?? 1;
-    if (!entry.byTerm.has(term)) {
-      entry.byTerm.set(term, { d1: undefined, d2: undefined, exam: undefined, average: null });
-    }
-    const termEntry = entry.byTerm.get(term)!;
-    if (g.assessment?.kind === "devoir_1") termEntry.d1 = g.score;
-    else if (g.assessment?.kind === "devoir_2") termEntry.d2 = g.score;
-    else if (g.assessment?.kind === "examen") termEntry.exam = g.score;
-    termEntry.average = g.subject_average ?? null;
+    const term = Number(a.term ?? 1);
+    const termEntry = entry.byTerm.get(term) ?? {
+      d1: undefined,
+      d2: undefined,
+      exam: undefined,
+      average: null,
+    };
+    termEntry.d1 = a.devoir1 ?? termEntry.d1 ?? null;
+    termEntry.d2 = a.devoir2 ?? termEntry.d2 ?? null;
+    termEntry.exam = a.examen ?? termEntry.exam ?? null;
+    // CANONICAL subject average — (D1 + D2 + 2×Ex)/4, all marks required,
+    // identical to the backend trigger + both native engines.
+    termEntry.average =
+      subjectAverageFor({
+        devoir1: a.devoir1 ?? null,
+        devoir2: a.devoir2 ?? null,
+        examen: a.examen ?? null,
+        coefficient,
+        isExtracurricular,
+      }) ??
+      (a.subject_average != null ? Number(a.subject_average) : termEntry.average);
+    entry.byTerm.set(term, termEntry);
   }
 
-  // Overall GPA.
-  let gpaNum = 0;
-  let gpaDenom = 0;
+  // Overall GPA — CANONICAL (coefficient-weighted, extracurricular excluded).
+  const gpaInputs: Array<{ devoir1: number | null; devoir2: number | null; examen: number | null; coefficient: number; isExtracurricular: boolean }> = [];
+  const gpaStored: Array<number | null> = [];
   bySubject.forEach((s) => {
-    const allAvgs = Array.from(s.byTerm.values())
-      .map((t) => t.average)
-      .filter((v): v is number => typeof v === "number");
-    if (allAvgs.length === 0) return;
-    const avg = allAvgs.reduce((a, b) => a + b, 0) / allAvgs.length;
-    gpaNum += avg * s.coefficient;
-    gpaDenom += s.coefficient;
+    s.byTerm.forEach((t) => {
+      gpaInputs.push({
+        devoir1: t.d1 ?? null,
+        devoir2: t.d2 ?? null,
+        examen: t.exam ?? null,
+        coefficient: s.coefficient,
+        isExtracurricular: s.isExtracurricular,
+      });
+      gpaStored.push(t.average);
+    });
   });
-  const gpa = gpaDenom > 0 ? gpaNum / gpaDenom : null;
+  const gpa = overallGpaFor(gpaInputs, gpaStored);
 
   // Attendance summary.
   const att = {
@@ -170,7 +180,7 @@ function renderBulletinHtml(data: BulletinData): string {
   th, td { border: 1px solid #E5E7EB; padding: 6px 8px; text-align: center; font-size: 11px; }
   th { background: #EFF2F3; color: #3B464C; font-weight: 600; }
   td.subject { text-align: left; font-weight: 500; }
-  td.gpa { font-weight: 700; color: ${gpa !== null && gpa >= 10 ? "#3FA66E" : "#C0504D"}; }
+  td.gpa { font-weight: 700; color: ${gpa !== null && isPassing(gpa) ? "#3FA66E" : "#C0504D"}; }
   .summary { display: flex; gap: 12px; margin-bottom: 16px; }
   .summary .card { flex: 1; border: 1px solid #E5E7EB; border-radius: 6px; padding: 8px 12px; text-align: center; }
   .summary .card .label { font-size: 9px; color: #3B464C; text-transform: uppercase; letter-spacing: 0.04em; }
@@ -205,7 +215,7 @@ function renderBulletinHtml(data: BulletinData): string {
   <div class="summary">
     <div class="card">
       <div class="label">Moyenne</div>
-      <div class="value" style="color: ${gpa !== null && gpa >= 10 ? "#3FA66E" : "#C0504D"};">
+      <div class="value" style="color: ${gpa !== null && isPassing(gpa) ? "#3FA66E" : "#C0504D"};">
         ${gpa !== null ? gpa.toFixed(2) : "—"}
       </div>
     </div>

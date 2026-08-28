@@ -22,8 +22,9 @@ import {
   ListSkeleton,
   ErrorState,
 } from "@/features/shared/state-views";
-import { MessageSquare, Send, ArrowLeft, Megaphone } from "lucide-react";
+import { MessageSquare, Send, ArrowLeft, Megaphone, BellRing } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
@@ -144,10 +145,39 @@ function Conversation({
 }) {
   const { t } = useT();
   const { user } = useAuth();
+  const queryClient = useQueryClient();
   const messages = useChatMessages(channel.id, { limit: 200 });
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  // VAULT §05 — mark incoming messages as READ when the channel is open.
+  // Without this, read_by is only ever written for one's OWN messages, so
+  // unread badges never clear until the parent replies.
+  useEffect(() => {
+    const markRead = async () => {
+      if (!supabase || !user || !messages.data) return;
+      const incoming = messages.data.filter(
+        (m) => m.author_id !== user.id && !m.read_by?.some((r) => r.user_id === user.id),
+      );
+      if (incoming.length === 0) return;
+      await Promise.all(
+        incoming.map((m) =>
+          supabase
+            .from("chat_messages")
+            .update({
+              read_by: [
+                ...(m.read_by ?? []),
+                { user_id: user.id, read_at: new Date().toISOString() },
+              ],
+            })
+            .eq("id", m.id),
+        ),
+      );
+      queryClient.invalidateQueries({ queryKey: ["chat-unread"] });
+    };
+    markRead();
+  }, [messages.data, user, channel.id, queryClient]);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -183,6 +213,11 @@ function Conversation({
   };
 
   const isAnnouncement = channel.channel_type === "announcement";
+  // VAULT §05 — convocations are rendered as a distinct staff message type
+  // (summons to a mandatory meeting), alongside plain announcements.
+  const isConvocation =
+    channel.channel_type === "convocation" ||
+    /convocation/i.test(channel.name ?? "");
 
   return (
     <>
@@ -194,16 +229,36 @@ function Conversation({
         <div
           className={cn(
             "flex h-9 w-9 items-center justify-center rounded-full",
-            isAnnouncement ? "bg-warning/15 text-warning" : "bg-primary/15 text-primary"
+            isConvocation
+              ? "bg-destructive/15 text-destructive"
+              : isAnnouncement
+                ? "bg-warning/15 text-warning"
+                : "bg-primary/15 text-primary"
           )}
         >
-          {isAnnouncement ? <Megaphone className="h-4 w-4" /> : <MessageSquare className="h-4 w-4" />}
+          {isConvocation ? (
+            <BellRing className="h-4 w-4" />
+          ) : isAnnouncement ? (
+            <Megaphone className="h-4 w-4" />
+          ) : (
+            <MessageSquare className="h-4 w-4" />
+          )}
         </div>
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-medium">{channel.name}</p>
-          <p className="truncate text-xs text-muted-foreground">{channel.channel_type}</p>
+          <p className="truncate text-xs text-muted-foreground">
+            {isConvocation ? t("messages.convocation") : channel.channel_type}
+          </p>
         </div>
       </div>
+
+      {/* Convocation notice banner */}
+      {isConvocation && (
+        <div className="flex items-start gap-2 border-b border-border/60 bg-destructive/10 p-3 text-xs text-destructive">
+          <BellRing className="mt-0.5 h-4 w-4 shrink-0" />
+          <p>{t("messages.convocation.notice")}</p>
+        </div>
+      )}
 
       {/* Messages */}
       <div ref={scrollRef} className="flex-1 space-y-2 overflow-y-auto p-3">

@@ -82,7 +82,12 @@ export const isFcmConfigured =
 //   - Set NEXT_PUBLIC_MOCK_AUTH_ENABLED=false to disable
 // This ensures the mock login is always available during development/testing
 // without requiring any .env.local configuration. See src/lib/auth/mock-auth.ts.
-export const isMockAuthEnabled = env.NEXT_PUBLIC_MOCK_AUTH_ENABLED !== "false";
+/**
+ * Mock admin auth is OPT-IN: it only activates when
+ * NEXT_PUBLIC_MOCK_AUTH_ENABLED === "true". The previous default-on behavior
+ * shipped a staff-grade bypass on the production login screen.
+ */
+export const isMockAuthEnabled = env.NEXT_PUBLIC_MOCK_AUTH_ENABLED === "true";
 
 if (isMockAuthEnabled) {
   console.warn(

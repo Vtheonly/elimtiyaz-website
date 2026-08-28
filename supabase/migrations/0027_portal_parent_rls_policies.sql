@@ -27,6 +27,7 @@
 -- policy that allows parents to update rows for their own children, then
 -- enforce column restrictions via a BEFORE UPDATE trigger.
 
+drop policy if exists attendance_parent_update_justification on public.attendance_records;
 create policy attendance_parent_update_justification on public.attendance_records
   for update to authenticated
   using (
@@ -93,6 +94,7 @@ create trigger attendance_records_enforce_parent_columns
 -- and an INSERT policy that lets them upload new ones (the desktop 0019
 -- migration had student_documents_admin with FOR ALL but only for staff).
 
+drop policy if exists student_documents_parent_select on public.student_documents;
 create policy student_documents_parent_select on public.student_documents
   for select to authenticated
   using (
@@ -105,6 +107,7 @@ create policy student_documents_parent_select on public.student_documents
     )
   );
 
+drop policy if exists student_documents_parent_insert on public.student_documents;
 create policy student_documents_parent_insert on public.student_documents
   for insert to authenticated
   with check (
@@ -125,6 +128,7 @@ create policy student_documents_parent_insert on public.student_documents
 -- policy that allows a parent to update their own row, then enforce column
 -- restrictions via a BEFORE UPDATE trigger.
 
+drop policy if exists parents_self_update on public.parents;
 create policy parents_self_update on public.parents
   for update to authenticated
   using (

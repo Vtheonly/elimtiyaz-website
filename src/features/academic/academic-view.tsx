@@ -16,7 +16,12 @@
 import { useAuth } from "@/app/providers/auth-provider";
 import { useT } from "@/lib/i18n/use-t";
 import { useAppStore } from "@/lib/store/app-store";
-import { useGradesForStudent, useClass, useAttendanceForStudent, useAcademicLevels } from "@/lib/hooks/portal-queries";
+import { useGradesForStudent, useClass, useAttendanceForStudent, useAcademicLevels, type PortalAssessmentRow } from "@/lib/hooks/portal-queries";
+import {
+  subjectAverageFor,
+  overallGpaFor,
+  isPassing,
+} from "@/lib/canonical/portal-derive";
 import { KpiCard } from "@/features/shared/kpi-card";
 import {
   SectionHeader,
@@ -66,48 +71,58 @@ export function AcademicView() {
     toast.success("Bulletin ouvert — utilisez le dialogue d'impression pour enregistrer en PDF");
   };
 
-  // Group grades by subject (using class_subject.subject)
+  // Group assessments by subject (canonical 0029 shape: one row per
+  // student × subject × term × year, joined with its subject).
   const bySubject = useMemo(() => {
-    if (!grades.data) return new Map<string, { subjectName: string; coefficient: number; grades: GradeRow[] }>();
-    const map = new Map<string, { subjectName: string; coefficient: number; grades: GradeRow[] }>();
-    for (const g of grades.data) {
-      const cs = g.assessment?.class_subject;
-      const subj = cs?.subject;
-      const key = cs?.subject_id ?? "unknown";
+    if (!grades.data) return new Map<string, { subjectName: string; coefficient: number; isExtracurricular: boolean; rows: PortalAssessmentRow[] }>();
+    const map = new Map<string, { subjectName: string; coefficient: number; isExtracurricular: boolean; rows: PortalAssessmentRow[] }>();
+    for (const a of grades.data) {
+      const key = a.subject_id ?? a.subject?.id ?? "unknown";
+      const coefficient = Number(a.coefficient ?? a.subject?.default_coefficient ?? 1);
       const existing = map.get(key);
       if (existing) {
-        existing.grades.push(g);
+        existing.rows.push(a);
       } else {
         map.set(key, {
-          subjectName: subj?.name_fr ?? subj?.name_en ?? "—",
-          coefficient: cs?.coefficient ?? subj?.default_coefficient ?? 1,
-          grades: [g],
+          subjectName: a.subject?.name_fr ?? a.subject?.name_en ?? "—",
+          coefficient,
+          isExtracurricular: Boolean(a.subject?.is_extracurricular),
+          rows: [a],
         });
       }
     }
     return map;
   }, [grades.data]);
 
-  // Overall average = sum(subject_average * coefficient) / sum(coefficient)
+  // Overall GPA — CANONICAL: coefficient-weighted over per-row canonical
+  // subject averages ((D1 + D2 + 2×Ex)/4, all marks required), extracurricular
+  // excluded — identical to desktop/Android engines and the SQL
+  // fn_calculate_student_term_gpa function.
   const overall = useMemo(() => {
-    let num = 0;
-    let denom = 0;
+    if (bySubject.size === 0) return null;
+    const inputs: Array<{ devoir1: number | null; devoir2: number | null; examen: number | null; coefficient: number; isExtracurricular: boolean }> = [];
+    const stored: Array<number | null> = [];
     bySubject.forEach((s) => {
-      const valid = s.grades.map((g) => g.subject_average ?? g.score).filter((v): v is number => typeof v === "number");
-      if (valid.length === 0) return;
-      const avg = valid.reduce((a, b) => a + b, 0) / valid.length;
-      num += avg * s.coefficient;
-      denom += s.coefficient;
+      for (const row of s.rows) {
+        inputs.push({
+          devoir1: row.devoir1 ?? null,
+          devoir2: row.devoir2 ?? null,
+          examen: row.examen ?? null,
+          coefficient: s.coefficient,
+          isExtracurricular: s.isExtracurricular,
+        });
+        stored.push(row.subject_average != null ? Number(row.subject_average) : null);
+      }
     });
-    return denom > 0 ? num / denom : null;
+    return overallGpaFor(inputs, stored);
   }, [bySubject]);
 
   const filteredSubjects = useMemo(() => {
     if (activeTerm === "all") return bySubject;
-    const m = new Map<string, { subjectName: string; coefficient: number; grades: GradeRow[] }>();
+    const m = new Map<string, { subjectName: string; coefficient: number; isExtracurricular: boolean; rows: PortalAssessmentRow[] }>();
     bySubject.forEach((s, key) => {
-      const filtered = s.grades.filter((g) => g.assessment?.term === activeTerm);
-      if (filtered.length > 0) m.set(key, { ...s, grades: filtered });
+      const filtered = s.rows.filter((a) => String(a.term) === String(activeTerm));
+      if (filtered.length > 0) m.set(key, { ...s, rows: filtered });
     });
     return m;
   }, [bySubject, activeTerm]);
@@ -161,7 +176,7 @@ export function AcademicView() {
           <KpiCard
             label={t("student.gpa")}
             value={overall !== null ? overall.toFixed(2) : "—"}
-            tone={(overall ?? 0) >= 10 ? "success" : "warning"}
+            tone={overall !== null && isPassing(overall) ? "success" : "warning"}
             icon={<Award className="h-5 w-5" />}
             hint={`/ 20`}
           />
@@ -197,9 +212,19 @@ export function AcademicView() {
           ) : (
             <div className="space-y-2">
               {Array.from(filteredSubjects.entries()).map(([subjectId, s]) => {
-                const valid = s.grades
-                  .map((g) => g.subject_average ?? g.score)
-                  .filter((v): v is number => typeof v === "number");
+                // Canonical per-row subject average: (D1 + D2 + 2×Ex)/4, all
+                // three marks required — recomputed from the component marks,
+                // falling back to the stored subject_average for legacy rows.
+                const rowAverages = s.rows.map((a) =>
+                  subjectAverageFor({
+                    devoir1: a.devoir1 ?? null,
+                    devoir2: a.devoir2 ?? null,
+                    examen: a.examen ?? null,
+                    coefficient: s.coefficient,
+                    isExtracurricular: s.isExtracurricular,
+                  }) ?? (a.subject_average != null ? Number(a.subject_average) : null),
+                );
+                const valid = rowAverages.filter((v): v is number => v != null);
                 const subjectAvg = valid.length ? valid.reduce((a, b) => a + b, 0) / valid.length : null;
                 return (
                   <Card key={subjectId} className="border-border/50 bg-card">
@@ -209,6 +234,7 @@ export function AcademicView() {
                           <p className="font-medium">{s.subjectName}</p>
                           <p className="mt-0.5 text-xs text-muted-foreground">
                             {t("student.coefficient")}: {s.coefficient}
+                            {s.isExtracurricular ? " • hors moyenne" : ""}
                           </p>
                         </div>
                         {subjectAvg !== null && (
@@ -221,18 +247,17 @@ export function AcademicView() {
                         )}
                       </div>
 
-                      {/* Per-assessment grades */}
+                      {/* Per-assessment marks (D1 / D2 / Examen per term) */}
                       <div className="mt-3 flex flex-wrap gap-2">
-                        {s.grades.map((g) => (
+                        {s.rows.map((a) => (
                           <div
-                            key={g.id}
+                            key={a.id}
                             className="flex items-center gap-2 rounded-md border border-border/40 bg-muted/30 px-2 py-1 text-xs"
                           >
-                            <span className="text-muted-foreground">
-                              {g.assessment?.kind === "devoir_1" ? "D1" : g.assessment?.kind === "devoir_2" ? "D2" : g.assessment?.kind === "examen" ? "Exam" : "—"}
+                            <span className="text-muted-foreground">T{a.term}</span>
+                            <span className="font-mono">
+                              {a.devoir1 != null ? a.devoir1.toFixed(2) : "—"} · {a.devoir2 != null ? a.devoir2.toFixed(2) : "—"} · {a.examen != null ? a.examen.toFixed(2) : "—"}
                             </span>
-                            <span className="font-mono font-semibold">{g.score.toFixed(2)}</span>
-                            <span className="text-muted-foreground">/ {g.assessment?.max_score ?? 20}</span>
                           </div>
                         ))}
                       </div>

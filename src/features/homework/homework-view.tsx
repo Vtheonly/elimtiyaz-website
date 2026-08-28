@@ -35,7 +35,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/lib/supabase/client";
 import { toast } from "sonner";
-import type { HomeworkAssignmentRow } from "@/lib/types/database";
+import type { HomeworkRow } from "@/lib/types/database";
 
 export function HomeworkView() {
   const { t } = useT();
@@ -76,12 +76,14 @@ export function HomeworkView() {
   );
 }
 
-function HomeworkItem({ hw }: { hw: HomeworkAssignmentRow }) {
+function HomeworkItem({ hw }: { hw: HomeworkRow }) {
   const { t } = useT();
   const [open, setOpen] = useState(false);
   const days = daysUntil(hw.due_date);
   // is_locked is computed at query time per the schema (due_date < today).
   const isLocked = new Date(hw.due_date) < new Date(new Date().toDateString());
+  // Canonical `homework` table stores attachments as a JSONB array of paths.
+  const attachments = Array.isArray(hw.attachments) ? hw.attachments.filter(Boolean) : [];
 
   let tone: "success" | "warning" | "danger" | "info" | "muted" = "info";
   let label = formatDate(hw.due_date);
@@ -140,10 +142,10 @@ function HomeworkItem({ hw }: { hw: HomeworkAssignmentRow }) {
                   <Clock className="h-3 w-3" />
                   {t("homework.due")}: {formatDate(hw.due_date)}
                 </span>
-                {hw.attachment_path && (
+                {attachments.length > 0 && (
                   <span className="flex items-center gap-1">
                     <Paperclip className="h-3 w-3" />
-                    1
+                    {attachments.length}
                   </span>
                 )}
               </div>
@@ -171,18 +173,21 @@ function HomeworkItem({ hw }: { hw: HomeworkAssignmentRow }) {
               </div>
             )}
 
-            {hw.attachment_path && (
+            {attachments.length > 0 && (
               <div className="space-y-2">
                 <p className="text-sm font-medium">{t("homework.attachments")}</p>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="w-full justify-start"
-                  onClick={() => openAttachment(hw.attachment_path!)}
-                >
-                  <Paperclip className="mr-2 h-3.5 w-3.5" />
-                  {hw.attachment_path.split("/").pop() ?? "Attachment"}
-                </Button>
+                {attachments.map((path) => (
+                  <Button
+                    key={path}
+                    variant="outline"
+                    size="sm"
+                    className="w-full justify-start"
+                    onClick={() => openAttachment(path)}
+                  >
+                    <Paperclip className="mr-2 h-3.5 w-3.5" />
+                    {path.split("/").pop() ?? "Attachment"}
+                  </Button>
+                ))}
               </div>
             )}
           </div>

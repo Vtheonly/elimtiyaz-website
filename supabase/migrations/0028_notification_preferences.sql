@@ -36,6 +36,7 @@ create index if not exists notification_prefs_user_idx
 comment on table public.notification_preferences is
   'Per-category notification opt-in/out for each user. Missing rows = both push and in-app enabled (default opt-in).';
 
+drop trigger if exists notification_preferences_touch_updated_at on public.notification_preferences;
 create trigger notification_preferences_touch_updated_at
   before update on public.notification_preferences
   for each row execute function public.touch_updated_at();
@@ -62,22 +63,26 @@ create trigger notification_preferences_set_tenant
 alter table public.notification_preferences enable row level security;
 alter table public.notification_preferences force row level security;
 
+drop policy if exists notification_preferences_select_own on public.notification_preferences;
 create policy notification_preferences_select_own
   on public.notification_preferences
   for select to authenticated
   using (user_profile_id = public.current_user_profile_id());
 
+drop policy if exists notification_preferences_upsert_own on public.notification_preferences;
 create policy notification_preferences_upsert_own
   on public.notification_preferences
   for insert to authenticated
   with check (user_profile_id = public.current_user_profile_id());
 
+drop policy if exists notification_preferences_update_own on public.notification_preferences;
 create policy notification_preferences_update_own
   on public.notification_preferences
   for update to authenticated
   using (user_profile_id = public.current_user_profile_id())
   with check (user_profile_id = public.current_user_profile_id());
 
+drop policy if exists notification_preferences_delete_own on public.notification_preferences;
 create policy notification_preferences_delete_own
   on public.notification_preferences
   for delete to authenticated

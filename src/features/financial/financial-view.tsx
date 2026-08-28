@@ -28,7 +28,12 @@ import {
   useReceiptsForPayment,
   useReceipts,
   useAccountAdjustments,
+  useLedgerEntries,
 } from "@/lib/hooks/portal-queries";
+import {
+  installmentRemainingAmount,
+  portalFinancialSummary,
+} from "@/lib/canonical/portal-derive";
 import { useFinancialRealtime } from "@/lib/hooks/use-realtime";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { KpiCard } from "@/features/shared/kpi-card";
@@ -92,21 +97,28 @@ export function FinancialView() {
   const invoices = useInvoices(parent?.id ?? null, { limit: 50 });
   const adjustments = useAccountAdjustments(parent?.id ?? null, { limit: 50 });
   const receipts = useReceipts(parent?.id ?? null, { limit: 50 });
+  // Canonical balance source (INV-1): replay the parent's ledger entries —
+  // the exact same computation the desktop debt dashboard, the Android
+  // installment screen, and the backend compute_parent_summary RPC run.
+  const ledgerEntries = useLedgerEntries(parent?.id ?? null, { limit: 500 });
 
   const [activeTab, setActiveTab] = useState<TabKey>("installments");
 
-  // Aggregate balance
+  // Aggregate balance — CANONICAL (ledger replay, never installment sums).
   const balance = useMemo(() => {
-    if (!installments.data) return { due: 0, paid: 0, total: 0 };
-    return installments.data.reduce(
-      (acc, i) => ({
-        due: acc.due + Math.max(0, i.amount_due - i.amount_paid),
-        paid: acc.paid + i.amount_paid,
-        total: acc.total + i.amount_due,
-      }),
-      { due: 0, paid: 0, total: 0 }
-    );
-  }, [installments.data]);
+    if (!ledgerEntries.data || !parent?.id) {
+      return { outstanding: 0, overdue: 0, unallocatedCredit: 0, pending: 0, charged: 0, paid: 0 };
+    }
+    const summary = portalFinancialSummary(ledgerEntries.data, parent.id);
+    return {
+      outstanding: summary.outstanding,
+      overdue: summary.overdue,
+      unallocatedCredit: summary.unallocatedCredit,
+      pending: summary.totalPending,
+      charged: summary.totalCharged,
+      paid: summary.totalPaid,
+    };
+  }, [ledgerEntries.data, parent?.id]);
 
   const isRestricted = Boolean(parent?.is_financially_restricted);
 
@@ -129,8 +141,8 @@ export function FinancialView() {
         </div>
       )}
 
-      {/* KPI row */}
-      {installments.isLoading ? (
+      {/* KPI row — canonical ledger-replay values (INV-1) */}
+      {ledgerEntries.isLoading ? (
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           <KpiSkeleton />
           <KpiSkeleton />
@@ -140,22 +152,24 @@ export function FinancialView() {
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           <KpiCard
             label={t("finance.balance.outstanding")}
-            value={formatCurrency(balance.due)}
-            tone={balance.due > 0 ? "danger" : "success"}
+            value={formatCurrency(balance.outstanding)}
+            tone={balance.outstanding > 0 ? "danger" : "success"}
             icon={<Wallet className="h-5 w-5" />}
-            hint={balance.due > 0 ? t("finance.balance.outstanding") : t("finance.balance.settled")}
+            hint={balance.outstanding > 0 ? t("finance.balance.outstanding") : t("finance.balance.settled")}
           />
           <KpiCard
             label={t("finance.installment.paid")}
             value={formatCurrency(balance.paid)}
             tone="success"
             icon={<CheckCircle2 className="h-5 w-5" />}
+            hint={balance.pending > 0 ? `${formatCurrency(balance.pending)} en attente de compensation` : undefined}
           />
           <KpiCard
-            label={t("finance.installment.amount")}
-            value={formatCurrency(balance.total)}
-            tone="info"
-            icon={<CalendarClock className="h-5 w-5" />}
+            label={t("finance.adjustments")}
+            value={formatCurrency(balance.unallocatedCredit)}
+            tone={balance.unallocatedCredit < 0 ? "info" : "muted"}
+            icon={<Scale className="h-5 w-5" />}
+            hint={balance.unallocatedCredit < 0 ? "Crédit en compte" : undefined}
           />
         </div>
       )}
@@ -252,10 +266,18 @@ export function FinancialView() {
 
 function InstallmentRowView({ inst, kidName }: { inst: InstallmentRow; kidName?: string }) {
   const { t } = useT();
-  const remaining = Math.max(0, inst.amount_due - inst.amount_paid);
+  // Canonical remaining (Invariant 4): due − paid − pending. Uncleared
+  // check/transfer funds reduce what the parent owes without marking the
+  // tranche paid — identical to the backend waterfall + Android engine.
+  const remaining = installmentRemainingAmount(inst);
+  const pending = Number(inst.amount_pending ?? 0);
   const days = daysUntil(inst.due_date);
   const tone = paymentStatusTone(inst.status);
-  const progress = inst.amount_due > 0 ? Math.min(100, (inst.amount_paid / inst.amount_due) * 100) : 0;
+  // Cleared progress; pending funds render as an in-progress overlay hint.
+  const progress =
+    inst.amount_due > 0
+      ? Math.min(100, ((Number(inst.amount_paid) + pending) / Number(inst.amount_due)) * 100)
+      : 0;
 
   return (
     <div className="rounded-lg border border-border/50 bg-card p-4">
@@ -294,7 +316,12 @@ function InstallmentRowView({ inst, kidName }: { inst: InstallmentRow; kidName?:
         />
       </div>
       <div className="mt-1.5 flex justify-between text-[10px] text-muted-foreground">
-        <span>{formatCurrency(inst.amount_paid)} {t("finance.installment.paid").toLowerCase()}</span>
+        <span>
+          {formatCurrency(inst.amount_paid)} {t("finance.installment.paid").toLowerCase()}
+          {pending > 0 && (
+            <span className="text-warning"> • {formatCurrency(pending)} en attente</span>
+          )}
+        </span>
         <span>{formatCurrency(inst.amount_due)}</span>
       </div>
     </div>

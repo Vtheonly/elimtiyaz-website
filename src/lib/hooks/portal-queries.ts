@@ -9,19 +9,21 @@
  *   - they are the linked parent (parents.auth_user_id = auth.uid())
  *
  * These hooks MUST NOT introduce new business logic — they are thin readers
- * on top of the already-implemented backend.
+ * on top of the already-implemented backend. Aggregates (balance, GPA,
+ * attendance rate) are computed exclusively in src/lib/canonical/ so every
+ * platform derives identical values from identical rows.
  */
 
 import { useQuery, type UseQueryResult } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase/client";
-import type {
+import {
   PaymentRow,
   InstallmentRow,
   InvoiceRow,
   ReceiptRow,
   ServiceEnrollmentRow,
   AttendanceRecordRow,
-  HomeworkAssignmentRow,
+  HomeworkRow,
   GradeRow,
   AssessmentRow,
   ClassSubjectRow,
@@ -38,6 +40,7 @@ import type {
   NotificationCategory,
   StudentDocumentRow,
   StudentDocumentKind,
+  LedgerEntryRow,
 } from "@/lib/types/database";
 
 /* -------------------------------------------------------------------------- */
@@ -91,35 +94,41 @@ export function useClass(classId: string | null | undefined): UseQueryResult<Cla
 /* Grades                                                                     */
 /* -------------------------------------------------------------------------- */
 
+/**
+ * Canonical grade data — reads the `assessments` table (migration 0029
+ * shape: one row per student × subject × term × year with devoir1/devoir2/
+ * examen + subject_average + coefficient). This is the table the DESKTOP
+ * grade-entry flow and the ANDROID sync dispatcher write to, so the portal
+ * sees exactly what staff entered. (The legacy `grades` table from 0004 is
+ * no longer written by any platform — reading it left the portal's Academic
+ * Hub permanently empty.)
+ */
+export type PortalAssessmentRow = AssessmentRow & {
+  subject?: Pick<
+    SubjectRow,
+    "id" | "name_fr" | "name_en" | "default_coefficient" | "is_extracurricular" | "passing_grade"
+  > | null;
+};
+
 export function useGradesForStudent(
   studentId: string | null | undefined
-): UseQueryResult<
-  (GradeRow & {
-    assessment?: AssessmentRow | null;
-    class_subject?: (ClassSubjectRow & { subject?: SubjectRow | null }) | null;
-  })[]
-> {
+): UseQueryResult<PortalAssessmentRow[]> {
   return useQuery({
     queryKey: ["grades", studentId],
     queryFn: async () => {
       if (!studentId || !supabase) return [];
       const { data, error } = await supabase
-        .from("grades")
+        .from("assessments")
         .select(
           `*,
-            assessment:assessments(*,
-              class_subject:class_subjects(*,
-                subject:subjects(*)
-              )
+            subject:subjects(
+              id, name_fr, name_en, default_coefficient, is_extracurricular, passing_grade
             )`
         )
         .eq("student_id", studentId)
-        .order("recorded_at", { ascending: false });
+        .order("entered_at", { ascending: false });
       if (error) throw error;
-      return (data ?? []) as unknown as (GradeRow & {
-        assessment?: AssessmentRow | null;
-        class_subject?: (ClassSubjectRow & { subject?: SubjectRow | null }) | null;
-      })[];
+      return (data ?? []) as unknown as PortalAssessmentRow[];
     },
     enabled: Boolean(studentId),
   });
@@ -158,20 +167,22 @@ export function useAttendanceForStudent(
 export function useHomeworkForClass(
   classId: string | null | undefined,
   options: { limit?: number } = {}
-): UseQueryResult<HomeworkAssignmentRow[]> {
+): UseQueryResult<HomeworkRow[]> {
   return useQuery({
     queryKey: ["homework", classId, options.limit],
     queryFn: async () => {
       if (!classId || !supabase) return [];
+      // Canonical `homework` table (migration 0029) — written by the desktop
+      // homework-push flow and the Android sync dispatcher.
       let q = supabase
-        .from("homework_assignments")
+        .from("homework")
         .select("*")
-        .eq("target_class_id", classId)
+        .eq("class_id", classId)
         .order("due_date", { ascending: true });
       if (options.limit) q = q.limit(options.limit);
       const { data, error } = await q;
       if (error) throw error;
-      return (data ?? []) as HomeworkAssignmentRow[];
+      return (data ?? []) as unknown as HomeworkRow[];
     },
     enabled: Boolean(classId),
   });
@@ -296,15 +307,44 @@ export function useAccountAdjustments(
     queryKey: ["adjustments", parentId, options.limit],
     queryFn: async () => {
       if (!parentId || !supabase) return [];
+      // `performed_at` is the real column (migration 0007) — the previous
+      // `applied_at` ordering caused a PostgREST 400 on every load.
       let q = supabase
         .from("account_adjustments")
         .select("*")
         .eq("parent_id", parentId)
-        .order("applied_at", { ascending: false });
+        .order("performed_at", { ascending: false });
       if (options.limit) q = q.limit(options.limit);
       const { data, error } = await q;
       if (error) throw error;
       return (data ?? []) as AccountAdjustmentRow[];
+    },
+    enabled: Boolean(parentId),
+  });
+}
+
+/**
+ * Ledger entries for a parent — the canonical source the portal replays to
+ * compute balances (INV-1: balances are NEVER stored, always replayed).
+ * RLS allows parents to SELECT their own entries (migration 0019).
+ */
+export function useLedgerEntries(
+  parentId: string | null | undefined,
+  options: { limit?: number } = {}
+): UseQueryResult<LedgerEntryRow[]> {
+  return useQuery({
+    queryKey: ["ledger-entries", parentId, options.limit],
+    queryFn: async () => {
+      if (!parentId || !supabase) return [];
+      let q = supabase
+        .from("ledger_entries")
+        .select("*")
+        .eq("parent_id", parentId)
+        .order("at", { ascending: true });
+      if (options.limit) q = q.limit(options.limit);
+      const { data, error } = await q;
+      if (error) throw error;
+      return (data ?? []) as unknown as LedgerEntryRow[];
     },
     enabled: Boolean(parentId),
   });

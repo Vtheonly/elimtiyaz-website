@@ -210,10 +210,15 @@ export interface StudentRow {
 // Financial
 // ============================================================================
 
+/**
+ * Canonical payments shape — 0007 + 0027 (receipt_number, category) +
+ * 0033 (expected/excess) + 0034 (8-value status check).
+ */
 export interface PaymentRow {
   id: string;
   tenant_id: string;
   payment_number: string;
+  receipt_number: string | null;
   parent_id: string;
   student_id: string | null;
   invoice_id: string | null;
@@ -227,7 +232,22 @@ export interface PaymentRow {
   transfer_reference: string | null;
   transfer_source_bank: string | null;
   proof_path: string | null;
-  status: "paid" | "pending" | "unpaid" | "refunded" | "cancelled";
+  status:
+    | "paid"
+    | "pending"
+    | "unpaid"
+    | "partial"
+    | "overdue"
+    | "refunded"
+    | "cancelled"
+    | "pending_clearance";
+  /** Billable category (denormalized) — migration 0027. */
+  category: string | null;
+  /** UI-display-only overpayment hints (0033). Canonical tracking is the
+   *  parent_credit ledger account (Invariant 7) — never this column. */
+  expected_amount: number | null;
+  excess_amount: number | null;
+  excess_remark: string | null;
   collected_at: string;
   collected_by: string | null;
   notes: string | null;
@@ -236,6 +256,13 @@ export interface PaymentRow {
   updated_at: string;
 }
 
+/**
+ * Canonical installments shape — mirrors the real backend chain:
+ * 0007 (base) + 0026 (amount_pending, payment_plan) + 0032 (label,
+ * category, source_type, source_id) + 0034 (status check incl.
+ * pending_clearance). Verified against the live schema by the
+ * cross-platform equivalence suite.
+ */
 export interface InstallmentRow {
   id: string;
   tenant_id: string;
@@ -246,32 +273,50 @@ export interface InstallmentRow {
   tranche_number: 1 | 2 | 3;
   amount_due: number;
   amount_paid: number;
+  /** Uncleared non-cash funds sitting on this tranche (Invariant 4). */
+  amount_pending: number;
   due_date: string;
   paid_date: string | null;
-  status: "unpaid" | "partial" | "paid" | "overdue";
+  status: "unpaid" | "partial" | "paid" | "overdue" | "pending" | "pending_clearance";
   academic_cycle: "primaire" | "cem" | "lycee" | "prescolaire" | null;
+  payment_plan: "full_annual" | "tranches";
   is_custom_schedule: boolean;
   custom_schedule_note: string | null;
+  /** Human-readable tranche label ("Tranche 1"...) — migration 0032. */
+  label: string | null;
+  /** Billable category (denormalized) — migration 0032. */
+  category: string | null;
   created_at: string;
   updated_at: string;
 }
 
+/**
+ * Canonical ledger entry shape — 0007 + 0027 unified ledger
+ * (entry_number text PK, source_type/source_id, method, receipt_number,
+ * payment_status, reverses_id, actor fields, at, metadata).
+ * The canonical engine replays these rows to compute balances (INV-1).
+ */
 export interface LedgerEntryRow {
-  id: string;
-  tenant_id: string;
+  id: string | null;
   entry_number: string;
+  tenant_id: string;
+  account_id: string;
   parent_id: string;
   student_id: string | null;
-  service_enrollment_id: string | null;
-  payment_id: string | null;
-  adjustment_id: string | null;
-  reverses_entry_id: string | null;
-  account_id: string;
-  entry_type: "charge" | "payment" | "adjustment" | "refund" | "reversal" | "transfer";
-  amount: number;
   category: string;
+  amount: number;
+  entry_type: "charge" | "payment" | "adjustment" | "refund" | "reversal" | "transfer";
+  source_type: string | null;
+  source_id: string | null;
+  method: string | null;
+  receipt_number: string | null;
+  payment_status: string | null;
+  reverses_id: string | null;
   description: string | null;
-  entry_date: string;
+  actor_id: string | null;
+  actor_name: string | null;
+  at: string;
+  metadata: unknown;
   created_at: string;
 }
 
@@ -401,7 +446,9 @@ export interface InvoiceRow {
   parent_id: string;
   student_id: string | null;
   invoice_number: string;
-  invoice_date: string;
+  /** Canonical column name (migration 0007) — previously mis-typed as
+   *  `invoice_date`, which does not exist on the invoices table. */
+  issue_date: string;
   due_date: string;
   amount: number;
   paid_amount: number;
@@ -507,6 +554,32 @@ export interface AttendanceRecordRow {
   updated_at: string;
 }
 
+/**
+ * Canonical homework shape — migration 0029 `homework` table. This is the
+ * table BOTH the desktop homework-push flow and the Android sync dispatcher
+ * write to (the legacy 0004 `homework_assignments` table is no longer
+ * written by any platform — reading it left the portal's homework feed
+ * permanently empty).
+ */
+export interface HomeworkRow {
+  id: string;
+  tenant_id: string;
+  class_id: string;
+  subject_id: string;
+  subject_name: string;
+  teacher_id: string;
+  teacher_name: string;
+  title: string;
+  description: string;
+  due_date: string;
+  /** JSONB array of storage paths under bucket `homework-attachments`. */
+  attachments: string[] | null;
+  academic_year: string;
+  created_at: string;
+  pushed_at: string | null;
+  acknowledged_count: number;
+}
+
 export interface HomeworkAssignmentRow {
   id: string;
   tenant_id: string;
@@ -522,16 +595,35 @@ export interface HomeworkAssignmentRow {
   // is_locked is computed at query time: (due_date < current_date)
 }
 
+/**
+ * Canonical assessment shape — 0004 base + 0029 academic-module columns
+ * (student_id, subject_id, class_id, academic_year, devoir1/devoir2/examen,
+ * subject_average, coefficient). This is the table ALL platforms write
+ * grade entries to (desktop upsert, Android sync push) and the portal reads.
+ */
 export interface AssessmentRow {
   id: string;
   tenant_id: string;
-  class_subject_id: string;
-  term: 1 | 2 | 3;
-  kind: "devoir_1" | "devoir_2" | "examen";
+  class_subject_id: string | null;
+  term: number;
+  kind: "devoir_1" | "devoir_2" | "examen" | null;
   label: string | null;
   max_score: number;
   weight: number;
-  date: string | null;
+  scheduled_at: string | null;
+  student_id: string | null;
+  class_id: string | null;
+  subject_id: string | null;
+  academic_year: string | null;
+  devoir1: number | null;
+  devoir2: number | null;
+  examen: number | null;
+  /** (D1×c1 + D2×c2 + Ex×c3)/(c1+c2+c3) — computed by the backend trigger
+   *  (migration 0041) and/or the canonical engine on each platform. */
+  subject_average: number | null;
+  coefficient: number;
+  entered_by: string | null;
+  entered_at: string;
   created_at: string;
   updated_at: string;
 }
@@ -640,9 +732,12 @@ export interface ClassSubjectRow {
 export interface DeviceTokenRow {
   id: string;
   tenant_id: string | null;
-  user_profile_id: string;
+  /** Canonical column (migration 0027 + 0037 RLS) — the portal previously
+   *  typed a nonexistent `user_profile_id` column (schema drift, fixed). */
+  user_id: string;
   token: string;
   platform: "web" | "android" | "ios";
+  app_version: string | null;
   user_agent: string | null;
   is_active: boolean;
   last_seen_at: string;
@@ -797,9 +892,90 @@ export interface Database {
         };
         Returns: string;
       };
-      compute_account_balance: { Args: { p_account_id: string }; Returns: number };
-      compute_parent_outstanding: { Args: { p_parent_id: string }; Returns: number };
-      compute_overdue_amount: { Args: { p_parent_id: string; p_as_of?: string }; Returns: number };
+      // ── Canonical financial RPCs (migration 0034 + 0040). The legacy
+      //    collect_payment / refund_payment / run_overdue_scan / 1-arg
+      //    compute_account_balance overloads were DROPPED by 0034/0035 —
+      //    typed here as the canonical set every platform calls.
+      collect_and_allocate_payment: {
+        Args: {
+          p_tenant_id: string;
+          p_parent_id: string;
+          p_student_id: string | null;
+          p_amount: number;
+          p_method: string;
+          p_category: string;
+          p_installment_id: string | null;
+          p_proof_path: string | null;
+          p_notes: string | null;
+          p_actor_id: string | null;
+          p_actor_name: string;
+          p_check_number?: string | null;
+          p_check_bank_name?: string | null;
+          p_check_issue_date?: string | null;
+          p_check_clearance_date?: string | null;
+          p_transfer_reference?: string | null;
+          p_transfer_source_bank?: string | null;
+        };
+        Returns: {
+          payment_id: string;
+          receipt_number: string;
+          payment_status: string;
+          total_allocated: number;
+          unallocated_credit: number;
+          allocations: unknown;
+        }[];
+      };
+      revert_payment_allocation: {
+        Args: {
+          p_tenant_id: string;
+          p_payment_id: string;
+          p_actor_id: string;
+          p_actor_name: string;
+          p_reason: string;
+        };
+        Returns: {
+          payment_id: string;
+          new_status: string;
+          reversal_entry_id: string;
+          reverts_count: number;
+          total_reverted: number;
+        }[];
+      };
+      mark_payment_cleared: {
+        Args: { p_tenant_id: string; p_payment_id: string; p_actor_id: string; p_actor_name?: string };
+        Returns: { payment_id: string; payment_status: string; cleared_installments: number; total_cleared: number }[];
+      };
+      mark_payment_bounced: {
+        Args: { p_tenant_id: string; p_payment_id: string; p_reason: string; p_actor_id: string; p_actor_name?: string };
+        Returns: { payment_id: string; payment_status: string; reverted_installments: number; total_reverted: number }[];
+      };
+      /** THE single source of truth for parent totals (INV-10). */
+      compute_parent_summary: {
+        Args: { p_parent_id: string; p_as_of?: string };
+        Returns: {
+          parent_id: string;
+          total_outstanding: number;
+          total_overdue: number;
+          total_charged: number;
+          total_paid: number;
+          total_adjusted: number;
+          total_refunded: number;
+          total_cleared: number;
+          total_pending: number;
+          total_unallocated_credit: number;
+          account_count: number;
+          accounts: unknown;
+        }[];
+      };
+      compute_account_balance: {
+        Args: { p_account_id: string; p_as_of?: string };
+        Returns: number[];
+      };
+      register_fcm_token: { Args: { p_user_id: string; p_token: string; p_platform?: string }; Returns: string };
+      fn_calculate_student_term_gpa: {
+        Args: { p_student_id: string; p_term: string; p_academic_year: string };
+        Returns: number;
+      };
       generate_activation_code: { Args: { p_tenant_id: string }; Returns: string };
       bind_activation_code: { Args: { p_tenant_id: string; p_code: string; p_auth_user_id: string }; Returns: unknown };
       approve_account_request: {
@@ -826,16 +1002,7 @@ export interface Database {
         };
         Returns: unknown;
       };
-      collect_payment: {
-        Args: Record<string, unknown>;
-        Returns: unknown;
-      };
-      refund_payment: {
-        Args: { p_tenant_id: string; p_payment_id: string; p_actor_profile_id: string; p_reason: string };
-        Returns: string;
-      };
-      run_overdue_scan: { Args: { p_tenant_id: string; p_as_of?: string }; Returns: unknown };
-      expire_pending_approvals: { Args: Record<string, never>; Returns: number };
+      expire_pending_approvals: { Args: Record<string, never>; Returns: unknown };
       refresh_all_materialized_views: { Args: Record<string, never>; Returns: void };
     };
   };

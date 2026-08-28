@@ -23,6 +23,7 @@ import { AlertCircle, GraduationCap, ShieldCheck, FlaskConical } from "lucide-re
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { useState } from "react";
+import { isMockAuthEnabled } from "@/lib/env";
 
 export function LoginScreen() {
   const { signInWithGoogle, signInWithMock, configured, error } = useAuth();
@@ -96,17 +97,22 @@ export function LoginScreen() {
             </div>
           )}
 
-          {/* ─── TEMPORARY: Direct Admin Entry (testing only) ─────────────── */}
-          <Button
-            onClick={handleMockSignIn}
-            disabled={mockBusy}
-            className="w-full touch-target"
-            size="lg"
-            variant="default"
-          >
-            <FlaskConical className="mr-2 h-5 w-5" />
-            {t("auth.signin.mock")}
-          </Button>
+          {/* ─── TEMPORARY: Direct Admin Entry (testing only) ───────────────
+           * SECURITY: rendered ONLY when NEXT_PUBLIC_MOCK_AUTH_ENABLED === "true"
+           * (explicit opt-in). The previous build shipped the mock-admin bypass
+           * unconditionally on the production login screen. */}
+          {isMockAuthEnabled && (
+            <Button
+              onClick={handleMockSignIn}
+              disabled={mockBusy}
+              className="w-full touch-target"
+              size="lg"
+              variant="default"
+            >
+              <FlaskConical className="mr-2 h-5 w-5" />
+              {t("auth.signin.mock")}
+            </Button>
+          )}
 
           <p className="mt-2 text-center text-[11px] text-muted-foreground">
             {t("auth.signin.mockHint")}
