@@ -25,10 +25,6 @@ const envSchema = z.object({
   NEXT_PUBLIC_FIREBASE_VAPID_KEY: z.string().default(""),
   NEXT_PUBLIC_APP_NAME: z.string().default("El-Imtiyaz Portal"),
   NEXT_PUBLIC_DEFAULT_LOCALE: z.enum(["fr", "ar", "en"]).default("fr"),
-  // ─── TEMPORARY MOCK AUTH ───────────────────────────────────────────────
-  // When "true", enables the mock administrator login for development/testing.
-  // MUST be unset or "false" in production. See src/lib/auth/mock-auth.ts.
-  NEXT_PUBLIC_MOCK_AUTH_ENABLED: z.string().default(""),
 });
 
 export type Env = z.infer<typeof envSchema>;
@@ -59,7 +55,6 @@ const parsed = envSchema.safeParse({
   NEXT_PUBLIC_FIREBASE_VAPID_KEY: process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY ?? "",
   NEXT_PUBLIC_APP_NAME: process.env.NEXT_PUBLIC_APP_NAME ?? "",
   NEXT_PUBLIC_DEFAULT_LOCALE: process.env.NEXT_PUBLIC_DEFAULT_LOCALE ?? "",
-  NEXT_PUBLIC_MOCK_AUTH_ENABLED: process.env.NEXT_PUBLIC_MOCK_AUTH_ENABLED ?? "",
 });
 
 export const env: Env = parsed.success
@@ -76,25 +71,11 @@ export const isFcmConfigured =
   !isPlaceholder(env.NEXT_PUBLIC_FIREBASE_APP_ID) &&
   !isPlaceholder(env.NEXT_PUBLIC_FIREBASE_VAPID_KEY);
 
-// ─── TEMPORARY MOCK AUTH ───────────────────────────────────────────────────
-// Feature flag for the mock administrator login.
-//   - ENABLED by default in ALL environments (temporary testing phase)
-//   - Set NEXT_PUBLIC_MOCK_AUTH_ENABLED=false to disable
-// This ensures the mock login is always available during development/testing
-// without requiring any .env.local configuration. See src/lib/auth/mock-auth.ts.
-/**
- * Mock admin auth is OPT-IN: it only activates when
- * NEXT_PUBLIC_MOCK_AUTH_ENABLED === "true". The previous default-on behavior
- * shipped a staff-grade bypass on the production login screen.
- */
-export const isMockAuthEnabled = env.NEXT_PUBLIC_MOCK_AUTH_ENABLED === "true";
-
-if (isMockAuthEnabled) {
-  console.warn(
-    "[env] ⚠️  Mock administrator login is ACTIVE (temporary testing feature). " +
-      "Set NEXT_PUBLIC_MOCK_AUTH_ENABLED=false to disable. See src/lib/auth/mock-auth.ts."
-  );
-}
+// NOTE (SEC-007 / task T-009, 2026-08-29): the NEXT_PUBLIC_MOCK_AUTH_ENABLED
+// flag and isMockAuthEnabled export were REMOVED together with the entire
+// mock-auth system. A feature flag may gate UI, but never an authentication
+// bypass — the old flag gated only the button while the underlying session
+// hydration ran unconditionally.
 
 if (!isSupabaseConfigured) {
   console.warn(

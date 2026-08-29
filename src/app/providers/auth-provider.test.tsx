@@ -15,7 +15,7 @@
  *      (signInWithMock / isMockSession).
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, waitFor } from "@testing-library/react";
+import { renderHook, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
 
 // The Supabase client is fully mocked: getUser reports no real session, so the
@@ -38,19 +38,15 @@ vi.mock("next/navigation", () => ({
 
 import { AuthProvider, useAuth } from "./auth-provider";
 
-/** Captures the live auth context value for assertions. */
-let ctx: ReturnType<typeof useAuth> | null = null;
-function Probe() {
-  ctx = useAuth();
-  return null;
-}
-
-function renderAuthProvider(children?: ReactNode) {
-  return render(<AuthProvider>{children ?? <Probe />}</AuthProvider>);
+/** Render useAuth() inside the AuthProvider, as the app does. */
+function renderAuth() {
+  const wrapper = ({ children }: { children: ReactNode }) => (
+    <AuthProvider>{children}</AuthProvider>
+  );
+  return renderHook(() => useAuth(), { wrapper });
 }
 
 beforeEach(() => {
-  ctx = null;
   localStorage.clear();
 });
 
@@ -70,26 +66,28 @@ describe("SEC-007 — mock-auth removal (T-009)", () => {
       })
     );
 
-    renderAuthProvider();
+    const { result } = renderAuth();
 
     // Wait for the initial "loading" state to settle.
     await waitFor(() => {
-      expect(ctx).not.toBeNull();
-      expect(ctx!.state).not.toBe("loading");
+      expect(result.current.state).not.toBe("loading");
     });
 
     // The planted key must NOT hydrate a session: no active state, no user.
-    expect(ctx!.state).toBe("unauthenticated");
-    expect(ctx!.user).toBeNull();
-    expect(ctx!.parent).toBeNull();
-    expect(ctx!.children).toEqual([]);
+    expect(result.current.state).toBe("unauthenticated");
+    expect(result.current.user).toBeNull();
+    expect(result.current.parent).toBeNull();
+    expect(result.current.children).toEqual([]);
   });
 
-  it("exposes no mock-auth API on the auth context", () => {
-    renderAuthProvider();
+  it("exposes no mock-auth API on the auth context", async () => {
+    const { result } = renderAuth();
 
-    expect(ctx).not.toBeNull();
-    const value = ctx as unknown as Record<string, unknown>;
+    await waitFor(() => {
+      expect(result.current.state).not.toBe("loading");
+    });
+
+    const value = result.current as unknown as Record<string, unknown>;
     expect(value["signInWithMock"]).toBeUndefined();
     expect(value["isMockSession"]).toBeUndefined();
     // The real OAuth path must still be exposed.
@@ -98,13 +96,13 @@ describe("SEC-007 — mock-auth removal (T-009)", () => {
   });
 
   it("with no localStorage key and no Supabase session, state is unauthenticated", async () => {
-    renderAuthProvider();
+    const { result } = renderAuth();
 
     await waitFor(() => {
-      expect(ctx!.state).not.toBe("loading");
+      expect(result.current.state).not.toBe("loading");
     });
 
-    expect(ctx!.state).toBe("unauthenticated");
-    expect(ctx!.user).toBeNull();
+    expect(result.current.state).toBe("unauthenticated");
+    expect(result.current.user).toBeNull();
   });
 });

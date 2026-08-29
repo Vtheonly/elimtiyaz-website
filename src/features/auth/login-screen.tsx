@@ -3,33 +3,23 @@
 /**
  * LoginScreen — the only public surface of the portal.
  *
- * ─── TEMPORARY MOCK AUTH (DEVELOPMENT & TESTING ONLY) ──────────────────────
- * During the testing phase, a direct "Admin" entry is ALWAYS shown on the
- * login screen so developers and testers can enter the application instantly
- * with full administrator permissions — no Google OAuth, no Supabase, no
- * activation flow required.
- *
- * This is a TEMPORARY shortcut for development/testing only and MUST be
- * removed once the production authentication (Google via Supabase) is fully
- * implemented.
- *
- * To disable during this testing phase, set NEXT_PUBLIC_MOCK_AUTH_ENABLED=false
- * in .env.local. See src/lib/auth/mock-auth.ts.
+ * Google OAuth via Supabase is the ONLY authentication path. The mock-admin
+ * login ("Admin" button + localStorage session) was removed by task T-009
+ * (SEC-007): it hydrated a staff-grade session from a planted localStorage
+ * key with no authentication at all. Do not reintroduce mock auth here.
  */
 
 import { useAuth } from "@/app/providers/auth-provider";
 import { useT } from "@/lib/i18n/use-t";
-import { AlertCircle, GraduationCap, ShieldCheck, FlaskConical } from "lucide-react";
+import { AlertCircle, GraduationCap, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { useState } from "react";
-import { isMockAuthEnabled } from "@/lib/env";
 
 export function LoginScreen() {
-  const { signInWithGoogle, signInWithMock, configured, error } = useAuth();
+  const { signInWithGoogle, configured, error } = useAuth();
   const { t } = useT();
   const [busy, setBusy] = useState(false);
-  const [mockBusy, setMockBusy] = useState(false);
 
   const handleSignIn = async () => {
     setBusy(true);
@@ -38,15 +28,6 @@ export function LoginScreen() {
     } finally {
       // OAuth redirect takes time; reset only if we didn't redirect.
       setTimeout(() => setBusy(false), 3000);
-    }
-  };
-
-  const handleMockSignIn = async () => {
-    setMockBusy(true);
-    try {
-      await signInWithMock();
-    } finally {
-      setMockBusy(false);
     }
   };
 
@@ -96,33 +77,6 @@ export function LoginScreen() {
               <p className="text-destructive-foreground">{error}</p>
             </div>
           )}
-
-          {/* ─── TEMPORARY: Direct Admin Entry (testing only) ───────────────
-           * SECURITY: rendered ONLY when NEXT_PUBLIC_MOCK_AUTH_ENABLED === "true"
-           * (explicit opt-in). The previous build shipped the mock-admin bypass
-           * unconditionally on the production login screen. */}
-          {isMockAuthEnabled && (
-            <Button
-              onClick={handleMockSignIn}
-              disabled={mockBusy}
-              className="w-full touch-target"
-              size="lg"
-              variant="default"
-            >
-              <FlaskConical className="mr-2 h-5 w-5" />
-              {t("auth.signin.mock")}
-            </Button>
-          )}
-
-          <p className="mt-2 text-center text-[11px] text-muted-foreground">
-            {t("auth.signin.mockHint")}
-          </p>
-
-          <div className="my-4 flex items-center gap-3">
-            <div className="h-px flex-1 bg-border" />
-            <span className="text-xs text-muted-foreground">{t("auth.signin.or")}</span>
-            <div className="h-px flex-1 bg-border" />
-          </div>
 
           <Button
             onClick={handleSignIn}
