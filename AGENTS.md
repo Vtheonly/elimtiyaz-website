@@ -41,7 +41,7 @@ supabase/
 ## 4. Before changing anything (mandatory)
 
 1. Read the hub `AGENTS.md` and the relevant hub docs (source-of-truth registry first).
-2. Read your task in `AgentGithubUplaod/docs/recovery/task-registry.md` and its problem entries (this repo owns: SEC-007/008, CROSS-009/101, WEAK-016/017/018/019/020/022/023, DEAD-012/013/014, DRIFT-009/010, ARCH-005, CACHE-100, REALTIME-100…103, NOTIF-103, PUSH-103, SYNC-105, ATT-101, GRADE-101-family …).
+2. Read your task in `AgentGithubUplaod/docs/recovery/task-registry.md` and its problem entries (this repo owns: SEC-007/008, CROSS-009/101, WEAK-016/017/018/019/020/022/023, DEAD-012/013/014, DRIFT-009/010, ARCH-005, CACHE-100, REALTIME-100…103, NOTIF-103, PUSH-103, SYNC-105, ATT-101, GRADE-101-family …). When you need the full end-to-end trace or git forensics behind a problem ID, read the raw finding in `AgentGithubUplaod/docs/audits/` (read-only archive; see its README for ID-mapping rules).
 3. Search this repo AND the hub repo for existing implementations; check whether the desktop already solves it (canonical engine, repository patterns).
 4. Check `AgentGithubUplaod/docs/recovery/unknowns.md` for anything your change depends on (UNKNOWN-001 blocks the activation EF consolidation; UNKNOWN-004 blocks the receipt feature; UNKNOWN-005 blocks chat).
 5. Follow the hub's workflow (`docs/agents/workflow.md`) and commit standard (`docs/agents/git-workflow.md`).
@@ -63,7 +63,11 @@ supabase/
 4. Update the hub registries (problem status, task status, change-log) and commit per the git standard.
 5. Never claim VERIFIED without evidence — see `AgentGithubUplaod/docs/recovery/definition-of-done.md`.
 
-## 7. Verification commands (quick reference)
+## 7. Commit rule (applies to every commit in this repo)
+
+Every commit body must answer five questions (hub `AGENTS.md` §14, full template in `AgentGithubUplaod/docs/agents/git-workflow.md`): **which task was completed** (`Task:` — T-ID + status reached) · **what is left** (`Left:`) · **what was changed** (`Change:` + `Preserved:`) · **what was verified** (`Verified:` — real commands and real results, e.g. `npm run test` with the test count) · **the next task** (`Next:` — T-ID + one-line reason). The commit records progress for the next agent, not just the change for git.
+
+## 8. Verification commands (quick reference)
 
 ```bash
 npm run lint          # eslint
@@ -71,7 +75,7 @@ npm run test          # vitest (87 tests; setup file gap = DEAD-012)
 npm run build         # next build (strict after T-049)
 ```
 
-## 8. Forbidden in this repository
+## 9. Forbidden in this repository
 
 - Any financial write path (the portal is read-mostly by design).
 - Restoring or extending mock-auth in any form.
