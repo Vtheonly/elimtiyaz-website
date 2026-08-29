@@ -478,6 +478,16 @@ export function useChatMessages(
  * A message is unread when its `read_by` jsonb array does NOT contain an
  * entry with `user_id = current_user`.
  *
+ * Accuracy note (WEAK-023, T-065): the query fetches the latest 500
+ * `chat_messages` rows TOTAL (ordered by `sent_at` desc — NOT "200 per
+ * channel" as a stale comment once claimed), relying on RLS to expose only
+ * channels the user is a member of. The returned count is therefore a
+ * LOWER BOUND: if unread + read volume across all channels exceeds the
+ * 500-row window, older unread messages are not counted. An exact count
+ * would need a channel-scoped fetch or a server-side counter — deliberately
+ * deferred to the chat rework (T-032) while chat has no production writers
+ * (CHAT-103 / UNKNOWN-005).
+ *
  * The bottom-nav badge uses this instead of the previous (incorrect) count
  * from the `notifications` table.
  */
@@ -488,9 +498,10 @@ export function useUnreadChatCount(
     queryKey: ["chat-unread-count", userProfileId],
     queryFn: async () => {
       if (!userProfileId || !supabase) return 0;
-      // We fetch the latest 200 messages per channel via a single query —
-      // RLS limits this to channels the user is a member of. Then we count
-      // client-side how many have no read_by entry for this user.
+      // Latest 500 chat_messages TOTAL (RLS limits this to channels the
+      // user is a member of — there is no per-channel split; see the
+      // hook's accuracy note). Counted client-side: unread = authored by
+      // someone else AND no read_by entry for this user.
       const { data, error } = await supabase
         .from("chat_messages")
         .select("id, author_id, read_by, channel_id")

@@ -7,7 +7,7 @@
 The **parent web portal** of the El-Imtiyaz school-management system: Next.js 16 (App Router) + TanStack Query + Tailwind + PWA, hash-routed, talking directly to the shared Supabase backend (Google OAuth). It is **read-mostly**: parents view balances, installments, payments, attendance, homework, bulletins and notifications; the only writes are activation-code binding, absence-justification submission, notification read-state and FCM registration.
 
 - Build: `npm run build` (standalone output) · Dev: `npm run dev` (port 3000) · Tests: `npm run test` (vitest) · Lint: `npm run lint`
-- ⚠ The build currently ignores TypeScript errors (`next.config.ts`) — do not rely on "build green" as type safety (ARCH-005, fix T-049).
+- Build is STRICT since T-049 (2026-08-29): `ignoreBuildErrors: false` + `reactStrictMode: true`; `npm run build` runs TypeScript and must stay green. (ARCH-005 fixed — do not re-enable error ignoring.)
 
 ## 2. Repository map
 
@@ -20,8 +20,8 @@ src/
 │   ├── canonical/     # ported desktop canonical engine (read-side) consumed by portal-derive.ts
 │   ├── hooks/         # portal-queries.ts (all Supabase queries), use-realtime.ts (4 hooks),
 │   │                  #   fcm-registration.ts
-│   ├── auth/          # auth-provider.tsx  ⚠ mock-auth.ts removal pending (SEC-007, task T-009)
-│   ├── types/         # database.ts typed schema  ⚠ missing canonical `homework` table (WEAK-017)
+│   ├── auth/          # auth-provider.tsx (mock-auth.ts REMOVED 2026-08-29, SEC-007/T-009 — Google OAuth is the only auth path)
+│   ├── types/         # database.ts typed schema (strict: 38 row type aliases + Relationships since T-049)
 │   ├── bulletin.ts    # report-card PDF generation
 │   └── supabase/      # client + middleware helpers
 ├── components/, public/, middleware.ts
@@ -36,7 +36,7 @@ supabase/
 - All money/KPI computations must go through `src/lib/canonical/` + `portal-derive.ts` (the ported canonical engine) — never inline formulas. Known inline-formula defects to avoid repeating: dashboard remaining-amount (WEAK-018), attendance rate (WEAK-019 family), 500-entry ledger cap (WEAK-022).
 - Realtime freshness depends on 4 hooks in `use-realtime.ts` — 2 are currently broken (homework subscribes to the dead legacy table; notifications filter misses role-broadcasts) and the global query config has no fallback (CACHE-100). Fix tasks: T-032/T-033.
 - The chat MessagesView is **permanently empty** — no production code anywhere creates `chat_channels` (CHAT-103). Do not "fix" the UI before the product decision (UNKNOWN-005).
-- The mock-admin authentication system is still wired (SEC-007) — removal is task T-009; until then, do not add features that trust the mock session.
+- The mock-admin authentication system was REMOVED 2026-08-29 (SEC-007 fixed by T-009): Google OAuth is the only auth path; a planted `mock-auth-session` key yields no session (regression-tested). Do not re-introduce any client-side mock auth.
 
 ## 4. Before changing anything (mandatory)
 

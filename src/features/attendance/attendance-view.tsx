@@ -3,9 +3,14 @@
 /**
  * AttendanceView — absence and tardiness history for the active student.
  *
- * Per platform matrix: portal = "View Own" (read-only).
- * The portal CANNOT submit justifications — that's a desktop workflow. We
- * only display the justification status (uploaded by staff or pending).
+ * DRIFT-010 accuracy note (T-065): the portal is NOT read-only for
+ * justifications. It (a) DISPLAYS the 4-state justification status
+ * (none / pending / submitted / rejected — staff uploads included), and
+ * (b) SUBMITS justifications: for any non-present record with status
+ * "none" the parent gets a "Justifier cette absence" button opening
+ * AbsenceJustificationDialog, which uploads the file to the
+ * `attendance-justifications` storage bucket and updates the
+ * `attendance_records` justification fields directly.
  */
 
 import { useAuth } from "@/app/providers/auth-provider";
