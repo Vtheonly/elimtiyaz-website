@@ -40,7 +40,10 @@ import { printBulletin } from "@/lib/bulletin";
 import { toast } from "sonner";
 import type { GradeRow } from "@/lib/types/database";
 
-type Term = 1 | 2 | 3;
+// T-049: Radix Tabs is string-keyed — onValueChange always delivers
+// strings ("1" | "2" | "3"), so the filter state is a string union. The
+// old numeric `Term = 1 | 2 | 3` described a state that never existed.
+type TermFilter = "all" | "1" | "2" | "3";
 
 export function AcademicView() {
   const { t } = useT();
@@ -53,7 +56,7 @@ export function AcademicView() {
   const attendance = useAttendanceForStudent(activeKid?.id ?? null, { limit: 500 });
   const levels = useAcademicLevels();
 
-  const [activeTerm, setActiveTerm] = useState<Term | "all">("all");
+  const [activeTerm, setActiveTerm] = useState<TermFilter>("all");
 
   const handleDownloadBulletin = () => {
     if (!activeKid) {
@@ -194,7 +197,7 @@ export function AcademicView() {
       )}
 
       {/* Term filter */}
-      <Tabs value={activeTerm} onValueChange={(v) => setActiveTerm(v as Term | "all")}>
+      <Tabs value={activeTerm} onValueChange={(v) => setActiveTerm(v as TermFilter)}>
         <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="all">Toutes</TabsTrigger>
           <TabsTrigger value="1">T1</TabsTrigger>

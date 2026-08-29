@@ -10,7 +10,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
-    "icons:generate": "python3 /home/z/my-project/scripts/generate-pwa-icons.py"
+    "icons:generate": "python3 ./scripts/generate-pwa-icons.py"
   },
   "dependencies": {
     "@radix-ui/react-alert-dialog": "^1.1.14",

@@ -12,7 +12,7 @@
 // Multi-tenant + RBAC
 // ============================================================================
 
-export interface TenantRow {
+export type TenantRow = {
   id: string;
   slug: string;
   name: string;
@@ -36,7 +36,7 @@ export interface TenantRow {
   deleted_at: string | null;
 }
 
-export interface UserProfileRow {
+export type UserProfileRow = {
   id: string;
   auth_user_id: string;
   tenant_id: string | null;
@@ -57,7 +57,7 @@ export interface UserProfileRow {
   updated_at: string;
 }
 
-export interface AccountApprovalRequestRow {
+export type AccountApprovalRequestRow = {
   id: string;
   tenant_id: string | null;
   auth_user_id: string;
@@ -80,7 +80,7 @@ export interface AccountApprovalRequestRow {
   expires_at: string;
 }
 
-export interface RoleRow {
+export type RoleRow = {
   id: string;
   code: string;
   label_fr: string;
@@ -93,7 +93,7 @@ export interface RoleRow {
   sort_order: number;
 }
 
-export interface PermissionRow {
+export type PermissionRow = {
   id: string;
   code: string;
   label_fr: string;
@@ -108,7 +108,7 @@ export interface PermissionRow {
 // Academic
 // ============================================================================
 
-export interface AcademicYearRow {
+export type AcademicYearRow = {
   id: string;
   tenant_id: string;
   label: string;
@@ -119,7 +119,7 @@ export interface AcademicYearRow {
   is_archived: boolean;
 }
 
-export interface AcademicLevelRow {
+export type AcademicLevelRow = {
   id: string;
   tenant_id: string;
   cycle: "prescolaire" | "primaire" | "cem" | "lycee";
@@ -130,7 +130,7 @@ export interface AcademicLevelRow {
   is_active: boolean;
 }
 
-export interface ClassRow {
+export type ClassRow = {
   id: string;
   tenant_id: string;
   academic_year_id: string;
@@ -144,7 +144,7 @@ export interface ClassRow {
   is_active: boolean;
 }
 
-export interface SubjectRow {
+export type SubjectRow = {
   id: string;
   tenant_id: string;
   code: string;
@@ -154,13 +154,20 @@ export interface SubjectRow {
   domain: "scolarite" | "club" | "therapy" | "auxiliary";
   default_coefficient: number;
   is_active: boolean;
+  // T-049 (ARCH-005 session): columns added by hub migration 0029
+  // (academics module) — the hand-written row type predated them, which
+  // made `Pick<SubjectRow, … "is_extracurricular" | "passing_grade">`
+  // in portal-queries.ts a type error once the build stopped ignoring
+  // type errors.
+  passing_grade: number;
+  is_extracurricular: boolean;
 }
 
 // ============================================================================
 // CRM
 // ============================================================================
 
-export interface ParentRow {
+export type ParentRow = {
   id: string;
   tenant_id: string;
   parent_code: string;
@@ -184,7 +191,7 @@ export interface ParentRow {
   deleted_at: string | null;
 }
 
-export interface StudentRow {
+export type StudentRow = {
   id: string;
   tenant_id: string;
   parent_id: string;
@@ -214,7 +221,7 @@ export interface StudentRow {
  * Canonical payments shape — 0007 + 0027 (receipt_number, category) +
  * 0033 (expected/excess) + 0034 (8-value status check).
  */
-export interface PaymentRow {
+export type PaymentRow = {
   id: string;
   tenant_id: string;
   payment_number: string;
@@ -263,7 +270,7 @@ export interface PaymentRow {
  * pending_clearance). Verified against the live schema by the
  * cross-platform equivalence suite.
  */
-export interface InstallmentRow {
+export type InstallmentRow = {
   id: string;
   tenant_id: string;
   parent_id: string;
@@ -296,7 +303,7 @@ export interface InstallmentRow {
  * payment_status, reverses_id, actor fields, at, metadata).
  * The canonical engine replays these rows to compute balances (INV-1).
  */
-export interface LedgerEntryRow {
+export type LedgerEntryRow = {
   id: string | null;
   entry_number: string;
   tenant_id: string;
@@ -324,7 +331,7 @@ export interface LedgerEntryRow {
 // Expenses + HR + Workforce + Operations + Workflow + Audit
 // ============================================================================
 
-export interface ExpenseTicketRow {
+export type ExpenseTicketRow = {
   id: string;
   tenant_id: string;
   ticket_number: string;
@@ -354,7 +361,7 @@ export interface ExpenseTicketRow {
   updated_at: string;
 }
 
-export interface PersonnelRow {
+export type PersonnelRow = {
   id: string;
   tenant_id: string;
   personnel_code: string;
@@ -389,7 +396,7 @@ export interface PersonnelRow {
   deleted_at: string | null;
 }
 
-export interface AuditLogRow {
+export type AuditLogRow = {
   id: string;
   tenant_id: string;
   action: string;
@@ -410,7 +417,7 @@ export interface AuditLogRow {
   created_at: string;
 }
 
-export interface NotificationRow {
+export type NotificationRow = {
   id: string;
   tenant_id: string;
   kind: "alert" | "info" | "warning" | "success" | "error" | "system";
@@ -440,7 +447,7 @@ export interface NotificationRow {
 // directly. They match the SQL schema 1:1.
 // ============================================================================
 
-export interface InvoiceRow {
+export type InvoiceRow = {
   id: string;
   tenant_id: string;
   parent_id: string;
@@ -459,7 +466,7 @@ export interface InvoiceRow {
   updated_at: string;
 }
 
-export interface ReceiptRow {
+export type ReceiptRow = {
   id: string;
   tenant_id: string;
   receipt_number: string;
@@ -474,7 +481,7 @@ export interface ReceiptRow {
   updated_at: string;
 }
 
-export interface ServiceEnrollmentRow {
+export type ServiceEnrollmentRow = {
   id: string;
   tenant_id: string;
   student_id: string;
@@ -506,7 +513,7 @@ export interface ServiceEnrollmentRow {
   updated_at: string;
 }
 
-export interface AccountAdjustmentRow {
+export type AccountAdjustmentRow = {
   id: string;
   tenant_id: string;
   parent_id: string | null;
@@ -533,7 +540,7 @@ export interface AccountAdjustmentRow {
   created_at: string;
 }
 
-export interface AttendanceRecordRow {
+export type AttendanceRecordRow = {
   id: string;
   tenant_id: string;
   student_id: string;
@@ -561,7 +568,7 @@ export interface AttendanceRecordRow {
  * written by any platform — reading it left the portal's homework feed
  * permanently empty).
  */
-export interface HomeworkRow {
+export type HomeworkRow = {
   id: string;
   tenant_id: string;
   class_id: string;
@@ -580,7 +587,7 @@ export interface HomeworkRow {
   acknowledged_count: number;
 }
 
-export interface HomeworkAssignmentRow {
+export type HomeworkAssignmentRow = {
   id: string;
   tenant_id: string;
   class_subject_id: string;
@@ -601,7 +608,7 @@ export interface HomeworkAssignmentRow {
  * subject_average, coefficient). This is the table ALL platforms write
  * grade entries to (desktop upsert, Android sync push) and the portal reads.
  */
-export interface AssessmentRow {
+export type AssessmentRow = {
   id: string;
   tenant_id: string;
   class_subject_id: string | null;
@@ -628,7 +635,7 @@ export interface AssessmentRow {
   updated_at: string;
 }
 
-export interface GradeRow {
+export type GradeRow = {
   id: string;
   tenant_id: string;
   student_id: string;
@@ -641,7 +648,7 @@ export interface GradeRow {
   updated_at: string;
 }
 
-export interface CalendarEventRow {
+export type CalendarEventRow = {
   id: string;
   tenant_id: string;
   // `kind` is the canonical column name in the database schema. The portal
@@ -671,7 +678,7 @@ export interface CalendarEventRow {
   updated_at: string;
 }
 
-export interface ChatChannelRow {
+export type ChatChannelRow = {
   id: string;
   tenant_id: string;
   code: string; // stable identifier, unique per tenant
@@ -684,20 +691,20 @@ export interface ChatChannelRow {
 }
 
 // A single entry inside chat_messages.read_by (jsonb array).
-export interface ChatMessageReadEntry {
+export type ChatMessageReadEntry = {
   user_id: string;
   read_at: string; // ISO timestamp
 }
 
 // A single attachment entry inside chat_messages.attachments (jsonb array).
-export interface ChatMessageAttachment {
+export type ChatMessageAttachment = {
   file_name: string;
   storage_path: string;
   mime_type: string | null;
   size_bytes: number | null;
 }
 
-export interface ChatMessageRow {
+export type ChatMessageRow = {
   id: string;
   tenant_id: string;
   channel_id: string;
@@ -713,7 +720,7 @@ export interface ChatMessageRow {
   created_at: string;
 }
 
-export interface ClassSubjectRow {
+export type ClassSubjectRow = {
   id: string;
   tenant_id: string;
   class_id: string;
@@ -729,7 +736,7 @@ export interface ClassSubjectRow {
 // Device tokens (FCM push) — migration 0025
 // ============================================================================
 
-export interface DeviceTokenRow {
+export type DeviceTokenRow = {
   id: string;
   tenant_id: string | null;
   /** Canonical column (migration 0027 + 0037 RLS) — the portal previously
@@ -760,7 +767,7 @@ export type NotificationCategory =
   | "account"
   | "system";
 
-export interface NotificationPreferenceRow {
+export type NotificationPreferenceRow = {
   id: string;
   tenant_id: string | null;
   user_profile_id: string;
@@ -784,16 +791,18 @@ export type StudentDocumentKind =
   | "report_card"
   | "other";
 
-export interface StudentDocumentRow {
+export type StudentDocumentRow = {
   id: string;
   tenant_id: string;
   student_id: string;
   kind: StudentDocumentKind;
   file_name: string;
   storage_path: string;
-  mime_type: string;
-  size_bytes: number;
-  uploaded_by: string;
+  // T-049: nullable per the canonical 0005_crm.sql definition
+  // (mime_type text, size_bytes bigint, uploaded_by uuid — all nullable).
+  mime_type: string | null;
+  size_bytes: number | null;
+  uploaded_by: string | null;
   uploaded_at: string;
   description: string | null;
   created_at: string;
@@ -804,7 +813,7 @@ export interface StudentDocumentRow {
 // Activation codes (migration 0005) — Path A self-service activation
 // ============================================================================
 
-export interface ActivationCodeRow {
+export type ActivationCodeRow = {
   id: string;
   tenant_id: string;
   code: string;
@@ -819,52 +828,76 @@ export interface ActivationCodeRow {
 }
 
 // ============================================================================
+// Views
+// ============================================================================
+
+// T-049: declared as a TYPE ALIAS — see the vw_audit_log_with_actor entry
+// in the Database interface below for why (postgrest-js 2.x GenericView
+// requires an index-signature-compatible Row).
+export type VwAuditLogWithActorRow = AuditLogRow & {
+  actor_email: string | null;
+  actor_display_name: string | null;
+};
+
+// ============================================================================
 // Convenience type: the Database shape expected by Supabase's typed client
 // ============================================================================
 
-export interface Database {
+export type Database = {
   public: {
     Tables: {
-      tenants: { Row: TenantRow; Insert: Partial<TenantRow>; Update: Partial<TenantRow> };
-      user_profiles: { Row: UserProfileRow; Insert: Partial<UserProfileRow>; Update: Partial<UserProfileRow> };
-      account_approval_requests: { Row: AccountApprovalRequestRow; Insert: Partial<AccountApprovalRequestRow>; Update: Partial<AccountApprovalRequestRow> };
-      roles: { Row: RoleRow; Insert: Partial<RoleRow>; Update: Partial<RoleRow> };
-      permissions: { Row: PermissionRow; Insert: Partial<PermissionRow>; Update: Partial<PermissionRow> };
-      academic_years: { Row: AcademicYearRow; Insert: Partial<AcademicYearRow>; Update: Partial<AcademicYearRow> };
-      academic_levels: { Row: AcademicLevelRow; Insert: Partial<AcademicLevelRow>; Update: Partial<AcademicLevelRow> };
-      classes: { Row: ClassRow; Insert: Partial<ClassRow>; Update: Partial<ClassRow> };
-      subjects: { Row: SubjectRow; Insert: Partial<SubjectRow>; Update: Partial<SubjectRow> };
-      parents: { Row: ParentRow; Insert: Partial<ParentRow>; Update: Partial<ParentRow> };
-      students: { Row: StudentRow; Insert: Partial<StudentRow>; Update: Partial<StudentRow> };
-      payments: { Row: PaymentRow; Insert: Partial<PaymentRow>; Update: Partial<PaymentRow> };
-      installments: { Row: InstallmentRow; Insert: Partial<InstallmentRow>; Update: Partial<InstallmentRow> };
-      ledger_entries: { Row: LedgerEntryRow; Insert: Partial<LedgerEntryRow>; Update: Partial<LedgerEntryRow> };
-      expense_tickets: { Row: ExpenseTicketRow; Insert: Partial<ExpenseTicketRow>; Update: Partial<ExpenseTicketRow> };
-      personnel: { Row: PersonnelRow; Insert: Partial<PersonnelRow>; Update: Partial<PersonnelRow> };
-      audit_logs: { Row: AuditLogRow; Insert: Partial<AuditLogRow>; Update: Partial<AuditLogRow> };
-      notifications: { Row: NotificationRow; Insert: Partial<NotificationRow>; Update: Partial<NotificationRow> };
-      invoices: { Row: InvoiceRow; Insert: Partial<InvoiceRow>; Update: Partial<InvoiceRow> };
-      receipts: { Row: ReceiptRow; Insert: Partial<ReceiptRow>; Update: Partial<ReceiptRow> };
-      service_enrollments: { Row: ServiceEnrollmentRow; Insert: Partial<ServiceEnrollmentRow>; Update: Partial<ServiceEnrollmentRow> };
-      account_adjustments: { Row: AccountAdjustmentRow; Insert: Partial<AccountAdjustmentRow>; Update: Partial<AccountAdjustmentRow> };
-      attendance_records: { Row: AttendanceRecordRow; Insert: Partial<AttendanceRecordRow>; Update: Partial<AttendanceRecordRow> };
-      homework_assignments: { Row: HomeworkAssignmentRow; Insert: Partial<HomeworkAssignmentRow>; Update: Partial<HomeworkAssignmentRow> };
-      assessments: { Row: AssessmentRow; Insert: Partial<AssessmentRow>; Update: Partial<AssessmentRow> };
-      grades: { Row: GradeRow; Insert: Partial<GradeRow>; Update: Partial<GradeRow> };
-      calendar_events: { Row: CalendarEventRow; Insert: Partial<CalendarEventRow>; Update: Partial<CalendarEventRow> };
-      chat_channels: { Row: ChatChannelRow; Insert: Partial<ChatChannelRow>; Update: Partial<ChatChannelRow> };
-      chat_messages: { Row: ChatMessageRow; Insert: Partial<ChatMessageRow>; Update: Partial<ChatMessageRow> };
-      class_subjects: { Row: ClassSubjectRow; Insert: Partial<ClassSubjectRow>; Update: Partial<ClassSubjectRow> };
-      device_tokens: { Row: DeviceTokenRow; Insert: Partial<DeviceTokenRow>; Update: Partial<DeviceTokenRow> };
-      notification_preferences: { Row: NotificationPreferenceRow; Insert: Partial<NotificationPreferenceRow>; Update: Partial<NotificationPreferenceRow> };
-      student_documents: { Row: StudentDocumentRow; Insert: Partial<StudentDocumentRow>; Update: Partial<StudentDocumentRow> };
-      activation_codes: { Row: ActivationCodeRow; Insert: Partial<ActivationCodeRow>; Update: Partial<ActivationCodeRow> };
+      tenants: { Row: TenantRow; Insert: Partial<TenantRow>; Update: Partial<TenantRow>; Relationships: [] };
+      user_profiles: { Row: UserProfileRow; Insert: Partial<UserProfileRow>; Update: Partial<UserProfileRow>; Relationships: [] };
+      account_approval_requests: { Row: AccountApprovalRequestRow; Insert: Partial<AccountApprovalRequestRow>; Update: Partial<AccountApprovalRequestRow>; Relationships: [] };
+      roles: { Row: RoleRow; Insert: Partial<RoleRow>; Update: Partial<RoleRow>; Relationships: [] };
+      permissions: { Row: PermissionRow; Insert: Partial<PermissionRow>; Update: Partial<PermissionRow>; Relationships: [] };
+      academic_years: { Row: AcademicYearRow; Insert: Partial<AcademicYearRow>; Update: Partial<AcademicYearRow>; Relationships: [] };
+      academic_levels: { Row: AcademicLevelRow; Insert: Partial<AcademicLevelRow>; Update: Partial<AcademicLevelRow>; Relationships: [] };
+      classes: { Row: ClassRow; Insert: Partial<ClassRow>; Update: Partial<ClassRow>; Relationships: [] };
+      subjects: { Row: SubjectRow; Insert: Partial<SubjectRow>; Update: Partial<SubjectRow>; Relationships: [] };
+      parents: { Row: ParentRow; Insert: Partial<ParentRow>; Update: Partial<ParentRow>; Relationships: [] };
+      students: { Row: StudentRow; Insert: Partial<StudentRow>; Update: Partial<StudentRow>; Relationships: [] };
+      payments: { Row: PaymentRow; Insert: Partial<PaymentRow>; Update: Partial<PaymentRow>; Relationships: [] };
+      installments: { Row: InstallmentRow; Insert: Partial<InstallmentRow>; Update: Partial<InstallmentRow>; Relationships: [] };
+      ledger_entries: { Row: LedgerEntryRow; Insert: Partial<LedgerEntryRow>; Update: Partial<LedgerEntryRow>; Relationships: [] };
+      expense_tickets: { Row: ExpenseTicketRow; Insert: Partial<ExpenseTicketRow>; Update: Partial<ExpenseTicketRow>; Relationships: [] };
+      personnel: { Row: PersonnelRow; Insert: Partial<PersonnelRow>; Update: Partial<PersonnelRow>; Relationships: [] };
+      audit_logs: { Row: AuditLogRow; Insert: Partial<AuditLogRow>; Update: Partial<AuditLogRow>; Relationships: [] };
+      notifications: { Row: NotificationRow; Insert: Partial<NotificationRow>; Update: Partial<NotificationRow>; Relationships: [] };
+      invoices: { Row: InvoiceRow; Insert: Partial<InvoiceRow>; Update: Partial<InvoiceRow>; Relationships: [] };
+      receipts: { Row: ReceiptRow; Insert: Partial<ReceiptRow>; Update: Partial<ReceiptRow>; Relationships: [] };
+      service_enrollments: { Row: ServiceEnrollmentRow; Insert: Partial<ServiceEnrollmentRow>; Update: Partial<ServiceEnrollmentRow>; Relationships: [] };
+      account_adjustments: { Row: AccountAdjustmentRow; Insert: Partial<AccountAdjustmentRow>; Update: Partial<AccountAdjustmentRow>; Relationships: [] };
+      attendance_records: { Row: AttendanceRecordRow; Insert: Partial<AttendanceRecordRow>; Update: Partial<AttendanceRecordRow>; Relationships: [] };
+      homework_assignments: { Row: HomeworkAssignmentRow; Insert: Partial<HomeworkAssignmentRow>; Update: Partial<HomeworkAssignmentRow>; Relationships: [] };
+      // T-049 / WEAK-017: the canonical `homework` table (hub migration
+      // 0029 §8) — written by the desktop homework-push flow and the
+      // Android sync dispatcher, read by useHomeworkForClass. It existed
+      // only as a local type before; the typed Tables map still listed the
+      // legacy `homework_assignments` only, so every `.from("homework")`
+      // query failed to type-check once the build stopped ignoring errors.
+      homework: { Row: HomeworkRow; Insert: Partial<HomeworkRow>; Update: Partial<HomeworkRow>; Relationships: [] };
+      assessments: { Row: AssessmentRow; Insert: Partial<AssessmentRow>; Update: Partial<AssessmentRow>; Relationships: [] };
+      grades: { Row: GradeRow; Insert: Partial<GradeRow>; Update: Partial<GradeRow>; Relationships: [] };
+      calendar_events: { Row: CalendarEventRow; Insert: Partial<CalendarEventRow>; Update: Partial<CalendarEventRow>; Relationships: [] };
+      chat_channels: { Row: ChatChannelRow; Insert: Partial<ChatChannelRow>; Update: Partial<ChatChannelRow>; Relationships: [] };
+      chat_messages: { Row: ChatMessageRow; Insert: Partial<ChatMessageRow>; Update: Partial<ChatMessageRow>; Relationships: [] };
+      class_subjects: { Row: ClassSubjectRow; Insert: Partial<ClassSubjectRow>; Update: Partial<ClassSubjectRow>; Relationships: [] };
+      device_tokens: { Row: DeviceTokenRow; Insert: Partial<DeviceTokenRow>; Update: Partial<DeviceTokenRow>; Relationships: [] };
+      notification_preferences: { Row: NotificationPreferenceRow; Insert: Partial<NotificationPreferenceRow>; Update: Partial<NotificationPreferenceRow>; Relationships: [] };
+      student_documents: { Row: StudentDocumentRow; Insert: Partial<StudentDocumentRow>; Update: Partial<StudentDocumentRow>; Relationships: [] };
+      activation_codes: { Row: ActivationCodeRow; Insert: Partial<ActivationCodeRow>; Update: Partial<ActivationCodeRow>; Relationships: [] };
     };
     Views: {
-      vw_dashboard_kpis: { Row: Record<string, unknown> };
-      vw_student_roster: { Row: Record<string, unknown> };
-      vw_personnel_directory: { Row: Record<string, unknown> };
-      vw_audit_log_with_actor: { Row: AuditLogRow & { actor_email: string | null; actor_display_name: string | null } };
+      vw_dashboard_kpis: { Row: Record<string, unknown>; Relationships: [] };
+      vw_student_roster: { Row: Record<string, unknown>; Relationships: [] };
+      vw_personnel_directory: { Row: Record<string, unknown>; Relationships: [] };
+      // NOTE: a `type` alias (not the inline interface intersection) —
+      // interfaces lack implicit index signatures, so `AuditLogRow & { … }`
+      // does not satisfy postgrest-js 2.x's GenericView
+      // (`Row: Record<string, unknown>`), which silently degraded every
+      // typed query to `never` payloads (T-049, ARCH-005 session).
+      vw_audit_log_with_actor: { Row: VwAuditLogWithActorRow; Relationships: [] };
     };
     Functions: {
       current_tenant_id: { Args: Record<string, never>; Returns: string };
@@ -872,8 +905,7 @@ export interface Database {
       current_user_roles: { Args: Record<string, never>; Returns: string[] };
       current_user_permissions: { Args: Record<string, never>; Returns: string[] };
       has_permission: { Args: { p_code: string }; Returns: boolean };
-      has_role: { Args: { r_code: string }; Returns: boolean };
-      write_audit_log: {
+      has_role: { Args: { r_code: string }; Returns: boolean };      write_audit_log: {
         Args: {
           p_tenant_id: string;
           p_action: string;

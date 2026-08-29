@@ -167,7 +167,7 @@ export function FinancialView() {
           <KpiCard
             label={t("finance.adjustments")}
             value={formatCurrency(balance.unallocatedCredit)}
-            tone={balance.unallocatedCredit < 0 ? "info" : "muted"}
+            tone={balance.unallocatedCredit < 0 ? "info" : "default"}
             icon={<Scale className="h-5 w-5" />}
             hint={balance.unallocatedCredit < 0 ? "Crédit en compte" : undefined}
           />

@@ -18,6 +18,7 @@
  */
 
 import { useEffect, useRef } from "react";
+import type { RealtimeChannel } from "@supabase/supabase-js";
 import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase/client";
 import { useAuth } from "@/app/providers/auth-provider";
@@ -37,7 +38,10 @@ export function useRealtimeInvalidation(
 ) {
   const qc = useQueryClient();
   const { enabled = true, filter } = options;
-  const channelRef = useRef<{ unsubscribe: () => void } | null>(null);
+  // T-049: the ref holds a real Supabase RealtimeChannel — typing it as a
+  // structural `{ unsubscribe }` subset broke supabase.removeChannel(ref)
+  // (needs the full RealtimeChannel type).
+  const channelRef = useRef<RealtimeChannel | null>(null);
 
   useEffect(() => {
     if (!supabase || !enabled) return;

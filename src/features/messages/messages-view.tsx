@@ -157,13 +157,16 @@ function Conversation({
   useEffect(() => {
     const markRead = async () => {
       if (!supabase || !user || !messages.data) return;
+      // T-049: capture into a local const — TS narrowing of the imported
+      // binding does not survive into the .map() callback below.
+      const sb = supabase;
       const incoming = messages.data.filter(
         (m) => m.author_id !== user.id && !m.read_by?.some((r) => r.user_id === user.id),
       );
       if (incoming.length === 0) return;
       await Promise.all(
         incoming.map((m) =>
-          supabase
+          sb
             .from("chat_messages")
             .update({
               read_by: [
@@ -215,9 +218,11 @@ function Conversation({
   const isAnnouncement = channel.channel_type === "announcement";
   // VAULT §05 — convocations are rendered as a distinct staff message type
   // (summons to a mandatory meeting), alongside plain announcements.
-  const isConvocation =
-    channel.channel_type === "convocation" ||
-    /convocation/i.test(channel.name ?? "");
+  // T-049: the `channel_type === "convocation"` half was dead code — the
+  // canonical channel_type check constraint (hub migration 0010) only
+  // allows direct|group|department|announcement, so convocations are
+  // detected via the channel NAME only.
+  const isConvocation = /convocation/i.test(channel.name ?? "");
 
   return (
     <>

@@ -19,7 +19,11 @@
  */
 
 import type { LedgerEntryRow, InstallmentRow, AssessmentRow, AttendanceRecordRow } from "@/lib/types/database";
-import type { LedgerEntry, PaymentStatus, PaymentCategory, LedgerEntryType, LedgerSourceType, PaymentMethod } from "./model/ledger";
+// T-049: PaymentStatus/PaymentCategory/PaymentMethod are declared (and
+// re-exported only via ./model/payment) — "./model/ledger" imports them
+// but does not re-export, so importing them from there is TS2459.
+import type { LedgerEntry, LedgerEntryType, LedgerSourceType } from "./model/ledger";
+import type { PaymentStatus, PaymentCategory, PaymentMethod } from "./model/payment";
 import type { ParentLedgerSummary } from "./model/ledger";
 import { computeParentSummary } from "./calc/ledger/balance";
 import { buildOverdueDueDateMap } from "./calc/ledger/overdue";
@@ -56,7 +60,8 @@ export function ledgerEntryFromRow(row: LedgerEntryRow): LedgerEntry {
     actorId: row.actor_id ?? "",
     actorName: row.actor_name ?? "",
     at: row.at,
-    metadata: (row.metadata ?? {}) as Record<string, unknown>,
+    // T-049: cast to the declared metadata shape (row.metadata is unknown).
+    metadata: (row.metadata ?? {}) as Readonly<Record<string, string | number | boolean | null>>,
   };
 }
 
@@ -208,6 +213,13 @@ export function attendanceRatePercent(
     status: (r.status === "present" || r.status === "absent_excused"
       ? r.status
       : r.status === "absent_unexcused" ? "absent_unexcused" : "late") as AttendanceStatus,
+    // T-049: AttendanceRecord carries audit fields the rate calculation
+    // never reads — fill them with neutral placeholders.
+    arrivalTime: null,
+    note: null,
+    recordedBy: "portal",
+    recordedAt: "2026-01-01",
+    syncedAt: null,
   }));
   return Math.round(calculateAttendanceRate(mapped) * 100);
 }

@@ -64,7 +64,12 @@ describe("ledgerEntryFromRow — wire mapping", () => {
   });
 
   it("falls back on unknown enum wire codes the same way Android fromCode does", () => {
-    const e = ledgerEntryFromRow(ledgerRow({ category: "unknown_cat", entry_type: "weird" }));
+    // T-049: the whole point is an UNKNOWN wire code (DB text columns can
+    // carry values outside the TS union at runtime) — cast so the type
+    // system allows what the database can still send.
+    const e = ledgerEntryFromRow(
+      ledgerRow({ category: "unknown_cat", entry_type: "weird" } as unknown as Partial<LedgerEntryRow>),
+    );
     expect(e.category).toBe("other");
     expect(e.type).toBe("charge");
   });

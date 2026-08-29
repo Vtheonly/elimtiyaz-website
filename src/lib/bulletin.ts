@@ -262,9 +262,9 @@ function renderBulletinHtml(data: BulletinData): string {
                   <tr>
                     <td class="subject">${escapeHtml(s.subjectName)}</td>
                     <td>${s.coefficient}</td>
-                    <td>${t.d1 !== undefined ? t.d1.toFixed(2) : "—"}</td>
-                    <td>${t.d2 !== undefined ? t.d2.toFixed(2) : "—"}</td>
-                    <td>${t.exam !== undefined ? t.exam.toFixed(2) : "—"}</td>
+                    <td>${t.d1 != null ? t.d1.toFixed(2) : "—"}</td>
+                    <td>${t.d2 != null ? t.d2.toFixed(2) : "—"}</td>
+                    <td>${t.exam != null ? t.exam.toFixed(2) : "—"}</td>
                     <td class="gpa">${t.average !== null ? t.average.toFixed(2) : "—"}</td>
                   </tr>
                 `;

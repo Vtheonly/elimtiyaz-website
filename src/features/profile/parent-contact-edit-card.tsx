@@ -84,7 +84,11 @@ export function ParentContactEditCard() {
       const { error } = await supabase
         .from("parents")
         .update({
-          primary_phone: state.primary_phone.trim() || null,
+          // T-049: primary_phone is NOT NULL in the canonical schema
+          // (0005_crm.sql) and the form blocks empty submissions above —
+          // sending null would hit a NOT NULL violation; send the trimmed
+          // value.
+          primary_phone: state.primary_phone.trim(),
           secondary_phone: state.secondary_phone.trim() || null,
           email: state.email.trim() || null,
           address: state.address.trim() || null,
