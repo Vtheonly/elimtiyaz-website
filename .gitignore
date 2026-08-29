@@ -46,7 +46,10 @@ local-*
 *.log
 dev.log
 dev.out.log
-test
+# NOTE: the old bare `test` rule was REMOVED (SEC-007/T-009 session, 2026-08-29).
+# It silently ignored ANY path named `test` — including src/test/, which is why
+# the vitest setup file referenced by vitest.config.ts could never be committed
+# (DEAD-012's true root cause). Test sources under src/ MUST be tracked.
 prompt
 
 server.log
