@@ -105,7 +105,7 @@ export function FinancialView() {
   // installment screen, and the backend compute_parent_summary RPC run.
   // NOT student-filtered: the balance is a FAMILY-level figure (the parent
   // is the account holder; children only split the charges).
-  const ledgerEntries = useLedgerEntries(parentId, { limit: 500 });
+  const ledgerEntries = useLedgerEntries(parentId) // T-035/WEAK-022: full ledger replay (paged) — a hard cap would corrupt the balance;
 
   const [activeTab, setActiveTab] = useState<TabKey>("installments");
 

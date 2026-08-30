@@ -104,7 +104,7 @@ export function DashboardView() {
   const announcements = useNotifications(user?.id ?? null, { limit: 5 });
   // Canonical balance source (INV-1) — ledger replay, identical to the
   // desktop debt dashboard / backend compute_parent_summary RPC.
-  const ledgerEntries = useLedgerEntries(parentId, { limit: 500 });
+  const ledgerEntries = useLedgerEntries(parentId) // T-035/WEAK-022: full ledger replay (paged) — a hard cap would corrupt the balance;
 
   // Canonical financial summary (ledger replay — never installment sums).
   const summary = useMemo(() => {

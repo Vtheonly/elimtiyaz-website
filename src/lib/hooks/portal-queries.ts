@@ -15,6 +15,7 @@
  */
 
 import { useQuery, type UseQueryResult } from "@tanstack/react-query";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase/client";
 import {
   PaymentRow,
@@ -328,6 +329,48 @@ export function useAccountAdjustments(
  * compute balances (INV-1: balances are NEVER stored, always replayed).
  * RLS allows parents to SELECT their own entries (migration 0019).
  */
+/**
+ * WEAK-022 (T-035): fetch ALL ledger entries for a parent by paging with
+ * `.range()` until a short page — balance replay (INV-1: balances are
+ * NEVER stored, always replayed) is only correct over the ENTIRE ledger.
+ * The old hook hard-capped at 500 rows, so a parent with more entries had
+ * a wrong balance on the portal (oldest 500 kept, newest dropped — recent
+ * payments missed, outstanding balance inflated) while the desktop's
+ * `compute_parent_summary` SQL RPC replays everything.
+ *
+ * Extracted from the hook so it is unit-testable without React.
+ *
+ * @param limit optional hard cap (kept for explicit overrides; call sites
+ *   that need a correct balance MUST NOT pass one).
+ */
+export async function fetchAllLedgerEntries(
+  client: SupabaseClient,
+  parentId: string,
+  limit?: number,
+): Promise<LedgerEntryRow[]> {
+  const PAGE_SIZE = 1000;
+  const all: LedgerEntryRow[] = [];
+  let from = 0;
+  for (;;) {
+    let q = client
+      .from("ledger_entries")
+      .select("*")
+      .eq("parent_id", parentId)
+      .order("at", { ascending: true })
+      .range(from, from + PAGE_SIZE - 1);
+    if (limit !== undefined && limit > 0) {
+      q = q.limit(limit);
+    }
+    const { data, error } = await q;
+    if (error) throw error;
+    const page = (data ?? []) as unknown as LedgerEntryRow[];
+    all.push(...page);
+    if (page.length < PAGE_SIZE) return all; // short page = last page
+    if (limit !== undefined && all.length >= limit) return all;
+    from += PAGE_SIZE;
+  }
+}
+
 export function useLedgerEntries(
   parentId: string | null | undefined,
   options: { limit?: number } = {}
@@ -336,15 +379,7 @@ export function useLedgerEntries(
     queryKey: ["ledger-entries", parentId, options.limit],
     queryFn: async () => {
       if (!parentId || !supabase) return [];
-      let q = supabase
-        .from("ledger_entries")
-        .select("*")
-        .eq("parent_id", parentId)
-        .order("at", { ascending: true });
-      if (options.limit) q = q.limit(options.limit);
-      const { data, error } = await q;
-      if (error) throw error;
-      return (data ?? []) as unknown as LedgerEntryRow[];
+      return fetchAllLedgerEntries(supabase, parentId, options.limit);
     },
     enabled: Boolean(parentId),
   });
