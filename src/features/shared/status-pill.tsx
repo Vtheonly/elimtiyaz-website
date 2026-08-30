@@ -64,6 +64,12 @@ export function paymentStatusTone(status: string): { tone: StatusTone; key: stri
       return { tone: "danger", key: "finance.status.overdue" };
     case "refunded":
       return { tone: "muted", key: "finance.status.refunded" };
+    // T-056 / WEAK-020: the two canonical statuses that used to fall
+    // through to the default case and render as raw untranslated enums.
+    case "cancelled":
+      return { tone: "muted", key: "finance.status.cancelled" };
+    case "pending_clearance":
+      return { tone: "warning", key: "finance.status.pending_clearance" };
     default:
       return { tone: "muted", key: status };
   }

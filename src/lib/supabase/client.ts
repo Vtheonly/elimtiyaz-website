@@ -24,7 +24,7 @@
  */
 
 import { createBrowserClient } from "@supabase/ssr";
-import type { Database } from "@/lib/types/database-schema";
+import type { Database } from "@/lib/types/database";
 import { env, isSupabaseConfigured } from "@/lib/env";
 
 const supabaseUrl = env.NEXT_PUBLIC_SUPABASE_URL;

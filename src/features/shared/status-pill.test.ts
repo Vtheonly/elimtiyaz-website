@@ -33,6 +33,22 @@ describe("paymentStatusTone", () => {
     expect(paymentStatusTone("refunded").tone).toBe("muted");
   });
 
+  // T-056 / WEAK-020 — the two canonical statuses that used to fall
+  // through to the default case and render as raw untranslated enums.
+  it("maps 'cancelled' to muted + a translated key (WEAK-020)", () => {
+    expect(paymentStatusTone("cancelled")).toEqual({
+      tone: "muted",
+      key: "finance.status.cancelled",
+    });
+  });
+
+  it("maps 'pending_clearance' to warning + a translated key (WEAK-020)", () => {
+    expect(paymentStatusTone("pending_clearance")).toEqual({
+      tone: "warning",
+      key: "finance.status.pending_clearance",
+    });
+  });
+
   it("falls back to muted for unknown status", () => {
     expect(paymentStatusTone("unknown").tone).toBe("muted");
     expect(paymentStatusTone("unknown").key).toBe("unknown");

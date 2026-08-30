@@ -209,6 +209,9 @@ const fr: Dict = {
   "finance.status.overdue": "En retard",
   "finance.status.pending": "En attente",
   "finance.status.refunded": "Remboursé",
+  // T-056 / WEAK-020 — the two canonical statuses the tone map previously dropped through
+  "finance.status.cancelled": "Annulé",
+  "finance.status.pending_clearance": "Encaissement en cours",
   "finance.status.due": "Échéance",
   "finance.adjustments": "Ajustements",
   "finance.adjustment.title": "Ajustements de compte",
@@ -460,6 +463,9 @@ const ar: Dict = {
   "finance.status.overdue": "متأخر",
   "finance.status.pending": "قيد الانتظار",
   "finance.status.refunded": "مُسترجع",
+  // T-056 / WEAK-020
+  "finance.status.cancelled": "ملغى",
+  "finance.status.pending_clearance": "قيد التحصيل",
 
   // Auth (complete)
   "auth.signin.configError.title": "إعداد ناقص",
@@ -904,6 +910,9 @@ const en: Dict = {
   "finance.status.overdue": "Overdue",
   "finance.status.pending": "Pending",
   "finance.status.refunded": "Refunded",
+  // T-056 / WEAK-020
+  "finance.status.cancelled": "Cancelled",
+  "finance.status.pending_clearance": "Pending clearance",
 
   // Auth (complete)
   "auth.signin.configError.title": "Missing configuration",
