@@ -21,6 +21,7 @@
 import dynamic from "next/dynamic";
 import { useAppStore } from "@/lib/store/app-store";
 import { useHashRoute } from "@/lib/hooks/use-hash-route";
+import { useChatUnreadRealtime } from "@/lib/hooks/use-realtime";
 import { TopAppBar } from "@/features/shared/top-app-bar";
 import { BottomNav, DesktopRail } from "@/features/shared/bottom-nav";
 import { OfflineIndicator } from "@/features/shared/offline-indicator";
@@ -72,6 +73,12 @@ export function AppShell() {
   const activeView = useAppStore((s) => s.activeView);
   // Sync active view with the URL hash (#/finance, #/academic, …).
   useHashRoute();
+  // REALTIME-103 (T-032): one shell-level subscription invalidates the
+  // unread-count query when messages arrive in ANY channel — the badge
+  // owners (BottomNav / DesktopRail / TopAppBar) all read that query, and
+  // mounting the subscription ONCE here avoids duplicate websocket
+  // channels per nav component.
+  useChatUnreadRealtime();
 
   return (
     <div className="flex min-h-[100dvh] flex-col bg-background">

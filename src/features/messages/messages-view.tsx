@@ -164,7 +164,12 @@ function Conversation({
         (m) => m.author_id !== user.id && !m.read_by?.some((r) => r.user_id === user.id),
       );
       if (incoming.length === 0) return;
-      await Promise.all(
+      // REALTIME-101 (T-032): the UPDATE is RLS-authorized since the hub's
+      // migration 0051 (chat_messages_update_read_by + append-only guard
+      // trigger) — a channel member may append their OWN read_by entry.
+      // The old code ignored the results entirely; failures are now
+      // surfaced instead of silently swallowed.
+      const results = await Promise.all(
         incoming.map((m) =>
           sb
             .from("chat_messages")
@@ -177,7 +182,19 @@ function Conversation({
             .eq("id", m.id),
         ),
       );
-      queryClient.invalidateQueries({ queryKey: ["chat-unread"] });
+      const failures = results.filter((r) => r.error);
+      if (failures.length > 0) {
+        console.error(
+          "[messages] markRead updates rejected server-side:",
+          failures.map((f) => f.error?.message),
+        );
+      }
+      // REALTIME-100 (T-032): the invalidation key used to be
+      // ["chat-unread"] — a DIFFERENT first element from the unread hook's
+      // actual key ["chat-unread-count", userProfileId]. TanStack v5
+      // partial matching is element-wise, so the old call matched nothing
+      // and the badge stayed stale forever.
+      queryClient.invalidateQueries({ queryKey: ["chat-unread-count"] });
     };
     markRead();
   }, [messages.data, user, channel.id, queryClient]);

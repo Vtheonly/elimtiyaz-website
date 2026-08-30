@@ -81,7 +81,17 @@ export function useRealtimeInvalidation(
 }
 
 /**
- * Convenience: subscribe to notifications for the current user.
+ * Convenience: subscribe to notifications visible to the current user.
+ *
+ * REALTIME-102 (T-032): the old filter pinned `target_user_id` to the
+ * caller's id — direct-targeted rows only. Role broadcasts (`target_user_id`
+ * IS NULL, `target_role` set — e.g. an announcement to all parents) and
+ * tenant broadcasts never triggered a refetch, so they appeared only on
+ * the next remount. Supabase Realtime applies the caller's RLS SELECT
+ * policy (0019: direct target OR role broadcast matching current_user_roles
+ * OR tenant broadcast) to postgres_changes events, so subscribing WITHOUT
+ * the narrow filter delivers exactly the rows this user may see — direct,
+ * role-broadcast, and (for staff) tenant-broadcast — and nothing else.
  */
 export function useNotificationsRealtime() {
   const { user } = useAuth();
@@ -89,8 +99,7 @@ export function useNotificationsRealtime() {
     "notifications",
     [["notifications"]],
     {
-      // Filter by target_user_id so we only get events for THIS user.
-      filter: user ? `target_user_id=eq.${user.id}` : undefined,
+      // No column filter — RLS scopes the delivered events (see above).
       enabled: Boolean(user),
     }
   );
@@ -98,6 +107,10 @@ export function useNotificationsRealtime() {
 
 /**
  * Convenience: subscribe to chat_messages for the active channel.
+ *
+ * REALTIME-103 (T-032): this hook is intentionally scoped to the OPEN
+ * channel (refresh the visible conversation). The unread badge needs its
+ * own ALL-channel subscription — use `useChatUnreadRealtime` (below).
  */
 export function useChatMessagesRealtime(channelId: string | null | undefined) {
   useRealtimeInvalidation(
@@ -107,6 +120,21 @@ export function useChatMessagesRealtime(channelId: string | null | undefined) {
       filter: channelId ? `channel_id=eq.${channelId}` : undefined,
       enabled: Boolean(channelId),
     }
+  );
+}
+
+/**
+ * REALTIME-103 (T-032): the unread badge must react to new messages in ANY
+ * of the user's channels — not just the open one. This subscribes to
+ * `chat_messages` WITHOUT a channel filter and invalidates the unread-count
+ * query only. RLS scopes the delivered events to channels the user can
+ * read, exactly like the notifications subscription above.
+ */
+export function useChatUnreadRealtime() {
+  useRealtimeInvalidation(
+    "chat_messages",
+    [["chat-unread-count"]],
+    { enabled: true }
   );
 }
 
@@ -135,14 +163,23 @@ export function useFinancialRealtime(parentId: string | null | undefined) {
 }
 
 /**
- * Convenience: subscribe to homework_assignments for the active student's class.
+ * Convenience: subscribe to the canonical `homework` table for the active
+ * student's class.
+ *
+ * WEAK-016 (T-032): this used to subscribe to the legacy
+ * `homework_assignments` table (0004) with a `target_class_id` filter —
+ * a table NO platform writes since the 0029 academic module. The canonical
+ * table is `homework` (0029) with a `class_id` column, which is also what
+ * `useHomework` queries (portal-queries.ts). Realtime events now match the
+ * data source, so a teacher's desktop homework push refreshes the portal
+ * instantly.
  */
 export function useHomeworkRealtime(classId: string | null | undefined) {
   useRealtimeInvalidation(
-    "homework_assignments",
+    "homework",
     [["homework", classId]],
     {
-      filter: classId ? `target_class_id=eq.${classId}` : undefined,
+      filter: classId ? `class_id=eq.${classId}` : undefined,
       enabled: Boolean(classId),
     }
   );
