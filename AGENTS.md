@@ -26,10 +26,16 @@ src/
 │   └── supabase/      # client + middleware helpers
 ├── components/, public/, middleware.ts
 supabase/
-├── migrations/        # ⚠ 4 portal patches (0025–0028) absorbed by hub migration 0043 — NOT authoritative (ADR-001)
 └── functions/         # bind-activation-code (drifted duplicate — CROSS-009, blocked UNKNOWN-001),
                        # send-push-notification (dead + internally broken — PUSH-100)
 ```
+
+> **Migrations (T-048, 2026-08-31):** the four portal-patch migrations
+> (0025–0028) that used to live in `supabase/migrations/` were REMOVED —
+> their content was absorbed by the hub's canonical chain (0043
+> portal_alignment) and their numbering collided with the desktop chain
+> (CROSS-001). NEVER recreate a `supabase/migrations/` directory in this
+> repo: schema changes go to the hub repo as new migrations (ADR-001).
 
 ## 3. Role in the system & critical context
 
@@ -81,7 +87,7 @@ npm run build         # next build (strict after T-049)
 
 - Any financial write path (the portal is read-mostly by design).
 - Restoring or extending mock-auth in any form.
-- Editing or applying `supabase/migrations/*` (hub-owned, ADR-001); schema requests go to the hub as new migrations.
+- Editing or applying `supabase/migrations/*` (hub-owned, ADR-001). The 4 portal patches were REMOVED from this repo in T-048 (2026-08-31) — never restore them.
 - Duplicating or forking hub Edge Functions.
 - Disabling type-checking/lint/tests to ship.
 - Creating documentation or task lists here — everything belongs in the hub (ADR-007). This file is the only documentation this repo carries.
