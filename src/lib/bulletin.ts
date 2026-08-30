@@ -26,7 +26,7 @@ import type {
   AcademicLevelRow,
 } from "@/lib/types/database";
 import type { PortalAssessmentRow } from "@/lib/hooks/portal-queries";
-import { subjectAverageFor, overallGpaFor, isPassing } from "@/lib/canonical/portal-derive";
+import { subjectAverageFor, overallGpaFor, isPassing, attendanceRatePercent } from "@/lib/canonical/portal-derive";
 import { formatFullName, formatDate } from "@/lib/format";
 
 interface BulletinData {
@@ -81,7 +81,9 @@ function printViaIframe(html: string) {
   }, 400);
 }
 
-function renderBulletinHtml(data: BulletinData): string {
+// Exported for T-027 regression test (so the test can verify the rate KPI
+// appears in the rendered bulletin HTML without spinning up a print iframe).
+export function renderBulletinHtml(data: BulletinData): string {
   const { student, klass, level, grades, attendance, academicYearLabel, tenantName } = data;
 
   // Group assessments by subject (canonical rows already carry D1/D2/Examen).
@@ -150,11 +152,20 @@ function renderBulletinHtml(data: BulletinData): string {
   const gpa = overallGpaFor(gpaInputs, gpaStored);
 
   // Attendance summary.
+  // T-027 / GRADE-101: the canonical attendance rate (present + late) /
+  // total is shown alongside the raw counts — previously the bulletin only
+  // showed raw counts and a "Présences" KPI of just the `present` count,
+  // which understated a student's actual attendance when they had late
+  // arrivals (the canonical rule counts late as attended, per
+  // portal-derive.ts `attendanceRatePercent`).
   const att = {
     present: attendance.filter((a) => a.status === "present").length,
     excused: attendance.filter((a) => a.status === "absent_excused").length,
     unexcused: attendance.filter((a) => a.status === "absent_unexcused").length,
     late: attendance.filter((a) => a.status === "late").length,
+    total: attendance.length,
+    // 0..100 (canonical) — null when no records (matching attendance-view).
+    rate: attendance.length > 0 ? attendanceRatePercent(attendance) : null,
   };
 
   const terms = [1, 2, 3] as const;
@@ -218,6 +229,10 @@ function renderBulletinHtml(data: BulletinData): string {
       <div class="value" style="color: ${gpa !== null && isPassing(gpa) ? "#3FA66E" : "#C0504D"};">
         ${gpa !== null ? gpa.toFixed(2) : "—"}
       </div>
+    </div>
+    <div class="card">
+      <div class="label">Taux de présence</div>
+      <div class="value" style="color:#3FA66E;">${att.rate !== null ? `${att.rate}%` : "—"}</div>
     </div>
     <div class="card">
       <div class="label">Présences</div>

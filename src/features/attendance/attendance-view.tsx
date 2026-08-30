@@ -19,6 +19,7 @@ import { useAppStore } from "@/lib/store/app-store";
 import { useAttendanceForStudent } from "@/lib/hooks/portal-queries";
 import { useQueryClient } from "@tanstack/react-query";
 import { KpiCard } from "@/features/shared/kpi-card";
+import { attendanceRatePercent } from "@/lib/canonical/portal-derive";
 import {
   StatusPill,
   attendanceStatusTone,
@@ -83,7 +84,16 @@ export function AttendanceView() {
       else if (a.status === "absent_unexcused") out.unexcused++;
       else if (a.status === "late") out.late++;
     }
-    out.rate = out.total > 0 ? Math.round((out.present / out.total) * 100) : null;
+    // T-027 / WEAK-019: use the canonical attendanceRatePercent
+    // (present + late) / total — same formula as the dashboard KPI.
+    // The previous inline `present / total` under-reported by counting
+    // late arrivals as absent.
+    // Preserve the null-on-empty semantics (no records → no rate) —
+    // `attendanceRatePercent` returns 100 for empty since the canonical
+    // `calculateAttendanceRate` returns 1.0 for empty, which is correct
+    // for "no absences on record" semantics in the dashboard but not for
+    // the attendance-view's "no data" UI.
+    out.rate = out.total > 0 ? attendanceRatePercent(attendance.data) : null;
     return out;
   }, [attendance.data]);
 
