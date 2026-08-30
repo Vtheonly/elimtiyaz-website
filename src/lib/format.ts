@@ -96,6 +96,21 @@ export function formatFullName(
     .trim();
 }
 
+/**
+ * Parent-facing display name. Production data (Excel import) populated
+ * `parents.display_name` ("ZIREG LEA") and left `first_name` as an empty
+ * string on ALL 258 rows — so the portal must prefer display_name and fall
+ * back to the first/middle/last join. Same rule for students' parents
+ * anywhere a parent name renders.
+ */
+export function formatParentName(
+  parent: { display_name?: string | null; first_name?: string | null; middle_name?: string | null; last_name?: string | null }
+): string {
+  const display = (parent.display_name ?? "").trim();
+  if (display) return display;
+  return formatFullName(parent);
+}
+
 /** Days remaining until a due date (negative = overdue). */
 export function daysUntil(date: string | Date): number {
   const d = typeof date === "string" ? new Date(date) : date;

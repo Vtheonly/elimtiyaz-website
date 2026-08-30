@@ -183,6 +183,10 @@ export type ParentRow = {
   postal_code: string | null;
   relationship: "father" | "mother" | "guardian" | "other" | null;
   notes: string | null;
+  /** Complete display name as imported ("ZIREG LEA"). The Excel import
+   *  populated this + last_name and left first_name EMPTY on all 258
+   *  production rows — UIs must prefer display_name over first/last joins. */
+  display_name: string | null;
   is_active: boolean;
   is_financially_restricted: boolean;
   auth_user_id: string | null;
@@ -1004,6 +1008,9 @@ export type Database = {
         Returns: number[];
       };
       register_fcm_token: { Args: { p_user_id: string; p_token: string; p_platform?: string }; Returns: string };
+      /** Canonical FCM sign-out path (hub migration 0050, SYNC-104/105):
+       *  deactivates the caller's device_tokens rows. Caller-verified. */
+      deactivate_fcm_tokens: { Args: { p_user_id: string; p_platform?: string | null }; Returns: number };
       fn_calculate_student_term_gpa: {
         Args: { p_student_id: string; p_term: string; p_academic_year: string };
         Returns: number;

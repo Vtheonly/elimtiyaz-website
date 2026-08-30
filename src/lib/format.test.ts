@@ -6,6 +6,7 @@ import {
   formatRelative,
   formatInitials,
   formatFullName,
+  formatParentName,
   daysUntil,
 } from "@/lib/format";
 
@@ -149,5 +150,26 @@ describe("daysUntil", () => {
 
   it("returns ~0 for today", () => {
     expect(daysUntil(new Date())).toBe(0);
+  });
+});
+
+describe("formatParentName — production display_name rule (session 8)", () => {
+  it("prefers display_name (Excel import left first_name empty on all production rows)", () => {
+    expect(
+      formatParentName({ display_name: "ZIREG LEA", first_name: "", last_name: "ZIREG" }),
+    ).toBe("ZIREG LEA");
+  });
+
+  it("falls back to the first/middle/last join when display_name is null or blank", () => {
+    expect(
+      formatParentName({ display_name: null, first_name: "Amine", middle_name: null, last_name: "Belkacem" }),
+    ).toBe("Amine Belkacem");
+    expect(
+      formatParentName({ display_name: "   ", first_name: "Amine", last_name: "Belkacem" }),
+    ).toBe("Amine Belkacem");
+  });
+
+  it("returns empty string for a fully blank parent record", () => {
+    expect(formatParentName({ display_name: "", first_name: "", last_name: "" })).toBe("");
   });
 });

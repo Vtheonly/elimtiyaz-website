@@ -123,6 +123,66 @@ export function installmentRemainingAmount(inst: InstallmentRow): number {
   );
 }
 
+// ─── Ledger presentation derivations (read-side, pure) ──────────────────────
+
+/**
+ * One ledger row prepared for the portal statement timeline.
+ *
+ * The ledger is the system's source of truth (INV-1): charges raise the
+ * balance (+), payments/refunds lower it (−), adjustments move it either
+ * way. `runningBalance` is the cumulative parent balance AFTER the entry,
+ * replayed in chronological order — the same replay the canonical engine
+ * performs, exposed for the statement view.
+ */
+export interface LedgerTimelineItem {
+  readonly entry: LedgerEntryRow;
+  /** Cumulative balance after this entry (chronological replay). */
+  readonly runningBalance: number;
+  /** ISO month bucket (YYYY-MM) for grouping in the UI. */
+  readonly month: string;
+}
+
+/**
+ * Build the chronological statement timeline with a running balance.
+ * Entries are sorted by `at` ascending (stable: entry_number tiebreaker)
+ * and the balance accumulates the SIGNED amount exactly as stored —
+ * payment entries are negative in the wire format, so plain summation
+ * matches the canonical balance replay.
+ */
+export function ledgerTimeline(rows: readonly LedgerEntryRow[]): LedgerTimelineItem[] {
+  const sorted = [...rows].sort((a, b) => {
+    const at = new Date(a.at).getTime() - new Date(b.at).getTime();
+    if (at !== 0) return at;
+    return (a.entry_number ?? a.id ?? "").localeCompare(b.entry_number ?? b.id ?? "");
+  });
+  let balance = 0;
+  return sorted.map((row) => {
+    balance += Number(row.amount);
+    return {
+      entry: row,
+      runningBalance: balance,
+      month: (row.at ?? "").slice(0, 7),
+    };
+  });
+}
+
+/**
+ * Adjustment entries for the portal's Adjustments section.
+ *
+ * WHY: the dedicated `account_adjustments` table is empty in production —
+ * every adjustment produced by the Excel import landed in `ledger_entries`
+ * (entry_type='adjustment', 318 live rows). Reading the dead table left the
+ * portal's Adjustments tab permanently blank; this derivation surfaces the
+ * real rows. Newest first for display.
+ */
+export function ledgerAdjustmentEntries(
+  rows: readonly LedgerEntryRow[]
+): LedgerEntryRow[] {
+  return rows
+    .filter((r) => r.entry_type === "adjustment")
+    .sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime());
+}
+
 // ─── Academics ───────────────────────────────────────────────────────────────
 
 export interface PortalAssessmentInput {

@@ -60,21 +60,34 @@ export async function registerDeviceToken(userProfileId: string): Promise<boolea
 
 /**
  * Deactivate (soft-delete) the current device's FCM token.
- * Called on sign-out or when the user disables push.
+ * Called on sign-out (auth-provider) or when the user disables push.
+ *
+ * SYNC-105 fix (2026-08-30): sign-out previously left is_active=true rows
+ * behind — push notifications kept reaching signed-out devices. Uses the
+ * canonical `deactivate_fcm_tokens` RPC (migration 0050, caller-verified,
+ * SECURITY DEFINER) so the same path is shared with the Android app's
+ * sign-out; falls back to the RLS-scoped direct update if the RPC is not
+ * yet deployed.
  */
 export async function unregisterDeviceToken(userProfileId: string): Promise<void> {
   if (!supabase) return;
-  // We don't have the token in scope here (it requires permission to read),
-  // so we mark ALL this user's web tokens as inactive. The next time they
-  // re-enable, the RPC will reactivate the current one.
-  // Column fix: the canonical table (migration 0027) uses `user_id`.
-  const { error } = await supabase
-    .from("device_tokens")
-    .update({ is_active: false })
-    .eq("user_id", userProfileId)
-    .eq("platform", "web");
+  const { error } = await supabase.rpc("deactivate_fcm_tokens", {
+    p_user_id: userProfileId,
+    p_platform: "web",
+  });
   if (error) {
-    console.error("[fcm] failed to unregister device token:", error);
+    // RPC not deployed (or transient failure) — fall back to the direct,
+    // RLS-scoped update. We mark ALL this user's web tokens as inactive;
+    // the next re-enable reactivates the current one.
+    console.warn("[fcm] deactivate_fcm_tokens RPC failed, falling back to direct update:", error.message);
+    const { error: fallbackError } = await supabase
+      .from("device_tokens")
+      .update({ is_active: false })
+      .eq("user_id", userProfileId)
+      .eq("platform", "web");
+    if (fallbackError) {
+      console.error("[fcm] failed to unregister device token:", fallbackError.message);
+    }
   }
 }
 

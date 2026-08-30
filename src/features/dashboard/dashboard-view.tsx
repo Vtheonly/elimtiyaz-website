@@ -3,16 +3,30 @@
 /**
  * DashboardView — the parent's home screen.
  *
- * Shows (mobile-first vertical feed):
- *   1. Greeting + parent name
- *   2. KPI grid: balance due, next installment, attendance rate, average grade
- *   3. Children list (with quick links to per-child views)
- *   4. Upcoming events (exams, deadlines)
- *   5. Recent announcements
- *   6. Recent payments
+ * RESTRUCTURED (session 8, 2026-08-30) around what the backend actually
+ * holds. Live-data evidence that drove the change:
+ *
+ *   - The parent greeting used first_name + last_name, but the Excel
+ *     import left first_name EMPTY on all 258 production rows → the
+ *     greeting rendered a leading space. Now uses display_name first
+ *     (formatParentName).
+ *   - The old KPI grid devoted half its slots to attendance rate and
+ *     average grade — but attendance_records/assessments are EMPTY in
+ *     production, so parents saw two dead "—" tiles forever. The dashboard
+ *     now leads with the four canonical financial KPIs (ledger replay,
+ *     INV-1): outstanding, overdue, next installment, credit. Academic
+ *     KPIs live in the Academic hub where the data lands.
+ *
+ * Sections (mobile-first vertical feed):
+ *   1. Greeting (display_name) + financial restriction banner
+ *   2. KPI grid — canonical financial health
+ *   3. Children list (quick links to per-child views)
+ *   4. Upcoming events (calendar_events)
+ *   5. Recent announcements (notifications)
+ *   6. Recent payments (payments)
  *
  * All data comes from Supabase via RLS-protected queries. If a query returns
- * empty, we render an EmptyState instead of a blank section.
+ * empty, we render an honest EmptyState that explains WHY, never fake data.
  */
 
 import { useAuth } from "@/app/providers/auth-provider";
@@ -23,13 +37,9 @@ import {
   usePayments,
   useNotifications,
   useUpcomingEvents,
-  useAttendanceForStudent,
-  useGradesForStudent,
   useLedgerEntries,
 } from "@/lib/hooks/portal-queries";
 import {
-  attendanceRatePercent,
-  overallGpaFor,
   installmentRemainingAmount,
   portalFinancialSummary,
 } from "@/lib/canonical/portal-derive";
@@ -52,17 +62,19 @@ import { StudentSwitcher } from "@/features/students/student-switcher";
 import {
   Wallet,
   CalendarClock,
-  GraduationCap,
   MessageSquare,
   ChevronRight,
   CalendarDays,
   Receipt,
   AlertTriangle,
+  GraduationCap,
+  PiggyBank,
 } from "lucide-react";
 import {
   formatCurrency,
   formatDate,
   formatFullName,
+  formatParentName,
   formatRelative,
   daysUntil,
 } from "@/lib/format";
@@ -77,28 +89,28 @@ export function DashboardView() {
   const setActiveView = useAppStore((s) => s.setActiveView);
   const setActiveStudentId = useAppStore((s) => s.setActiveStudentId);
 
+  const activeKid = kids.find((k) => k.id === activeStudentId) ?? kids[0] ?? null;
+  // Hoisted so the React Compiler can preserve the memoizations below.
+  const parentId = parent?.id ?? null;
+
   // Realtime: refresh notifications + financial data when the backend changes.
   useNotificationsRealtime();
-  useFinancialRealtime(parent?.id ?? null);
-
-  const activeKid = kids.find((k) => k.id === activeStudentId) ?? kids[0] ?? null;
+  useFinancialRealtime(parentId);
 
   // KPI data
   const installments = useInstallments(parent?.id ?? null, { limit: 50 });
   const payments = usePayments(parent?.id ?? null, { limit: 5 });
   const events = useUpcomingEvents({ limit: 5 });
   const announcements = useNotifications(user?.id ?? null, { limit: 5 });
-  const attendance = useAttendanceForStudent(activeKid?.id ?? null, { limit: 100 });
-  const grades = useGradesForStudent(activeKid?.id ?? null);
   // Canonical balance source (INV-1) — ledger replay, identical to the
   // desktop debt dashboard / backend compute_parent_summary RPC.
-  const ledgerEntries = useLedgerEntries(parent?.id ?? null, { limit: 500 });
+  const ledgerEntries = useLedgerEntries(parentId, { limit: 500 });
 
-  // Balance due — CANONICAL ledger replay (never installment sums).
-  const balanceDue = useMemo(() => {
-    if (!ledgerEntries.data || !parent?.id) return 0;
-    return portalFinancialSummary(ledgerEntries.data, parent.id).outstanding;
-  }, [ledgerEntries.data, parent?.id]);
+  // Canonical financial summary (ledger replay — never installment sums).
+  const summary = useMemo(() => {
+    if (!ledgerEntries.data || !parentId) return null;
+    return portalFinancialSummary(ledgerEntries.data, parentId);
+  }, [ledgerEntries.data, parentId]);
 
   // Next upcoming installment (earliest unpaid)
   const nextInstallment = useMemo(() => {
@@ -108,28 +120,6 @@ export function DashboardView() {
       .sort((a, b) => new Date(a.due_date).getTime() - new Date(b.due_date).getTime());
     return unpaid[0] ?? null;
   }, [installments.data]);
-
-  // Attendance rate — CANONICAL (present + late count as attended, 2-dec
-  // rounding) — identical to desktop calculateAttendanceRate.
-  const attendanceRate = useMemo(() => {
-    if (!attendance.data || attendance.data.length === 0) return null;
-    return attendanceRatePercent(attendance.data);
-  }, [attendance.data]);
-
-  // Average grade — CANONICAL overall GPA (coefficient-weighted, excluding
-  // extracurricular subjects) — identical to desktop/Android/SQL GPA.
-  const averageGrade = useMemo(() => {
-    if (!grades.data || grades.data.length === 0) return null;
-    const inputs = grades.data.map((a) => ({
-      devoir1: a.devoir1 ?? null,
-      devoir2: a.devoir2 ?? null,
-      examen: a.examen ?? null,
-      coefficient: Number(a.coefficient ?? a.subject?.default_coefficient ?? 1),
-      isExtracurricular: Boolean(a.subject?.is_extracurricular),
-    }));
-    const stored = grades.data.map((a) => (a.subject_average != null ? Number(a.subject_average) : null));
-    return overallGpaFor(inputs, stored);
-  }, [grades.data]);
 
   const hour = new Date().getHours();
   const greetingKey =
@@ -141,253 +131,286 @@ export function DashboardView() {
       payments.refetch(),
       events.refetch(),
       announcements.refetch(),
-      attendance.refetch(),
-      grades.refetch(),
+      ledgerEntries.refetch(),
     ]);
   };
 
   return (
     <PullToRefresh onRefresh={handleRefresh}>
       <div className="mx-auto max-w-5xl space-y-6 px-4 py-5">
-        {/* Greeting */}
+        {/* Greeting — display_name first (first_name is empty on all
+            production rows; the old join rendered a leading space). */}
         <div>
-        <p className="text-sm text-muted-foreground">{t(greetingKey)}</p>
-        <h1 className="mt-0.5 text-xl font-semibold">
-          {parent ? `${parent.first_name} ${parent.last_name}` : t("app.name")}
-        </h1>
-      </div>
+          <p className="text-sm text-muted-foreground">{t(greetingKey)}</p>
+          <h1 className="mt-0.5 text-xl font-semibold">
+            {parent ? formatParentName(parent) : t("app.name")}
+          </h1>
+        </div>
 
-      {/* Financial restriction banner */}
-      {parent?.is_financially_restricted && (
-        <div className="flex items-start gap-3 rounded-lg border border-warning/40 bg-warning/10 p-3 text-sm">
-          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-warning" />
-          <div className="flex-1">
-            <p className="font-medium text-warning">{t("finance.restrictions.title")}</p>
-            <p className="mt-1 text-muted-foreground">{t("finance.restrictions.body")}</p>
+        {/* Financial restriction banner */}
+        {parent?.is_financially_restricted && (
+          <div className="flex items-start gap-3 rounded-lg border border-warning/40 bg-warning/10 p-3 text-sm">
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-warning" />
+            <div className="flex-1">
+              <p className="font-medium text-warning">{t("finance.restrictions.title")}</p>
+              <p className="mt-1 text-muted-foreground">{t("finance.restrictions.body")}</p>
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* KPI grid */}
-      {installments.isLoading ? (
-        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-          {Array.from({ length: 4 }).map((_, i) => (
-            <KpiSkeleton key={i} />
-          ))}
-        </div>
-      ) : installments.isError ? (
-        <ErrorState title={t("common.error.title")} description={t("common.error.network")} onRetry={() => installments.refetch()} />
-      ) : (
-        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-          <KpiCard
-            label={t("kpi.balanceDue")}
-            value={formatCurrency(balanceDue)}
-            tone={balanceDue > 0 ? "danger" : "success"}
-            icon={<Wallet className="h-5 w-5" />}
-            hint={balanceDue > 0 ? t("finance.balance.outstanding") : t("finance.balance.settled")}
-            onClick={() => setActiveView("finance")}
-          />
-          <KpiCard
-            label={t("kpi.nextInstallment")}
-            value={nextInstallment ? formatCurrency(nextInstallment.amount_due - nextInstallment.amount_paid) : "—"}
-            tone={nextInstallment ? (daysUntil(nextInstallment.due_date) < 0 ? "danger" : "info") : "success"}
-            icon={<CalendarClock className="h-5 w-5" />}
-            hint={nextInstallment ? formatDate(nextInstallment.due_date) : t("finance.empty.noInstallments")}
-            onClick={() => setActiveView("finance")}
-          />
-          <KpiCard
-            label={t("kpi.attendanceRate")}
-            value={attendanceRate !== null ? `${attendanceRate}%` : "—"}
-            tone={(attendanceRate ?? 0) >= 90 ? "success" : (attendanceRate ?? 0) >= 75 ? "warning" : "danger"}
-            icon={<GraduationCap className="h-5 w-5" />}
-            hint={activeKid ? formatFullName(activeKid) : t("dashboard.empty.noChildren")}
-            onClick={() => setActiveView("attendance")}
-          />
-          <KpiCard
-            label={t("kpi.averageGrade")}
-            value={averageGrade !== null ? averageGrade.toFixed(2) : "—"}
-            tone={(averageGrade ?? 0) >= 10 ? "success" : "warning"}
-            icon={<GraduationCap className="h-5 w-5" />}
-            hint={activeKid ? formatFullName(activeKid) : t("dashboard.empty.noChildren")}
-            onClick={() => setActiveView("academic")}
-          />
-        </div>
-      )}
-
-      {/* Children */}
-      {kids.length > 1 && (
-        <section className="space-y-3">
-          <SectionHeader title={t("dashboard.section.children")} />
-          <StudentSwitcher />
-        </section>
-      )}
-
-      {/* Two-column layout on desktop */}
-      <div className="grid gap-6 lg:grid-cols-2">
-        {/* Upcoming events */}
-        <section className="space-y-3">
-          <SectionHeader
-            title={t("dashboard.section.upcoming")}
-            action={
-              <button
-                onClick={() => setActiveView("calendar")}
-                className="text-xs text-primary hover:underline"
-              >
-                {t("dashboard.viewAll")}
-              </button>
-            }
-          />
-          {events.isLoading ? (
-            <ListSkeleton count={3} />
-          ) : events.data && events.data.length > 0 ? (
-            <div className="space-y-2">
-              {events.data.map((ev) => (
-                <CardListItem
-                  key={ev.id}
-                  leading={
-                    <div className="flex h-10 w-10 flex-col items-center justify-center rounded-lg bg-info/10 text-info">
-                      <CalendarDays className="h-4 w-4" />
-                    </div>
-                  }
-                  title={ev.title}
-                  subtitle={`${formatDate(ev.start_at, { withTime: !ev.all_day })}${ev.location ? ` • ${ev.location}` : ""}`}
-                  trailing={
-                    <StatusPill tone={ev.kind === "custom" ? "info" : "info"}>
-                      {ev.kind}
-                    </StatusPill>
-                  }
-                />
-              ))}
-            </div>
-          ) : (
-            <EmptyState
-              title={t("dashboard.empty.noUpcoming")}
-              icon={<CalendarDays className="h-6 w-6" />}
-            />
-          )}
-        </section>
-
-        {/* Announcements */}
-        <section className="space-y-3">
-          <SectionHeader
-            title={t("dashboard.section.announcements")}
-            action={
-              <button
-                onClick={() => setActiveView("notifications")}
-                className="text-xs text-primary hover:underline"
-              >
-                {t("dashboard.viewAll")}
-              </button>
-            }
-          />
-          {announcements.isLoading ? (
-            <ListSkeleton count={3} />
-          ) : announcements.data && announcements.data.length > 0 ? (
-            <div className="space-y-2">
-              {announcements.data.slice(0, 4).map((n) => (
-                <CardListItem
-                  key={n.id}
-                  leading={
-                    <div
-                      className={cn(
-                        "flex h-10 w-10 items-center justify-center rounded-lg",
-                        n.priority === "urgent"
-                          ? "bg-destructive/15 text-destructive"
-                          : n.priority === "high"
-                            ? "bg-warning/15 text-warning"
-                            : "bg-info/15 text-info"
-                      )}
-                    >
-                      {n.priority === "urgent" ? <AlertTriangle className="h-4 w-4" /> : <MessageSquare className="h-4 w-4" />}
-                    </div>
-                  }
-                  title={n.title}
-                  subtitle={n.body ?? formatRelative(n.triggered_at)}
-                  trailing={
-                    <span className="text-xs text-muted-foreground">
-                      {formatRelative(n.triggered_at)}
-                    </span>
-                  }
-                />
-              ))}
-            </div>
-          ) : (
-            <EmptyState
-              title={t("dashboard.empty.noAnnouncements")}
-              icon={<MessageSquare className="h-6 w-6" />}
-            />
-          )}
-        </section>
-      </div>
-
-      {/* Recent payments */}
-      <section className="space-y-3">
-        <SectionHeader
-          title={t("dashboard.section.recent")}
-          action={
-            <button
-              onClick={() => setActiveView("finance")}
-              className="text-xs text-primary hover:underline"
-            >
-              {t("dashboard.viewAll")}
-            </button>
-          }
-        />
-        {payments.isLoading ? (
-          <ListSkeleton count={3} />
-        ) : payments.data && payments.data.length > 0 ? (
-          <div className="space-y-2">
-            {payments.data.map((p) => (
-              <CardListItem
-                key={p.id}
-                leading={
-                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-success/10 text-success">
-                    <Receipt className="h-4 w-4" />
-                  </div>
-                }
-                title={formatCurrency(p.amount)}
-                subtitle={`${t(`finance.payment.method.${p.method}`)} • ${formatDate(p.collected_at)}`}
-                trailing={
-                  <StatusPill tone="success">{t("finance.status.paid")}</StatusPill>
-                }
-                onClick={() => setActiveView("finance")}
-              />
+        {/* KPI grid — canonical financial health (ledger replay, INV-1) */}
+        {ledgerEntries.isLoading ? (
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <KpiSkeleton key={i} />
             ))}
           </div>
-        ) : (
-          <EmptyState
-            title={t("finance.empty.noPayments")}
-            icon={<Receipt className="h-6 w-6" />}
+        ) : ledgerEntries.isError ? (
+          <ErrorState
+            title={t("common.error.title")}
+            description={t("common.error.network")}
+            onRetry={() => ledgerEntries.refetch()}
           />
+        ) : (
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+            <KpiCard
+              label={t("kpi.balanceDue")}
+              value={formatCurrency(summary?.outstanding ?? 0)}
+              tone={(summary?.outstanding ?? 0) > 0 ? "danger" : "success"}
+              icon={<Wallet className="h-5 w-5" />}
+              hint={
+                (summary?.outstanding ?? 0) > 0
+                  ? t("finance.balance.outstandingHint")
+                  : t("finance.balance.settled")
+              }
+              onClick={() => setActiveView("finance")}
+            />
+            <KpiCard
+              label={t("finance.balance.overdue")}
+              value={formatCurrency(summary?.overdue ?? 0)}
+              tone={(summary?.overdue ?? 0) > 0 ? "danger" : "success"}
+              icon={<AlertTriangle className="h-5 w-5" />}
+              hint={
+                (summary?.overdue ?? 0) > 0
+                  ? t("finance.balance.overdueHint")
+                  : t("finance.balance.noOverdue")
+              }
+              onClick={() => setActiveView("finance")}
+            />
+            <KpiCard
+              label={t("kpi.nextInstallment")}
+              value={
+                nextInstallment
+                  ? formatCurrency(installmentRemainingAmount(nextInstallment))
+                  : "—"
+              }
+              tone={
+                nextInstallment
+                  ? daysUntil(nextInstallment.due_date) < 0
+                    ? "danger"
+                    : "info"
+                  : "success"
+              }
+              icon={<CalendarClock className="h-5 w-5" />}
+              hint={
+                nextInstallment
+                  ? formatDate(nextInstallment.due_date)
+                  : t("finance.empty.noInstallments")
+              }
+              onClick={() => setActiveView("finance")}
+            />
+            <KpiCard
+              label={t("finance.balance.credit")}
+              value={formatCurrency(Math.abs(summary?.unallocatedCredit ?? 0))}
+              tone={(summary?.unallocatedCredit ?? 0) < 0 ? "info" : "default"}
+              icon={<PiggyBank className="h-5 w-5" />}
+              hint={
+                (summary?.unallocatedCredit ?? 0) < 0
+                  ? t("finance.balance.creditHint")
+                  : t("finance.balance.noCredit")
+              }
+              onClick={() => setActiveView("finance")}
+            />
+          </div>
         )}
-      </section>
 
-      {/* Children cards (when only 1, show full profile card; multi handled above) */}
-      {kids.length === 1 && activeKid && (
+        {/* Children */}
+        {kids.length > 1 && (
+          <section className="space-y-3">
+            <SectionHeader title={t("dashboard.section.children")} />
+            <StudentSwitcher />
+          </section>
+        )}
+
+        {/* Two-column layout on desktop */}
+        <div className="grid gap-6 lg:grid-cols-2">
+          {/* Upcoming events */}
+          <section className="space-y-3">
+            <SectionHeader
+              title={t("dashboard.section.upcoming")}
+              action={
+                <button
+                  onClick={() => setActiveView("calendar")}
+                  className="text-xs text-primary hover:underline"
+                >
+                  {t("dashboard.viewAll")}
+                </button>
+              }
+            />
+            {events.isLoading ? (
+              <ListSkeleton count={3} />
+            ) : events.data && events.data.length > 0 ? (
+              <div className="space-y-2">
+                {events.data.map((ev) => (
+                  <CardListItem
+                    key={ev.id}
+                    leading={
+                      <div className="flex h-10 w-10 flex-col items-center justify-center rounded-lg bg-info/10 text-info">
+                        <CalendarDays className="h-4 w-4" />
+                      </div>
+                    }
+                    title={ev.title}
+                    subtitle={`${formatDate(ev.start_at, { withTime: !ev.all_day })}${ev.location ? ` • ${ev.location}` : ""}`}
+                    trailing={
+                      <StatusPill tone={ev.kind === "custom" ? "info" : "info"}>
+                        {ev.kind}
+                      </StatusPill>
+                    }
+                  />
+                ))}
+              </div>
+            ) : (
+              <EmptyState
+                title={t("dashboard.empty.noUpcoming")}
+                description={t("dashboard.empty.noUpcomingBody")}
+                icon={<CalendarDays className="h-6 w-6" />}
+              />
+            )}
+          </section>
+
+          {/* Announcements */}
+          <section className="space-y-3">
+            <SectionHeader
+              title={t("dashboard.section.announcements")}
+              action={
+                <button
+                  onClick={() => setActiveView("notifications")}
+                  className="text-xs text-primary hover:underline"
+                >
+                  {t("dashboard.viewAll")}
+                </button>
+              }
+            />
+            {announcements.isLoading ? (
+              <ListSkeleton count={3} />
+            ) : announcements.data && announcements.data.length > 0 ? (
+              <div className="space-y-2">
+                {announcements.data.slice(0, 4).map((n) => (
+                  <CardListItem
+                    key={n.id}
+                    leading={
+                      <div
+                        className={cn(
+                          "flex h-10 w-10 items-center justify-center rounded-lg",
+                          n.priority === "urgent"
+                            ? "bg-destructive/15 text-destructive"
+                            : n.priority === "high"
+                              ? "bg-warning/15 text-warning"
+                              : "bg-info/15 text-info"
+                        )}
+                      >
+                        {n.priority === "urgent" ? <AlertTriangle className="h-4 w-4" /> : <MessageSquare className="h-4 w-4" />}
+                      </div>
+                    }
+                    title={n.title}
+                    subtitle={n.body ?? formatRelative(n.triggered_at)}
+                    trailing={
+                      <span className="text-xs text-muted-foreground">
+                        {formatRelative(n.triggered_at)}
+                      </span>
+                    }
+                  />
+                ))}
+              </div>
+            ) : (
+              <EmptyState
+                title={t("dashboard.empty.noAnnouncements")}
+                description={t("dashboard.empty.noAnnouncementsBody")}
+                icon={<MessageSquare className="h-6 w-6" />}
+              />
+            )}
+          </section>
+        </div>
+
+        {/* Recent payments */}
         <section className="space-y-3">
-          <SectionHeader title={t("dashboard.section.children")} />
-          <Card
-            className="cursor-pointer border-border/60 card-hover"
-            onClick={() => {
-              setActiveStudentId(activeKid.id);
-              setActiveView("academic");
-            }}
-          >
-            <CardContent className="flex items-center gap-4 p-4">
-              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/15 text-primary">
-                <GraduationCap className="h-6 w-6" />
-              </div>
-              <div className="flex-1">
-                <p className="font-medium">{formatFullName(activeKid)}</p>
-                <p className="text-xs text-muted-foreground">
-                  {activeKid.student_code}
-                </p>
-              </div>
-              <ChevronRight className="h-4 w-4 text-muted-foreground" />
-            </CardContent>
-          </Card>
+          <SectionHeader
+            title={t("dashboard.section.recent")}
+            action={
+              <button
+                onClick={() => setActiveView("finance")}
+                className="text-xs text-primary hover:underline"
+              >
+                {t("dashboard.viewAll")}
+              </button>
+            }
+          />
+          {payments.isLoading ? (
+            <ListSkeleton count={3} />
+          ) : payments.data && payments.data.length > 0 ? (
+            <div className="space-y-2">
+              {payments.data.map((p) => (
+                <CardListItem
+                  key={p.id}
+                  leading={
+                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-success/10 text-success">
+                      <Receipt className="h-4 w-4" />
+                    </div>
+                  }
+                  title={formatCurrency(p.amount)}
+                  subtitle={`${t(`finance.payment.method.${p.method}`)} • ${formatDate(p.collected_at)}`}
+                  trailing={
+                    <StatusPill tone="success">{t("finance.status.paid")}</StatusPill>
+                  }
+                  onClick={() => setActiveView("finance")}
+                />
+              ))}
+            </div>
+          ) : (
+            <EmptyState
+              title={t("finance.empty.noPayments")}
+              description={t("finance.empty.noPaymentsBody")}
+              icon={<Receipt className="h-6 w-6" />}
+            />
+          )}
         </section>
-      )}
+
+        {/* Children cards (when only 1, show full profile card; multi handled above) */}
+        {kids.length === 1 && activeKid && (
+          <section className="space-y-3">
+            <SectionHeader title={t("dashboard.section.children")} />
+            <Card
+              className="cursor-pointer border-border/60 card-hover"
+              onClick={() => {
+                setActiveStudentId(activeKid.id);
+                setActiveView("academic");
+              }}
+            >
+              <CardContent className="flex items-center gap-4 p-4">
+                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/15 text-primary">
+                  <GraduationCap className="h-6 w-6" />
+                </div>
+                <div className="flex-1">
+                  <p className="font-medium">{formatFullName(activeKid)}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {activeKid.student_code}
+                  </p>
+                </div>
+                <ChevronRight className="h-4 w-4 text-muted-foreground" />
+              </CardContent>
+            </Card>
+          </section>
+        )}
       </div>
     </PullToRefresh>
   );

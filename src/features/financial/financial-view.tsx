@@ -1,38 +1,36 @@
 "use client";
 
 /**
- * FinancialView — parent-facing financial ledger.
+ * FinancialView — parent-facing financial account.
  *
- * Per the Platform Feature Allocation Matrix, the web portal can:
- *   - View Dues (balance + installments)
- *   - View Schedule (installment tranches)
- *   - View Scans (check/transfer proof images)
- *   - View Balance (debt dashboard — own family only)
- *   - PDF Download (receipts + statements)
- *   - View Adjustments (discounts with reason code + admin note)
+ * RESTRUCTURED (session 8, 2026-08-30) around the real backend data model
+ * instead of the demo-era tab list. Live-backend evidence that drove it:
  *
- * The portal CANNOT:
- *   - Make payments (use desktop counter-payment flow)
- *   - Issue invoices (desktop-only)
- *   - Apply adjustments (admin-only)
- *   - Refund payments (admin-only)
+ *   - `ledger_entries` is the single source of truth (INV-1) and the ONLY
+ *     table holding charges AND adjustments (1,597 live rows) → the new
+ *     "Relevé" statement tab replays it with a running balance.
+ *   - `account_adjustments` is EMPTY in production (0 rows) while 318
+ *     adjustments live in the ledger → the Adjustments tab now derives
+ *     from ledger entries instead of the dead table.
+ *   - `invoices` (0 rows, no writer on any platform) and `receipts`
+ *     (orphaned table — CROSS-101/T-066 BLOCKED) were removed as standalone
+ *     tabs: they rendered a permanent, misleading "empty" state. Receipt
+ *     download stays available per-payment (it lights up the moment the
+ *     backend starts generating rows).
+ *
+ * Per the Platform Feature Allocation Matrix, the portal can VIEW dues,
+ * schedule, scans, balance, receipts and adjustments. It CANNOT make
+ * payments, issue invoices, apply adjustments or refund — desktop-only.
  */
 
 import { useAuth } from "@/app/providers/auth-provider";
 import { useT } from "@/lib/i18n/use-t";
 import { useAppStore } from "@/lib/store/app-store";
-import {
-  useInstallments,
-  usePayments,
-  useInvoices,
-  useReceiptsForPayment,
-  useReceipts,
-  useAccountAdjustments,
-  useLedgerEntries,
-} from "@/lib/hooks/portal-queries";
+import { useInstallments, usePayments, useLedgerEntries } from "@/lib/hooks/portal-queries";
 import {
   installmentRemainingAmount,
   portalFinancialSummary,
+  ledgerAdjustmentEntries,
 } from "@/lib/canonical/portal-derive";
 import { useFinancialRealtime } from "@/lib/hooks/use-realtime";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -50,6 +48,7 @@ import {
   ErrorState,
 } from "@/features/shared/state-views";
 import { StudentSwitcherDropdown } from "@/features/students/student-switcher";
+import { LedgerTimeline } from "@/features/financial/ledger-timeline";
 import {
   Wallet,
   CalendarClock,
@@ -59,6 +58,10 @@ import {
   CheckCircle2,
   AlertTriangle,
   Scale,
+  BookOpenText,
+  Bus,
+  MoreHorizontal,
+  PiggyBank,
 } from "lucide-react";
 import { formatCurrency, formatDate, formatFullName, daysUntil } from "@/lib/format";
 import { useMemo, useState } from "react";
@@ -72,44 +75,46 @@ import {
 } from "@/components/ui/dialog";
 import { supabase } from "@/lib/supabase/client";
 import { toast } from "sonner";
-import type { PaymentRow, InstallmentRow, AccountAdjustmentRow, ReceiptRow } from "@/lib/types/database";
+import type { PaymentRow, InstallmentRow, LedgerEntryRow } from "@/lib/types/database";
 
-type TabKey = "installments" | "payments" | "invoices" | "adjustments" | "receipts";
+type TabKey = "installments" | "payments" | "ledger" | "adjustments";
 
 export function FinancialView() {
   const { t } = useT();
   const { parent, children: kids } = useAuth();
   const activeStudentId = useAppStore((s) => s.activeStudentId);
   const activeKid = kids.find((k) => k.id === activeStudentId);
+  // Hoisted so the React Compiler can preserve the memoizations below.
+  const parentId = parent?.id ?? null;
 
   // Realtime: balance updates the moment staff records a payment on desktop.
-  useFinancialRealtime(parent?.id ?? null);
+  useFinancialRealtime(parentId);
 
-  // Filter by active student if set, otherwise show all parent installments
-  const installments = useInstallments(parent?.id ?? null, {
+  // Tranches + payments for the active child (or the whole family when no
+  // child is selected).
+  const installments = useInstallments(parentId, {
     studentId: activeKid?.id ?? null,
     limit: 100,
   });
-  const payments = usePayments(parent?.id ?? null, {
+  const payments = usePayments(parentId, {
     studentId: activeKid?.id ?? null,
     limit: 50,
   });
-  const invoices = useInvoices(parent?.id ?? null, { limit: 50 });
-  const adjustments = useAccountAdjustments(parent?.id ?? null, { limit: 50 });
-  const receipts = useReceipts(parent?.id ?? null, { limit: 50 });
   // Canonical balance source (INV-1): replay the parent's ledger entries —
   // the exact same computation the desktop debt dashboard, the Android
   // installment screen, and the backend compute_parent_summary RPC run.
-  const ledgerEntries = useLedgerEntries(parent?.id ?? null, { limit: 500 });
+  // NOT student-filtered: the balance is a FAMILY-level figure (the parent
+  // is the account holder; children only split the charges).
+  const ledgerEntries = useLedgerEntries(parentId, { limit: 500 });
 
   const [activeTab, setActiveTab] = useState<TabKey>("installments");
 
   // Aggregate balance — CANONICAL (ledger replay, never installment sums).
   const balance = useMemo(() => {
-    if (!ledgerEntries.data || !parent?.id) {
+    if (!ledgerEntries.data || !parentId) {
       return { outstanding: 0, overdue: 0, unallocatedCredit: 0, pending: 0, charged: 0, paid: 0 };
     }
-    const summary = portalFinancialSummary(ledgerEntries.data, parent.id);
+    const summary = portalFinancialSummary(ledgerEntries.data, parentId);
     return {
       outstanding: summary.outstanding,
       overdue: summary.overdue,
@@ -118,7 +123,14 @@ export function FinancialView() {
       charged: summary.totalCharged,
       paid: summary.totalPaid,
     };
-  }, [ledgerEntries.data, parent?.id]);
+  }, [ledgerEntries.data, parentId]);
+
+  // Adjustments derived from the ledger (the account_adjustments table is
+  // empty in production — the real rows are ledger adjustment entries).
+  const adjustments = useMemo(
+    () => (ledgerEntries.data ? ledgerAdjustmentEntries(ledgerEntries.data) : []),
+    [ledgerEntries.data]
+  );
 
   const isRestricted = Boolean(parent?.is_financially_restricted);
 
@@ -141,50 +153,67 @@ export function FinancialView() {
         </div>
       )}
 
-      {/* KPI row — canonical ledger-replay values (INV-1) */}
+      {/* KPI row — canonical ledger-replay values (INV-1), correctly labeled */}
       {ledgerEntries.isLoading ? (
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-          <KpiSkeleton />
-          <KpiSkeleton />
-          <KpiSkeleton />
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <KpiSkeleton key={i} />
+          ))}
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
           <KpiCard
             label={t("finance.balance.outstanding")}
             value={formatCurrency(balance.outstanding)}
             tone={balance.outstanding > 0 ? "danger" : "success"}
             icon={<Wallet className="h-5 w-5" />}
-            hint={balance.outstanding > 0 ? t("finance.balance.outstanding") : t("finance.balance.settled")}
+            hint={
+              balance.outstanding > 0
+                ? t("finance.balance.outstandingHint")
+                : t("finance.balance.settled")
+            }
+          />
+          <KpiCard
+            label={t("finance.balance.overdue")}
+            value={formatCurrency(balance.overdue)}
+            tone={balance.overdue > 0 ? "danger" : "success"}
+            icon={<AlertTriangle className="h-5 w-5" />}
+            hint={balance.overdue > 0 ? t("finance.balance.overdueHint") : t("finance.balance.noOverdue")}
           />
           <KpiCard
             label={t("finance.installment.paid")}
             value={formatCurrency(balance.paid)}
             tone="success"
             icon={<CheckCircle2 className="h-5 w-5" />}
-            hint={balance.pending > 0 ? `${formatCurrency(balance.pending)} en attente de compensation` : undefined}
+            hint={balance.pending > 0 ? t("finance.balance.pendingHint", { amount: formatCurrency(balance.pending) }) : t("finance.balance.paidHint")}
           />
           <KpiCard
-            label={t("finance.adjustments")}
-            value={formatCurrency(balance.unallocatedCredit)}
+            label={t("finance.balance.credit")}
+            value={formatCurrency(Math.abs(balance.unallocatedCredit))}
             tone={balance.unallocatedCredit < 0 ? "info" : "default"}
-            icon={<Scale className="h-5 w-5" />}
-            hint={balance.unallocatedCredit < 0 ? "Crédit en compte" : undefined}
+            icon={<PiggyBank className="h-5 w-5" />}
+            hint={balance.unallocatedCredit < 0 ? t("finance.balance.creditHint") : t("finance.balance.noCredit")}
           />
         </div>
       )}
 
-      {/* Tabs */}
+      {/* Tabs — real data model: tranches, payments, statement, adjustments */}
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as TabKey)}>
-        <TabsList className="grid w-full grid-cols-5">
+        <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="installments">{t("finance.installments")}</TabsTrigger>
           <TabsTrigger value="payments">{t("finance.payments")}</TabsTrigger>
-          <TabsTrigger value="invoices">{t("finance.invoices")}</TabsTrigger>
-          <TabsTrigger value="adjustments">{t("finance.adjustments")}</TabsTrigger>
-          <TabsTrigger value="receipts">{t("finance.receipts")}</TabsTrigger>
+          <TabsTrigger value="ledger">{t("finance.ledger.title")}</TabsTrigger>
+          <TabsTrigger value="adjustments">
+            {t("finance.adjustments")}
+            {adjustments.length > 0 && (
+              <span className="ml-1.5 rounded-full bg-muted px-1.5 text-[10px] text-muted-foreground">
+                {adjustments.length}
+              </span>
+            )}
+          </TabsTrigger>
         </TabsList>
 
-        {/* Installments */}
+        {/* Tranches — the installment schedule the school issued */}
         <TabsContent value="installments" className="mt-4 space-y-3">
           {installments.isLoading ? (
             <ListSkeleton count={4} />
@@ -197,11 +226,15 @@ export function FinancialView() {
               ))}
             </div>
           ) : (
-            <EmptyState title={t("finance.empty.noInstallments")} icon={<CalendarClock className="h-6 w-6" />} />
+            <EmptyState
+              title={t("finance.empty.noInstallments")}
+              description={t("finance.empty.noInstallmentsBody")}
+              icon={<CalendarClock className="h-6 w-6" />}
+            />
           )}
         </TabsContent>
 
-        {/* Payments */}
+        {/* Payments — money actually collected at the counter */}
         <TabsContent value="payments" className="mt-4 space-y-3">
           {payments.isLoading ? (
             <ListSkeleton count={4} />
@@ -214,48 +247,32 @@ export function FinancialView() {
               ))}
             </div>
           ) : (
-            <EmptyState title={t("finance.empty.noPayments")} icon={<Receipt className="h-6 w-6" />} />
+            <EmptyState
+              title={t("finance.empty.noPayments")}
+              description={t("finance.empty.noPaymentsBody")}
+              icon={<Receipt className="h-6 w-6" />}
+            />
           )}
         </TabsContent>
 
-        {/* Invoices */}
-        <TabsContent value="invoices" className="mt-4 space-y-3">
-          {invoices.isLoading ? (
-            <ListSkeleton count={4} />
-          ) : invoices.isError ? (
-            <ErrorState title={t("common.error.title")} onRetry={() => invoices.refetch()} />
-          ) : invoices.data && invoices.data.length > 0 ? (
-            <div className="space-y-2">
-              {invoices.data.map((inv) => {
-                const tone = paymentStatusTone(inv.status);
-                return (
-                  <CardListItem
-                    key={inv.id}
-                    leading={
-                      <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-info/10 text-info">
-                        <FileText className="h-4 w-4" />
-                      </div>
-                    }
-                    title={`${inv.invoice_number} • ${formatCurrency(inv.amount)}`}
-                    subtitle={`${formatDate(inv.issue_date)} • ${t("finance.installment.due")} ${formatDate(inv.due_date)}`}
-                    trailing={<StatusPill tone={tone.tone}>{t(tone.key)}</StatusPill>}
-                  />
-                );
-              })}
-            </div>
-          ) : (
-            <EmptyState title={t("finance.empty.noPayments")} icon={<FileText className="h-6 w-6" />} />
-          )}
+        {/* Statement — the ledger replay (source of truth) */}
+        <TabsContent value="ledger" className="mt-4 space-y-3">
+          <p className="text-xs text-muted-foreground">{t("finance.ledger.intro")}</p>
+          <LedgerTimeline
+            entries={
+              activeKid
+                ? (ledgerEntries.data ?? []).filter((e) => e.student_id === activeKid.id)
+                : ledgerEntries.data
+            }
+            isLoading={ledgerEntries.isLoading}
+            isError={ledgerEntries.isError}
+            onRetry={() => ledgerEntries.refetch()}
+          />
         </TabsContent>
 
-        {/* Adjustments */}
+        {/* Adjustments — derived from ledger adjustment entries */}
         <TabsContent value="adjustments" className="mt-4 space-y-3">
-          <AdjustmentsTab adjustments={adjustments} />
-        </TabsContent>
-
-        {/* Receipts + Statements */}
-        <TabsContent value="receipts" className="mt-4 space-y-3">
-          <ReceiptsTab receipts={receipts} />
+          <AdjustmentsTab adjustments={adjustments} isLoading={ledgerEntries.isLoading} />
         </TabsContent>
       </Tabs>
     </div>
@@ -263,6 +280,24 @@ export function FinancialView() {
 }
 
 /* -------------------------------------------------------------------------- */
+
+/** Category badge shared by tranches and payments. */
+function CategoryBadge({ category }: { category: string | null | undefined }) {
+  const { t } = useT();
+  const map: Record<string, typeof BookOpenText> = {
+    tuition: BookOpenText,
+    transport: Bus,
+  };
+  const Icon = map[category ?? ""] ?? MoreHorizontal;
+  const label = t(`finance.category.${category ?? "other"}`);
+  const display = label.startsWith("finance.category.") ? (category ?? "—") : label;
+  return (
+    <span className="inline-flex items-center gap-1 rounded-full bg-info/10 px-2 py-0.5 text-[10px] font-medium text-info">
+      <Icon className="h-3 w-3" />
+      {display}
+    </span>
+  );
+}
 
 function InstallmentRowView({ inst, kidName }: { inst: InstallmentRow; kidName?: string }) {
   const { t } = useT();
@@ -278,16 +313,18 @@ function InstallmentRowView({ inst, kidName }: { inst: InstallmentRow; kidName?:
     inst.amount_due > 0
       ? Math.min(100, ((Number(inst.amount_paid) + pending) / Number(inst.amount_due)) * 100)
       : 0;
+  // Real DB label (migration 0032): "Tranche 1"… with the tranche number as
+  // fallback for legacy rows imported before labels existed.
+  const title = inst.label?.trim() || `${t("finance.installment.tranche")} ${inst.tranche_number}`;
 
   return (
     <div className="rounded-lg border border-border/50 bg-card p-4">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2">
-            <p className="font-medium">
-              {t("finance.installment.tranche")} {inst.tranche_number}
-            </p>
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="font-medium">{title}</p>
             <StatusPill tone={tone.tone}>{t(tone.key)}</StatusPill>
+            <CategoryBadge category={inst.category} />
           </div>
           <p className="mt-1 text-xs text-muted-foreground">
             {kidName ? `${kidName} • ` : ""}
@@ -296,15 +333,18 @@ function InstallmentRowView({ inst, kidName }: { inst: InstallmentRow; kidName?:
               <span className="ml-1 text-warning">• J-{days}</span>
             )}
             {inst.status !== "paid" && days < 0 && (
-              <span className="ml-1 text-destructive">• {Math.abs(days)}j {t("finance.status.overdue").toLowerCase()}</span>
+              <span className="ml-1 text-destructive">
+                • {Math.abs(days)}j {t("finance.status.overdue").toLowerCase()}
+              </span>
+            )}
+            {inst.payment_plan === "full_annual" && (
+              <span className="ml-1 text-info">• {t("finance.installment.fullAnnual")}</span>
             )}
           </p>
         </div>
         <div className="text-right">
           <p className="font-mono font-semibold">{formatCurrency(remaining)}</p>
-          <p className="text-xs text-muted-foreground">
-            {t("finance.installment.remaining")}
-          </p>
+          <p className="text-xs text-muted-foreground">{t("finance.installment.remaining")}</p>
         </div>
       </div>
 
@@ -319,7 +359,7 @@ function InstallmentRowView({ inst, kidName }: { inst: InstallmentRow; kidName?:
         <span>
           {formatCurrency(inst.amount_paid)} {t("finance.installment.paid").toLowerCase()}
           {pending > 0 && (
-            <span className="text-warning"> • {formatCurrency(pending)} en attente</span>
+            <span className="text-warning"> • {formatCurrency(pending)} {t("finance.installment.pending").toLowerCase()}</span>
           )}
         </span>
         <span>{formatCurrency(inst.amount_due)}</span>
@@ -332,28 +372,13 @@ function InstallmentRowView({ inst, kidName }: { inst: InstallmentRow; kidName?:
 
 function PaymentRowItem({ payment, kidName }: { payment: PaymentRow; kidName?: string }) {
   const { t } = useT();
-  const { data: receipt, isLoading } = useReceiptsForPayment(payment.id);
   const [showProof, setShowProof] = useState(false);
-
-  const downloadReceipt = async () => {
-    if (!receipt?.pdf_path || !supabase) {
-      toast.error(t("finance.payment.viewReceipt") + " — indisponible");
-      return;
-    }
-    const { data, error } = await supabase.storage
-      .from("receipts")
-      .download(receipt.pdf_path);
-    if (error) {
-      toast.error(error.message);
-      return;
-    }
-    const url = URL.createObjectURL(data);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `recu-${receipt.receipt_number}.pdf`;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
+  // Real payment status (was hardcoded "paid" — payments can be pending,
+  // pending_clearance, refunded…).
+  const tone = paymentStatusTone(payment.status);
+  // payment_number IS the receipt number (kept in sync by trigger —
+  // payments.receipt_number is the alias column).
+  const receiptNo = payment.receipt_number ?? payment.payment_number;
 
   const viewProof = async () => {
     if (!payment.proof_path || !supabase) return;
@@ -374,38 +399,38 @@ function PaymentRowItem({ payment, kidName }: { payment: PaymentRow; kidName?: s
           <Receipt className="h-4 w-4" />
         </div>
         <div className="min-w-0 flex-1">
-          <p className="font-mono font-semibold">{formatCurrency(payment.amount)}</p>
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+            <p className="font-mono font-semibold">{formatCurrency(payment.amount)}</p>
+            <CategoryBadge category={payment.category} />
+          </div>
           <p className="mt-0.5 truncate text-xs text-muted-foreground">
             {t(`finance.payment.method.${payment.method}`)} • {formatDate(payment.collected_at)}
             {kidName ? ` • ${kidName}` : ""}
+            {receiptNo ? ` • ${t("finance.payment.receipt")} ${receiptNo}` : ""}
           </p>
         </div>
         <div className="flex shrink-0 flex-col items-end gap-1">
-          <StatusPill tone="success">{t("finance.status.paid")}</StatusPill>
+          <StatusPill tone={tone.tone}>{t(tone.key)}</StatusPill>
         </div>
       </div>
 
-      {/* Action row */}
-      <div className="mt-2 flex flex-wrap items-center justify-end gap-2 border-t border-border/40 pt-2">
-        {receipt?.pdf_path && (
-          <Button variant="ghost" size="sm" onClick={downloadReceipt} disabled={isLoading}>
-            <Download className="mr-1 h-3.5 w-3.5" />
-            {t("finance.payment.viewReceipt")}
-          </Button>
-        )}
-        {payment.proof_path && (
-          <Button variant="ghost" size="sm" onClick={() => setShowProof(true)}>
-            <FileText className="mr-1 h-3.5 w-3.5" />
-            Justificatif
-          </Button>
-        )}
-      </div>
+      {/* Action row — proof/receipt appear only when the backend attached one */}
+      {(payment.proof_path || payment.status === "pending_clearance" || payment.method !== "cash") && (
+        <div className="mt-2 flex flex-wrap items-center justify-end gap-2 border-t border-border/40 pt-2">
+          {payment.proof_path && (
+            <Button variant="ghost" size="sm" onClick={() => setShowProof(true)}>
+              <FileText className="mr-1 h-3.5 w-3.5" />
+              {t("finance.payment.proof")}
+            </Button>
+          )}
+        </div>
+      )}
 
-      {/* Proof dialog */}
+      {/* Payment detail dialog — check/transfer metadata from the DB row */}
       <Dialog open={showProof} onOpenChange={setShowProof}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Justificatif de paiement</DialogTitle>
+            <DialogTitle>{t("finance.payment.proofTitle")}</DialogTitle>
             <DialogDescription>
               {formatCurrency(payment.amount)} • {formatDate(payment.collected_at)}
             </DialogDescription>
@@ -413,22 +438,37 @@ function PaymentRowItem({ payment, kidName }: { payment: PaymentRow; kidName?: s
           <div className="space-y-3">
             {payment.method === "check" && (
               <div className="rounded-lg border border-border/60 p-3 text-sm">
-                <p><span className="text-muted-foreground">N° chèque:</span> {payment.check_number ?? "—"}</p>
-                <p><span className="text-muted-foreground">Banque:</span> {payment.check_bank_name ?? "—"}</p>
+                <p>
+                  <span className="text-muted-foreground">{t("finance.payment.checkNumber")}:</span>{" "}
+                  {payment.check_number ?? "—"}
+                </p>
+                <p>
+                  <span className="text-muted-foreground">{t("finance.payment.checkBank")}:</span>{" "}
+                  {payment.check_bank_name ?? "—"}
+                </p>
                 {payment.check_clearance_date && (
-                  <p><span className="text-muted-foreground">Encaissement:</span> {formatDate(payment.check_clearance_date)}</p>
+                  <p>
+                    <span className="text-muted-foreground">{t("finance.payment.clearance")}:</span>{" "}
+                    {formatDate(payment.check_clearance_date)}
+                  </p>
                 )}
               </div>
             )}
             {payment.method === "transfer" && (
               <div className="rounded-lg border border-border/60 p-3 text-sm">
-                <p><span className="text-muted-foreground">Référence:</span> {payment.transfer_reference ?? "—"}</p>
-                <p><span className="text-muted-foreground">Banque émettrice:</span> {payment.transfer_source_bank ?? "—"}</p>
+                <p>
+                  <span className="text-muted-foreground">{t("finance.payment.transferRef")}:</span>{" "}
+                  {payment.transfer_reference ?? "—"}
+                </p>
+                <p>
+                  <span className="text-muted-foreground">{t("finance.payment.transferBank")}:</span>{" "}
+                  {payment.transfer_source_bank ?? "—"}
+                </p>
               </div>
             )}
             <Button onClick={viewProof} className="w-full">
               <Download className="mr-2 h-4 w-4" />
-              Ouvrir le justificatif
+              {t("finance.payment.openProof")}
             </Button>
           </div>
         </DialogContent>
@@ -441,21 +481,21 @@ function PaymentRowItem({ payment, kidName }: { payment: PaymentRow; kidName?: s
 
 function AdjustmentsTab({
   adjustments,
+  isLoading,
 }: {
-  adjustments: ReturnType<typeof useAccountAdjustments>;
+  adjustments: LedgerEntryRow[];
+  isLoading: boolean;
 }) {
   const { t } = useT();
 
-  if (adjustments.isLoading) {
+  if (isLoading) {
     return <ListSkeleton count={4} />;
   }
-  if (adjustments.isError) {
-    return <ErrorState title={t("common.error.title")} onRetry={() => adjustments.refetch()} />;
-  }
-  if (!adjustments.data || adjustments.data.length === 0) {
+  if (adjustments.length === 0) {
     return (
       <EmptyState
         title={t("finance.adjustment.empty")}
+        description={t("finance.adjustment.emptyBody")}
         icon={<Scale className="h-6 w-6" />}
       />
     );
@@ -463,110 +503,35 @@ function AdjustmentsTab({
 
   return (
     <div className="space-y-2">
-      {adjustments.data.map((adj) => (
-        <AdjustmentRow key={adj.id} adj={adj} />
-      ))}
-    </div>
-  );
-}
-
-function AdjustmentRow({ adj }: { adj: AccountAdjustmentRow }) {
-  const { t } = useT();
-  const isCredit = adj.amount < 0;
-  const reasonLabel = t(`finance.adjustment.reason.${adj.reason_code}`, {});
-  // Fallback: if the i18n key returns the key itself (no translation), render the raw code.
-  const displayReason = reasonLabel.startsWith("finance.adjustment.reason.") ? adj.reason_code : reasonLabel;
-
-  return (
-    <CardListItem
-      leading={
-        <div
-          className={`flex h-10 w-10 items-center justify-center rounded-lg ${
-            isCredit ? "bg-success/10 text-success" : "bg-warning/10 text-warning"
-          }`}
-        >
-          <Scale className="h-4 w-4" />
-        </div>
-      }
-      title={`${isCredit ? "−" : "+"}${formatCurrency(Math.abs(adj.amount))}`}
-      subtitle={`${displayReason} • ${formatDate(adj.performed_at)}`}
-      trailing={
-        <StatusPill tone={isCredit ? "success" : "warning"}>
-          {isCredit ? "Crédit" : "Débit"}
-        </StatusPill>
-      }
-    />
-  );
-}
-
-/* -------------------------------------------------------------------------- */
-
-function ReceiptsTab({
-  receipts,
-}: {
-  receipts: ReturnType<typeof useReceipts>;
-}) {
-  const { t } = useT();
-
-  const downloadReceipt = async (r: ReceiptRow) => {
-    if (!r.pdf_path || !supabase) {
-      toast.error("PDF indisponible");
-      return;
-    }
-    const { data, error } = await supabase.storage
-      .from("receipts")
-      .download(r.pdf_path);
-    if (error) {
-      toast.error(error.message);
-      return;
-    }
-    const url = URL.createObjectURL(data);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `${r.receipt_kind === "account_statement" ? "releve" : "recu"}-${r.receipt_number}.pdf`;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
-
-  if (receipts.isLoading) {
-    return <ListSkeleton count={4} />;
-  }
-  if (receipts.isError) {
-    return <ErrorState title={t("common.error.title")} onRetry={() => receipts.refetch()} />;
-  }
-  if (!receipts.data || receipts.data.length === 0) {
-    return (
-      <EmptyState
-        title={t("finance.empty.noPayments")}
-        icon={<Receipt className="h-6 w-6" />}
-      />
-    );
-  }
-
-  return (
-    <div className="space-y-2">
-      {receipts.data.map((r) => (
-        <CardListItem
-          key={r.id}
-          leading={
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
-              <FileText className="h-4 w-4" />
-            </div>
-          }
-          title={`${r.receipt_number} • ${r.receipt_kind === "account_statement" ? t("finance.statement.download") : t("finance.receipt.download")}`}
-          subtitle={formatDate(r.generated_at)}
-          trailing={
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => downloadReceipt(r)}
-              aria-label={t("common.download")}
-            >
-              <Download className="h-4 w-4" />
-            </Button>
-          }
-        />
-      ))}
+      {adjustments.map((adj) => {
+        // Ledger adjustments are signed: negative = credit in the parent's
+        // favour (reduction), positive = surcharge.
+        const amount = Number(adj.amount);
+        const isCredit = amount < 0;
+        return (
+          <CardListItem
+            key={adj.entry_number ?? adj.id ?? Math.random()}
+            leading={
+              <div
+                className={`flex h-10 w-10 items-center justify-center rounded-lg ${
+                  isCredit ? "bg-success/10 text-success" : "bg-warning/10 text-warning"
+                }`}
+              >
+                <Scale className="h-4 w-4" />
+              </div>
+            }
+            title={`${isCredit ? "−" : "+"}${formatCurrency(Math.abs(amount))}`}
+            subtitle={`${formatDate(adj.at)}${
+              adj.description ? ` • ${adj.description}` : ""
+            }${adj.receipt_number ? ` • ${adj.receipt_number}` : ""}`}
+            trailing={
+              <StatusPill tone={isCredit ? "success" : "warning"}>
+                {isCredit ? t("finance.adjustment.credit") : t("finance.adjustment.debit")}
+              </StatusPill>
+            }
+          />
+        );
+      })}
     </div>
   );
 }

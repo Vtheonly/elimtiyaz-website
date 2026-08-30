@@ -20,6 +20,8 @@ import {
   isPassing,
   asPaymentStatus,
   asPaymentCategory,
+  ledgerTimeline,
+  ledgerAdjustmentEntries,
 } from "@/lib/canonical/portal-derive";
 import { deriveAccountId } from "@/lib/canonical/calc/ledger/account-id";
 import type { LedgerEntryRow, InstallmentRow } from "@/lib/types/database";
@@ -274,5 +276,64 @@ describe("wire-code mappers", () => {
   it("asPaymentCategory defaults to other", () => {
     expect(asPaymentCategory("therapy_speech")).toBe("therapy_speech");
     expect(asPaymentCategory("nope")).toBe("other");
+  });
+});
+
+describe("ledgerTimeline — statement replay (session 8)", () => {
+  it("sorts chronologically and accumulates the signed running balance", () => {
+    const rows = [
+      ledgerRow({ entry_number: "l3", entry_type: "payment", amount: -30000, at: "2026-09-20T00:00:00Z" }),
+      ledgerRow({ entry_number: "l1", entry_type: "charge", amount: 50000, at: "2026-09-05T00:00:00Z" }),
+      ledgerRow({ entry_number: "l2", entry_type: "adjustment", amount: -5000, at: "2026-09-10T00:00:00Z" }),
+    ];
+    const timeline = ledgerTimeline(rows);
+    expect(timeline.map((t) => t.entry.entry_number)).toEqual(["l1", "l2", "l3"]);
+    expect(timeline.map((t) => t.runningBalance)).toEqual([50000, 45000, 15000]);
+    // The final running balance equals the plain signed sum — identical to
+    // what computeParentSummary replays for the parent's total balance.
+    const sum = rows.reduce((acc, r) => acc + Number(r.amount), 0);
+    expect(timeline[timeline.length - 1].runningBalance).toBe(sum);
+  });
+
+  it("buckets entries into ISO months for statement grouping", () => {
+    const timeline = ledgerTimeline([
+      ledgerRow({ entry_number: "a", at: "2026-08-31T23:00:00Z" }),
+      ledgerRow({ entry_number: "b", at: "2026-09-01T01:00:00Z" }),
+    ]);
+    expect(timeline.map((t) => t.month)).toEqual(["2026-08", "2026-09"]);
+  });
+
+  it("breaks same-timestamp ties by entry_number (stable order)", () => {
+    const timeline = ledgerTimeline([
+      ledgerRow({ entry_number: "zz", at: "2026-09-01T00:00:00Z" }),
+      ledgerRow({ entry_number: "aa", at: "2026-09-01T00:00:00Z" }),
+    ]);
+    expect(timeline.map((t) => t.entry.entry_number)).toEqual(["aa", "zz"]);
+  });
+
+  it("returns an empty timeline for empty input", () => {
+    expect(ledgerTimeline([])).toEqual([]);
+  });
+});
+
+describe("ledgerAdjustmentEntries — real adjustment source (session 8)", () => {
+  it("filters to adjustment entries only, newest first", () => {
+    const rows = [
+      ledgerRow({ entry_number: "c1", entry_type: "charge", at: "2026-09-01T00:00:00Z" }),
+      ledgerRow({ entry_number: "a1", entry_type: "adjustment", amount: -2000, at: "2026-09-02T00:00:00Z" }),
+      ledgerRow({ entry_number: "p1", entry_type: "payment", amount: -1000, at: "2026-09-03T00:00:00Z" }),
+      ledgerRow({ entry_number: "a2", entry_type: "adjustment", amount: 500, at: "2026-09-04T00:00:00Z" }),
+    ];
+    const adjustments = ledgerAdjustmentEntries(rows);
+    expect(adjustments.map((a) => a.entry_number)).toEqual(["a2", "a1"]);
+  });
+
+  it("returns [] when the ledger holds no adjustments (honest empty state)", () => {
+    expect(
+      ledgerAdjustmentEntries([
+        ledgerRow({ entry_number: "c1", entry_type: "charge" }),
+        ledgerRow({ entry_number: "p1", entry_type: "payment", amount: -1000 }),
+      ]),
+    ).toEqual([]);
   });
 });

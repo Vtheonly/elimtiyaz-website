@@ -362,10 +362,20 @@ export function useNotifications(
     queryKey: ["notifications", targetUserId, options.limit, options.unreadOnly],
     queryFn: async () => {
       if (!targetUserId || !supabase) return [];
+      // Two delivery paths exist in the backend schema:
+      //   1. direct targeting — notifications.target_user_id = the user
+      //   2. role broadcasts — target_user_id IS NULL + target_role = the
+      //      user's role ('parent' for portal accounts)
+      // The old query matched ANY null-target row and missed neither
+      // half correctly: parents saw no role broadcasts at all (the
+      // query-side half of REALTIME-102). RLS still filters what this
+      // session is allowed to read.
       let q = supabase
         .from("notifications")
         .select("*")
-        .or(`target_user_id.eq.${targetUserId},target_user_id.is.null`)
+        .or(
+          `target_user_id.eq.${targetUserId},and(target_user_id.is.null,target_role.eq.parent)`
+        )
         .order("triggered_at", { ascending: false });
       if (options.unreadOnly) q = q.eq("is_read", false);
       if (options.limit) q = q.limit(options.limit);

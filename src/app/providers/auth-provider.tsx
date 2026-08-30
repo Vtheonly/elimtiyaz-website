@@ -32,6 +32,7 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { supabase, isSupabaseConfigured } from "@/lib/supabase/client";
+import { unregisterDeviceToken } from "@/lib/hooks/fcm-registration";
 import type { ParentRow, StudentRow, UserProfileRow } from "@/lib/types/database";
 
 type AuthState = "loading" | "unauthenticated" | "pending" | "active" | "suspended" | "rejected";
@@ -227,8 +228,23 @@ export function AuthProvider({ children: reactChildren }: { children: ReactNode 
 
   const signOut = useCallback(async () => {
     if (!supabase) return;
-    // Revoke the session server-side before clearing local state.
-    await supabase.auth.signOut({ scope: "global" });
+    // SYNC-105 fix (2026-08-30), two parts:
+    //   1. Deactivate THIS device's FCM token first — the old flow left
+    //      is_active=true rows behind, so push notifications kept reaching
+    //      a signed-out device. (Must run while the session is still valid —
+    //      the RPC verifies the caller.)
+    //   2. Revoke only the LOCAL session. The old `scope: "global"` revoked
+    //      every session on every device — a parent signing out on their
+    //      phone silently killed the family's tablet + laptop sessions.
+    const profileId = profileIdRef.current;
+    if (profileId) {
+      try {
+        await unregisterDeviceToken(profileId);
+      } catch {
+        // Non-fatal: proceed with sign-out even if the token cleanup fails.
+      }
+    }
+    await supabase.auth.signOut({ scope: "local" });
     setUser(null);
     setParent(null);
     setChildrenList([]);
