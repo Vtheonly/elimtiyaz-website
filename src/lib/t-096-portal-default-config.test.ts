@@ -52,7 +52,10 @@ describe("T-096 — out-of-the-box portal configuration", () => {
     // Google sign-in button.
     expect(isSupabaseConfigured).toBe(true);
     expect(env.NEXT_PUBLIC_SUPABASE_URL).toBe("https://hkvkefubghbbotgnteir.supabase.co");
-    expect(env.NEXT_PUBLIC_SUPABASE_ANON_KEY).toMatch(/^eyJ/);
+    // T-107 / MIG-KEYS-201 (2026-09-01): the committed default is now the
+    // new-format PUBLISHABLE key (ADR-009 — dual acceptance, publishable-
+    // preferred). Previously pinned to the legacy JWT shape (/^eyJ/).
+    expect(env.NEXT_PUBLIC_SUPABASE_ANON_KEY).toMatch(/^sb_publishable_[A-Za-z0-9_-]+$/);
   });
 
   it("fresh clone: FCM web push stays truthfully DISABLED (no web app id / VAPID key known)", async () => {
