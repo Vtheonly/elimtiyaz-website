@@ -422,6 +422,33 @@ export function useNotifications(
   });
 }
 
+/**
+ * T-052 (NOTIF-103): the TRUE unread count via a COUNT-only query
+ * (head: true — zero rows transferred). Replaces the top-app-bar's
+ * `limit: 50 + .length` pattern which capped the bell badge at 50.
+ * Same delivery paths as useNotifications (direct + parent role broadcast).
+ */
+export function useUnreadNotificationCount(
+  targetUserId: string | null | undefined
+): UseQueryResult<number> {
+  return useQuery({
+    queryKey: ["notifications-unread-count", targetUserId],
+    queryFn: async () => {
+      if (!targetUserId || !supabase) return 0;
+      const { count, error } = await supabase
+        .from("notifications")
+        .select("id", { count: "exact", head: true })
+        .or(
+          `target_user_id.eq.${targetUserId},and(target_user_id.is.null,target_role.eq.parent)`
+        )
+        .eq("is_read", false);
+      if (error) throw error;
+      return count ?? 0;
+    },
+    enabled: Boolean(targetUserId),
+  });
+}
+
 export function useUpcomingEvents(
   options: { limit?: number; from?: string } = {}
 ): UseQueryResult<CalendarEventRow[]> {

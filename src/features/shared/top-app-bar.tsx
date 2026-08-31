@@ -15,7 +15,7 @@ import { Bell, GraduationCap } from "lucide-react";
 import { useAppStore } from "@/lib/store/app-store";
 import { useT } from "@/lib/i18n/use-t";
 import { useAuth } from "@/app/providers/auth-provider";
-import { useNotifications } from "@/lib/hooks/portal-queries";
+import { useUnreadNotificationCount } from "@/lib/hooks/portal-queries";
 import { cn } from "@/lib/utils";
 import { formatInitials } from "@/lib/format";
 
@@ -47,11 +47,9 @@ export function TopAppBar() {
   const activeView = useAppStore((s) => s.activeView);
   const setActiveView = useAppStore((s) => s.setActiveView);
   const { user } = useAuth();
-  const { data: unread } = useNotifications(user?.id ?? null, {
-    unreadOnly: true,
-    limit: 50,
-  });
-  const unreadCount = unread?.length ?? 0;
+  // T-052 (NOTIF-103): the TRUE unread count (COUNT-only query, no 50-cap).
+  const { data: unreadCountData } = useUnreadNotificationCount(user?.id ?? null);
+  const unreadCount = unreadCountData ?? 0;
 
   return (
     <header className="glass-bar safe-pt sticky top-0 z-30 border-b border-border/60">

@@ -24,7 +24,7 @@ import { useAppStore, type AppView } from "@/lib/store/app-store";
 import { useT } from "@/lib/i18n/use-t";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/app/providers/auth-provider";
-import { useNotifications, useUnreadChatCount } from "@/lib/hooks/portal-queries";
+import { useUnreadChatCount } from "@/lib/hooks/portal-queries";
 
 interface NavItem {
   view: AppView;
@@ -56,12 +56,9 @@ export function BottomNav() {
   const setActiveView = useAppStore((s) => s.setActiveView);
   const { t } = useT();
   const { user } = useAuth();
-  // Bell badge uses notifications; Messages badge uses chat unread count.
-  const { data: unreadNotifications } = useNotifications(user?.id ?? null, {
-    unreadOnly: true,
-    limit: 1,
-  });
-  const hasUnreadNotifications = Boolean(unreadNotifications && unreadNotifications.length > 0);
+  // T-052 (NOTIF-103): the dead unread-notifications query (fetched 1 row,
+  // computed a boolean that no JSX ever rendered) is REMOVED — the bell
+  // lives in the top app bar. Messages badge uses the chat unread count.
   const { data: unreadChatCount } = useUnreadChatCount(user?.id ?? null);
   const unreadChat = unreadChatCount ?? 0;
 
@@ -121,11 +118,8 @@ export function DesktopRail() {
   const setActiveView = useAppStore((s) => s.setActiveView);
   const { t } = useT();
   const { user } = useAuth();
-  const { data: unreadNotifications } = useNotifications(user?.id ?? null, {
-    unreadOnly: true,
-    limit: 1,
-  });
-  const hasUnreadNotifications = Boolean(unreadNotifications && unreadNotifications.length > 0);
+  // T-052 (NOTIF-103): the dead unread-notifications query removed (same
+  // cleanup as BottomNav — the bell lives in the top app bar).
   const { data: unreadChatCount } = useUnreadChatCount(user?.id ?? null);
   const unreadChat = unreadChatCount ?? 0;
 
