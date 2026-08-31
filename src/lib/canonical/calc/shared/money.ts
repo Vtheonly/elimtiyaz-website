@@ -1,7 +1,12 @@
 /**
- * CANONICAL ENGINE PORT (website) — byte-identical port of the desktop
- * canonical implementation. DO NOT edit by hand: re-run
- * scripts/port-canonical.mjs from the repo root instead.
+ * CANONICAL ENGINE PORT (website) — verbatim port of the desktop canonical
+ * implementation (source path below; sha256 pins the port). T-057
+ * (DRIFT-009/DEAD-011): there is NO port-canonical.mjs script (the old
+ * header promised one that never existed). When refreshing this file, port
+ * the function(s) below verbatim from the desktop source and keep the
+ * exported surface identical — the website is a read-only portal, and the
+ * unused payment/pricing subtrees were pruned in T-057 (never re-add them;
+ * financial write-path logic lives server-side per ADR-002).
  * Source: elimtiyaz-desktop/src/domain/calc/shared/money.ts
  * Source sha256 (first 12): 5ac6a16b8e75
  * Equivalence: verified by cross-platform-equivalence suite.

@@ -1,7 +1,12 @@
 /**
- * CANONICAL ENGINE PORT (website) — byte-identical port of the desktop
- * canonical implementation. DO NOT edit by hand: re-run
- * scripts/port-canonical.mjs from the repo root instead.
+ * CANONICAL ENGINE PORT (website) — verbatim port of the desktop canonical
+ * implementation (source path below; sha256 pins the port). T-057
+ * (DRIFT-009/DEAD-011): there is NO port-canonical.mjs script (the old
+ * header promised one that never existed). When refreshing this file, port
+ * the function(s) below verbatim from the desktop source and keep the
+ * exported surface identical — the website is a read-only portal, and the
+ * unused payment/pricing subtrees were pruned in T-057 (never re-add them;
+ * financial write-path logic lives server-side per ADR-002).
  * Source: elimtiyaz-desktop/src/domain/model/payment.ts
  * Source sha256 (first 12): aefea1696c84
  * Equivalence: verified by cross-platform-equivalence suite.
@@ -540,22 +545,7 @@ export function isAdjustmentReasonCode(value: string): value is AdjustmentReason
 /*  can be removed.                                                   */
 /* ================================================================== */
 
-export {
-  sumPaidPayments,
-  sumInstallmentsDue,
-  sumInstallmentsPaid,
-} from "../calc/payment/sums";
-
-export {
-  installmentRemaining,
-  totalOutstanding,
-  overdueAmount,
-  maxDaysOverdue,
-  agingBucketFromDays,
-} from "../calc/payment/queries";
-
-export {
-  revenueByMonth,
-  revenueByCategory,
-  monthlyRevenue,
-} from "../calc/payment/revenue";
+// T-057 (DRIFT-009): the payment-calc re-exports (sums/queries/revenue) were
+// pruned with the calc/payment subtree — the portal never collects payments
+// and derives everything read-side from ledger rows (portal-derive.ts). The
+// TYPE surface above is the kept, verbatim-ported contract.

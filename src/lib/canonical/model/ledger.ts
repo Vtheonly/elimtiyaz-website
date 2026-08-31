@@ -1,7 +1,12 @@
 /**
- * CANONICAL ENGINE PORT (website) — byte-identical port of the desktop
- * canonical implementation. DO NOT edit by hand: re-run
- * scripts/port-canonical.mjs from the repo root instead.
+ * CANONICAL ENGINE PORT (website) — verbatim port of the desktop canonical
+ * implementation (source path below; sha256 pins the port). T-057
+ * (DRIFT-009/DEAD-011): there is NO port-canonical.mjs script (the old
+ * header promised one that never existed). When refreshing this file, port
+ * the function(s) below verbatim from the desktop source and keep the
+ * exported surface identical — the website is a read-only portal, and the
+ * unused payment/pricing subtrees were pruned in T-057 (never re-add them;
+ * financial write-path logic lives server-side per ADR-002).
  * Source: elimtiyaz-desktop/src/domain/model/ledger.ts
  * Source sha256 (first 12): 3acae0a53371
  * Equivalence: verified by cross-platform-equivalence suite.
@@ -185,12 +190,6 @@ export interface ParentLedgerSummary {
 /*  Account ID derivation — single source of truth                    */
 /* ================================================================== */
 //
-// REFACTOR NOTE (iteration 1): The implementation now lives in
-// `@/domain/calc/ledger/account-id.ts`. The export below is a thin
-// re-export so existing imports from `@/domain/model/ledger` keep working.
-
-export { deriveAccountId } from "../calc/ledger/account-id";
-
 /* ================================================================== */
 /*  Balance computation — the ONLY way to compute a balance            */
 /* ================================================================== */
@@ -199,26 +198,13 @@ export { deriveAccountId } from "../calc/ledger/account-id";
 // `@/domain/calc/ledger/balance.ts`. The exports below are thin
 // re-exports so existing imports from `@/domain/model/ledger` keep working.
 
+// T-057 (DRIFT-009): deriveAccountId KEPT (portal-derive.test exercises it);
+// computeAccountBalance pruned with the payment/pricing
+// subtrees — the read-only portal never computes a single-account balance;
+// computeParentSummary (used by portal-derive) is the kept surface.
 export {
-  computeAccountBalance,
   computeParentSummary,
 } from "../calc/ledger/balance";
-
-/* ================================================================== */
-/*  Entry construction — factories enforce invariants                  */
-/* ================================================================== */
-//
-// REFACTOR NOTE (iteration 1): The implementations now live in
-// `@/domain/calc/ledger/entries.ts`. The exports below are thin
-// re-exports so existing imports from `@/domain/model/ledger` keep working.
-
-export {
-  createChargeEntry,
-  createPaymentEntry,
-  createAdjustmentEntry,
-  createRefundEntry,
-  createReversalEntry,
-} from "../calc/ledger/entries";
 
 /**
  * Days overdue for a parent's worst (max) overdue charge entry.
@@ -228,24 +214,10 @@ export {
  */
 // REFACTOR NOTE (iteration 1): The implementation now lives in
 // `@/domain/calc/ledger/overdue.ts`.
+// T-057 (DRIFT-009): maxDaysOverdueFromLedger pruned (unused by the portal).
 export {
-  maxDaysOverdueFromLedger,
   buildOverdueDueDateMap,
 } from "../calc/ledger/overdue";
-
-/* ================================================================== */
-/*  Convenience: derive installment-level charges from pricing config  */
-/* ================================================================== */
-//
-// REFACTOR NOTE (iteration 1): The implementations now live in
-// `@/domain/calc/ledger/charges.ts`. The exports below are thin
-// re-exports so existing imports from `@/domain/model/ledger` keep working.
-
-export {
-  buildTuitionChargeEntries,
-  buildTransportChargeEntry,
-  buildTransportChargeEntriesForDestination,
-} from "../calc/ledger/charges";
 
 /* ================================================================== */
 /*  Labels (FR)                                                        */
