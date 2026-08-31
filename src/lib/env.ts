@@ -9,9 +9,19 @@
  * Why a separate module: previously every file read `process.env.X ?? ""`
  * directly, with no central place to detect placeholder values or to add new
  * env vars. This module is that single source of truth.
+ *
+ * FALLBACK DEFAULTS (T-096, 2026-08-31): every public identifier falls back to
+ * the committed values in `src/lib/public-config.ts` when the env var is
+ * absent. This is what makes a fresh `git clone` work out of the box — the
+ * previous behaviour (empty-string defaults) produced the "Missing
+ * configuration" banner on every fresh clone because `.env.local` is
+ * gitignored and never survives a push. The defaults are PUBLIC client
+ * identifiers (URL + anon key + Firebase web config) — never server secrets.
+ * `.env.local` still overrides every value.
  */
 
 import { z } from "zod";
+import { PUBLIC_CONFIG_DEFAULTS } from "./public-config";
 
 const envSchema = z.object({
   NEXT_PUBLIC_SUPABASE_URL: z.string().default(""),
@@ -43,18 +53,40 @@ function isPlaceholder(value: string): boolean {
 // Parse once at module load. If parsing fails (e.g. invalid locale), fall back
 // to defaults rather than crashing — the portal surfaces config errors in the
 // UI via isSupabaseConfigured / isFcmConfigured.
+// T-096: public identifiers fall back to the committed PUBLIC defaults so a
+// fresh clone (no .env.local) is fully functional; env vars win when set.
+// T-096 ROOT-CAUSE FIX: an unset NEXT_PUBLIC_DEFAULT_LOCALE used to feed ""
+// into z.enum(["fr","ar","en"]) — "" is NOT undefined, so the enum rejected
+// it, safeParse FAILED, and the fallback `envSchema.parse({})` reset EVERY
+// value to the zod default "" (URL + anon key included). The portal then
+// showed "Missing configuration" even when the env vars were correctly set.
+// Empty/unknown locales now resolve to undefined so the .default("fr")
+// applies and the parse succeeds.
+const rawLocale = process.env.NEXT_PUBLIC_DEFAULT_LOCALE ?? "";
+const localeInput: "fr" | "ar" | "en" | undefined =
+  rawLocale === "fr" || rawLocale === "ar" || rawLocale === "en" ? rawLocale : undefined;
+
 const parsed = envSchema.safeParse({
-  NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL ?? "",
-  NEXT_PUBLIC_SUPABASE_ANON_KEY: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "",
-  NEXT_PUBLIC_FIREBASE_API_KEY: process.env.NEXT_PUBLIC_FIREBASE_API_KEY ?? "",
-  NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN ?? "",
-  NEXT_PUBLIC_FIREBASE_PROJECT_ID: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID ?? "",
-  NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET ?? "",
-  NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID ?? "",
-  NEXT_PUBLIC_FIREBASE_APP_ID: process.env.NEXT_PUBLIC_FIREBASE_APP_ID ?? "",
-  NEXT_PUBLIC_FIREBASE_VAPID_KEY: process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY ?? "",
-  NEXT_PUBLIC_APP_NAME: process.env.NEXT_PUBLIC_APP_NAME ?? "",
-  NEXT_PUBLIC_DEFAULT_LOCALE: process.env.NEXT_PUBLIC_DEFAULT_LOCALE ?? "",
+  NEXT_PUBLIC_SUPABASE_URL:
+    process.env.NEXT_PUBLIC_SUPABASE_URL ?? PUBLIC_CONFIG_DEFAULTS.NEXT_PUBLIC_SUPABASE_URL,
+  NEXT_PUBLIC_SUPABASE_ANON_KEY:
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? PUBLIC_CONFIG_DEFAULTS.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+  NEXT_PUBLIC_FIREBASE_API_KEY:
+    process.env.NEXT_PUBLIC_FIREBASE_API_KEY ?? PUBLIC_CONFIG_DEFAULTS.NEXT_PUBLIC_FIREBASE_API_KEY,
+  NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN:
+    process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN ?? PUBLIC_CONFIG_DEFAULTS.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+  NEXT_PUBLIC_FIREBASE_PROJECT_ID:
+    process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID ?? PUBLIC_CONFIG_DEFAULTS.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+  NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET:
+    process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET ?? PUBLIC_CONFIG_DEFAULTS.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+  NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID:
+    process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID ?? PUBLIC_CONFIG_DEFAULTS.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+  NEXT_PUBLIC_FIREBASE_APP_ID:
+    process.env.NEXT_PUBLIC_FIREBASE_APP_ID ?? PUBLIC_CONFIG_DEFAULTS.NEXT_PUBLIC_FIREBASE_APP_ID,
+  NEXT_PUBLIC_FIREBASE_VAPID_KEY:
+    process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY ?? PUBLIC_CONFIG_DEFAULTS.NEXT_PUBLIC_FIREBASE_VAPID_KEY,
+  NEXT_PUBLIC_APP_NAME: process.env.NEXT_PUBLIC_APP_NAME || "El-Imtiyaz Portal",
+  NEXT_PUBLIC_DEFAULT_LOCALE: localeInput,
 });
 
 export const env: Env = parsed.success
@@ -80,7 +112,9 @@ export const isFcmConfigured =
 if (!isSupabaseConfigured) {
   console.warn(
     "[env] Missing or placeholder NEXT_PUBLIC_SUPABASE_URL or NEXT_PUBLIC_SUPABASE_ANON_KEY. " +
-      "Set real values in .env.local. See README.md."
+      "Fell back to the committed public defaults? No — this means BOTH the env vars AND the " +
+      "defaults in src/lib/public-config.ts are missing/placeholder. Fix the defaults file " +
+      "(values are public client identifiers; see docs/operations/credentials.md in the hub repo)."
   );
 }
 if (!isFcmConfigured && env.NEXT_PUBLIC_FIREBASE_API_KEY) {
