@@ -181,3 +181,100 @@ export function subscribeToFcmTokenRefresh(userProfileId: string | null | undefi
   navigator.serviceWorker.addEventListener("message", handler);
   return () => navigator.serviceWorker.removeEventListener("message", handler);
 }
+
+/**
+ * T-036 / PUSH-103 — auto-register FCM after the FIRST user gesture.
+ *
+ * The defect: the ONLY registration path was the manual toggle in the
+ * Profile view — most parents never found it, so the server had no token
+ * for them and no push could ever be delivered.
+ *
+ * Browsers only allow `Notification.requestPermission()` from a
+ * user-initiated event (click/tap/keypress), so auto-registration on
+ * sign-in alone is impossible. The pattern here:
+ *   - After a profile becomes available, listen for the FIRST gesture
+ *     (pointerdown / keydown) on the page.
+ *   - Permission already "granted" (e.g. returning user whose row was
+ *     deactivated on sign-out) → register immediately, no prompt.
+ *   - Permission "default" → request it FROM the gesture (legal); if
+ *     granted → register.
+ *   - Permission "denied" → never (the Profile view explains how to
+ *     unblock in browser settings).
+ *   - ONE attempt per browser profile (localStorage flag) — a dismissed
+ *     prompt must not nag on every visit (Chrome auto-blocks repeated
+ *     prompts anyway). The Profile toggle remains the explicit re-enable
+ *     path and is unaffected.
+ *
+ * Returns a teardown function — call it in useEffect cleanup (the
+ * auth-provider re-wires it whenever the signed-in profile changes).
+ */
+const FCM_AUTOREG_KEY = "el-imtiyaz.fcm-autoreg";
+
+/** Decision map extracted for tests: what to do per permission state. */
+export function autoRegisterAction(permission: string): "register" | "prompt" | "never" {
+  if (permission === "granted") return "register";
+  if (permission === "default") return "prompt";
+  return "never";
+}
+
+export function autoRegisterFcmAfterFirstGesture(
+  userProfileId: string | null | undefined,
+): () => void {
+  if (typeof window === "undefined" || !userProfileId) return () => {};
+  if (typeof Notification === "undefined") return () => {};
+  // One attempt per browser profile — the dismissed prompt must not nag.
+  try {
+    if (localStorage.getItem(FCM_AUTOREG_KEY)) return () => {};
+  } catch {
+    // Private browsing — proceed without the once-guard (non-fatal).
+  }
+
+  let activeProfileId: string | null = userProfileId;
+  let finished = false;
+
+  const markAttempted = () => {
+    try {
+      localStorage.setItem(FCM_AUTOREG_KEY, new Date().toISOString());
+    } catch {
+      // Non-fatal.
+    }
+  };
+
+  const onFirstGesture = async () => {
+    if (finished) return;
+    const profileId = activeProfileId;
+    if (!profileId) return; // signed out mid-listen — keep waiting for a new wiring.
+    finished = true;
+    teardown(); // one-time: stop listening before any await.
+
+    const action = autoRegisterAction(Notification.permission);
+    if (action === "never") {
+      markAttempted();
+      return;
+    }
+    if (action === "prompt") {
+      try {
+        const result = await Notification.requestPermission();
+        if (autoRegisterAction(result) !== "register") {
+          markAttempted(); // dismissed or denied — no auto-retry
+          return;
+        }
+      } catch {
+        markAttempted();
+        return;
+      }
+    }
+    // action === "register" (or the prompt was granted)
+    markAttempted();
+    await registerDeviceToken(profileId);
+  };
+
+  const GESTURES: (keyof WindowEventMap)[] = ["pointerdown", "keydown"];
+  const handler = () => void onFirstGesture();
+  GESTURES.forEach((g) => window.addEventListener(g, handler, { passive: true }));
+
+  function teardown(): void {
+    GESTURES.forEach((g) => window.removeEventListener(g, handler));
+  }
+  return teardown;
+}

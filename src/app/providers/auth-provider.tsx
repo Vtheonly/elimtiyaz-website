@@ -32,7 +32,7 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { supabase, isSupabaseConfigured } from "@/lib/supabase/client";
-import { unregisterDeviceToken } from "@/lib/hooks/fcm-registration";
+import { unregisterDeviceToken, autoRegisterFcmAfterFirstGesture } from "@/lib/hooks/fcm-registration";
 import type { ParentRow, StudentRow, UserProfileRow } from "@/lib/types/database";
 
 type AuthState = "loading" | "unauthenticated" | "pending" | "active" | "suspended" | "rejected";
@@ -173,6 +173,17 @@ export function AuthProvider({ children: reactChildren }: { children: ReactNode 
     const next = await loadProfile();
     setState(next);
   }, [loadProfile]);
+
+  // T-036 / PUSH-103: attempt FCM auto-registration after the FIRST user
+  // gesture. Browsers only allow the permission prompt from a user-initiated
+  // event, so this waits for the first pointerdown/keydown after the profile
+  // is available. One attempt per browser profile (localStorage guard inside
+  // the helper); the Profile view toggle remains the explicit control and is
+  // unaffected.
+  useEffect(() => {
+    const teardown = autoRegisterFcmAfterFirstGesture(user?.id);
+    return () => teardown();
+  }, [user?.id]);
 
   // Subscribe to auth state changes once on mount.
   useEffect(() => {
