@@ -128,8 +128,13 @@ function ChannelListItem({
       </div>
       <div className="min-w-0 flex-1">
         <p className="truncate text-sm font-medium">{channel.name}</p>
+        {/* T-101 (CHAT-104, migration 0061): the last-message preview is
+            denormalized on chat_channels by the 0061 trigger — show it when
+            present; fall back to the channel's age. */}
         <p className="truncate text-xs text-muted-foreground">
-          {formatRelative(channel.updated_at)}
+          {channel.last_message_preview
+            ? `${formatRelative(channel.last_message_at ?? channel.updated_at)} · ${channel.last_message_preview}`
+            : formatRelative(channel.updated_at)}
         </p>
       </div>
     </button>

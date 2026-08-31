@@ -692,6 +692,13 @@ export type ChatChannelRow = {
   created_by: string | null;
   created_at: string;
   updated_at: string;
+  // T-101 (2026-08-31, migration 0061): completion columns — description /
+  // department scope / soft archive / last-activity denormalization.
+  description: string | null;
+  department_id: string | null;
+  archived_at: string | null;
+  last_message_at: string | null;
+  last_message_preview: string | null;
 }
 
 // A single entry inside chat_messages.read_by (jsonb array).

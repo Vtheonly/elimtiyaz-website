@@ -43,7 +43,7 @@ supabase/
 - **Financial view structure (session 8, 2026-08-30):** tabs are Tranches | Paiements | **Relevé** (ledger statement timeline — `ledgerTimeline` replay with running balance) | Ajustements (derived from `ledger_entries` via `ledgerAdjustmentEntries` — the `account_adjustments` table is EMPTY in production). The old invoices/receipts standalone tabs were REMOVED (0 rows / orphaned table — CROSS-101); per-payment receipt download is retained for when the backend generates rows. Payment status is rendered from the row (never hardcoded "paid"); parent names use `formatParentName` (display_name first — `parents.first_name` is an empty string on ALL 258 production rows).
 - Realtime freshness depends on 4 hooks in `use-realtime.ts` — 2 are currently broken (homework subscribes to the dead legacy table; notifications realtime filter misses role-broadcasts) and the global query config has no fallback (CACHE-100). Fix tasks: T-032/T-033. NOTE: the notifications QUERY now includes parent-role broadcasts (session 8 — query-side half of REALTIME-102); the realtime-subscription half is still open.
 - **Sign-out (SYNC-105 fixed 2026-08-30):** `AuthProvider.signOut` deactivates this device's FCM token (canonical `deactivate_fcm_tokens` RPC, migration 0050) then revokes with `scope:'local'` — never 'global' (a parent signing out on one device must not kill the family's other sessions).
-- The chat MessagesView is **permanently empty** — no production code anywhere creates `chat_channels` (CHAT-103). Do not "fix" the UI before the product decision (UNKNOWN-005).
+- The chat MessagesView is **LIVE since session 14 (2026-08-31)**: chat is a committed feature (ADR-008 — owner decision, UNKNOWN-005 resolved). The portal stays **read+reply**: parents see the channels staff open from the desktop's parent-detail-drawer ("Messager" → canonical `create_direct_channel` RPC, migration 0061). Portal-side ordering is by `last_message_at` (0051 read-receipt policy + 0061 trigger maintain the data); archived channels are hidden. Do NOT add channel-creation UI here (staff-only by design).
 - The mock-admin authentication system was REMOVED 2026-08-29 (SEC-007 fixed by T-009): Google OAuth is the only auth path; a planted `mock-auth-session` key yields no session (regression-tested). Do not re-introduce any client-side mock auth.
 
 ## 4. Before changing anything (mandatory)
@@ -79,9 +79,15 @@ Every commit body must answer five questions (hub `AGENTS.md` §14, full templat
 
 ```bash
 npm run lint          # eslint
-npm run test          # vitest (87 tests; setup file gap = DEAD-012)
+npm run test          # vitest (17 files / 153 tests, session 14)
 npm run build         # next build (strict after T-049)
 ```
+
+> **Out-of-the-box config (T-096, session 14):** a fresh clone works WITHOUT `.env.local` —
+> public identifiers (Supabase URL + anon key + Firebase web config sans VAPID/web-app-id) are
+> committed in `src/lib/public-config.ts` and `env.ts` falls back to them. `.env.local` still
+> overrides every value. NEVER commit server secrets (service_role / sb_secret / sbp_) — a
+> regression test scans for them (`src/lib/t-096-portal-default-config.test.ts`).
 
 ## 9. Forbidden in this repository
 

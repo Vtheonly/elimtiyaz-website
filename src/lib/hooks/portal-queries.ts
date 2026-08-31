@@ -514,7 +514,11 @@ export function useChatChannels(
         .from("chat_channels")
         .select("*")
         .contains("member_ids", [userProfileId])
-        .order("updated_at", { ascending: false });
+        // T-101 (CHAT-104, migration 0061): archived channels are hidden;
+        // ordering is by LAST ACTIVITY (the 0061 trigger maintains
+        // last_message_at on every insert), not by any-column updated_at.
+        .is("archived_at", null)
+        .order("last_message_at", { ascending: false, nullsFirst: false });
       if (error) throw error;
       return (data ?? []) as ChatChannelRow[];
     },
@@ -556,9 +560,11 @@ export function useChatMessages(
  * channels the user is a member of. The returned count is therefore a
  * LOWER BOUND: if unread + read volume across all channels exceeds the
  * 500-row window, older unread messages are not counted. An exact count
- * would need a channel-scoped fetch or a server-side counter — deliberately
- * deferred to the chat rework (T-032) while chat has no production writers
- * (CHAT-103 / UNKNOWN-005).
+ * would need a channel-scoped fetch or a server-side counter. (Since
+ * migration 0061 / T-099, chat HAS production writers — the old
+ * justification "no production writers (CHAT-103 / UNKNOWN-005)" no
+ * longer applies; the lower-bound caveat itself remains true and the
+ * exact counter stays a follow-up.)
  *
  * The bottom-nav badge uses this instead of the previous (incorrect) count
  * from the `notifications` table.
