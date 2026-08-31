@@ -17,17 +17,41 @@
  *   - FCM may refresh the token at any time (rare). The service worker
  *     receives a `pushsubscriptionchange` event and posts an
  *     `FCM_TOKEN_REFRESH` message to every open page. The page then
- *     re-calls `initFcm()` and re-upserts the new token. Stale tokens are
- *     cleaned up the next time the user opens the portal.
+ *     re-calls `initFcm()`, re-registers the new token AND retires the
+ *     stale one via the `unregister_fcm_token` RPC (T-030, migration
+ *     0060) — no orphan active rows are left behind.
  */
 
 import { supabase } from "@/lib/supabase/client";
 import { initFcm } from "@/lib/fcm";
 
+/**
+ * Last-known FCM token for THIS browser (localStorage). Written on every
+ * successful registration so the FCM_TOKEN_REFRESH flow can retire the
+ * STALE token immediately (T-030 / PUSH-102) instead of leaving a
+ * permanently-active orphan row in device_tokens — the old comment
+ * claimed "stale tokens are cleaned up the next time the user opens the
+ * portal", but nothing ever did that.
+ */
+const FCM_TOKEN_STORAGE_KEY = "el-imtiyaz.fcm-token";
+
 interface DeviceTokenRow {
   id: string;
   token: string;
   is_active: boolean;
+}
+
+/**
+ * Read the last-known FCM token (localStorage) — used by tests + the refresh
+ * flow to detect a rotated token.
+ */
+export function getLastKnownFcmToken(): string | null {
+  if (typeof localStorage === "undefined") return null;
+  try {
+    return localStorage.getItem(FCM_TOKEN_STORAGE_KEY);
+  } catch {
+    return null;
+  }
 }
 
 /**
@@ -53,6 +77,32 @@ export async function registerDeviceToken(userProfileId: string): Promise<boolea
 
   if (error) {
     console.error("[fcm] failed to register device token:", error);
+    return false;
+  }
+  // Remember the token so a future rotation can retire THIS one.
+  try {
+    localStorage.setItem(FCM_TOKEN_STORAGE_KEY, token);
+  } catch {
+    // Non-fatal — private browsing etc.
+  }
+  return true;
+}
+
+/**
+ * Retire ONE stale FCM token by string (T-030 / PUSH-102).
+ *
+ * Called by the FCM_TOKEN_REFRESH flow after re-registering: FCM rotated
+ * the token, the NEW one is now active, the OLD row (still is_active=true
+ * from the previous registration) is deactivated via the canonical
+ * `unregister_fcm_token` RPC (migration 0060, caller-verified: only the
+ * row's owner can retire it). Best-effort — a failure leaves the row for
+ * the user's next sign-out (deactivate_fcm_tokens).
+ */
+export async function unregisterFcmToken(token: string): Promise<boolean> {
+  if (!supabase || !token) return false;
+  const { error } = await supabase.rpc("unregister_fcm_token", { p_token: token });
+  if (error) {
+    console.warn("[fcm] failed to retire stale token:", error.message);
     return false;
   }
   return true;
@@ -108,7 +158,10 @@ export async function listDeviceTokens(userProfileId: string): Promise<DeviceTok
 
 /**
  * Subscribe to FCM_TOKEN_REFRESH messages from the service worker.
- * When FCM rotates the token, the SW posts this message; we re-register.
+ * When FCM rotates the token, the SW posts this message; we:
+ *   1. re-register the NEW token (registerDeviceToken), and
+ *   2. retire the STALE one (unregisterFcmToken with the last-known token,
+ *      T-030) so device_tokens never holds two active rows for this browser.
  *
  * Returns an unsubscribe function — call it in useEffect cleanup.
  */
@@ -118,8 +171,12 @@ export function subscribeToFcmTokenRefresh(userProfileId: string | null | undefi
   }
   const handler = async (event: MessageEvent) => {
     if (event.data?.type !== "FCM_TOKEN_REFRESH") return;
-    console.info("[fcm] token refresh requested by SW — re-registering.");
-    await registerDeviceToken(userProfileId);
+    console.info("[fcm] token refresh requested by SW — re-registering + retiring the stale token.");
+    const staleToken = getLastKnownFcmToken();
+    const ok = await registerDeviceToken(userProfileId);
+    if (ok && staleToken) {
+      await unregisterFcmToken(staleToken);
+    }
   };
   navigator.serviceWorker.addEventListener("message", handler);
   return () => navigator.serviceWorker.removeEventListener("message", handler);

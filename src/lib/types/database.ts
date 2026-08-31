@@ -1011,6 +1011,11 @@ export type Database = {
       /** Canonical FCM sign-out path (hub migration 0050, SYNC-104/105):
        *  deactivates the caller's device_tokens rows. Caller-verified. */
       deactivate_fcm_tokens: { Args: { p_user_id: string; p_platform?: string | null }; Returns: number };
+      /** Retire ONE FCM token by string (hub migration 0060, T-030/PUSH-102):
+       *  used by the service-worker FCM_TOKEN_REFRESH flow to retire the
+       *  stale token. Caller-verified (row owner or service_role). Returns
+       *  the row id, or null when no row matched (idempotent). */
+      unregister_fcm_token: { Args: { p_token: string }; Returns: string | null };
       fn_calculate_student_term_gpa: {
         Args: { p_student_id: string; p_term: string; p_academic_year: string };
         Returns: number;
