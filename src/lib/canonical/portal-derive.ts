@@ -346,3 +346,23 @@ export function asPaymentCategory(v: string | null | undefined): PaymentCategory
 function asPaymentMethod(v: string | null | undefined): PaymentMethod {
   return PAYMENT_METHODS.find((m) => m === v) ?? "cash";
 }
+
+/**
+ * DISPLAY-level credit derivation for a parent (ADR-010 / T-104, DATA-009).
+ *
+ * VERBATIM PORT of the desktop's `displayParentCredit`
+ * (elimtiyaz-desktop/src/domain/calc/ledger/balance.ts) — per AGENTS.md §9,
+ * cross-platform display rules are ported verbatim with the source recorded.
+ *
+ * The canonical writer `collect_and_allocate_payment` books the FULL payment
+ * entry AND a `parent_credit` adjustment on overpayment, so the raw ledger
+ * balance double-counts the credit for canonical-path overpayments; the 0062
+ * reconciliation deliberately did NOT materialize credit entries for
+ * historical overpayers (raw negative balance exact there). Convention:
+ * when the net position is a credit (outstanding < 0), BOOKED unallocated
+ * credit wins when present; otherwise the raw negative balance is the credit.
+ */
+export function displayCredit(outstanding: number, unallocatedCredit: number): number {
+  if (outstanding >= 0) return 0;
+  return unallocatedCredit < 0 ? -unallocatedCredit : -outstanding;
+}

@@ -31,6 +31,7 @@ import {
   installmentRemainingAmount,
   portalFinancialSummary,
   ledgerAdjustmentEntries,
+  displayCredit,
 } from "@/lib/canonical/portal-derive";
 import { useFinancialRealtime } from "@/lib/hooks/use-realtime";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -189,10 +190,14 @@ export function FinancialView() {
           />
           <KpiCard
             label={t("finance.balance.credit")}
-            value={formatCurrency(Math.abs(balance.unallocatedCredit))}
-            tone={balance.unallocatedCredit < 0 ? "info" : "default"}
+            /* T-104/ADR-010: derived credit (DATA-009) — the raw negative
+               balance double-counts credit for canonical-path overpayments;
+               booked unallocated credit wins, else the raw balance is used.
+               Same rule as the desktop dossier card (displayParentCredit). */
+            value={formatCurrency(displayCredit(balance.outstanding, balance.unallocatedCredit))}
+            tone={displayCredit(balance.outstanding, balance.unallocatedCredit) > 0 ? "info" : "default"}
             icon={<PiggyBank className="h-5 w-5" />}
-            hint={balance.unallocatedCredit < 0 ? t("finance.balance.creditHint") : t("finance.balance.noCredit")}
+            hint={displayCredit(balance.outstanding, balance.unallocatedCredit) > 0 ? t("finance.balance.creditHint") : t("finance.balance.noCredit")}
           />
         </div>
       )}
