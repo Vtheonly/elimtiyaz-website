@@ -18,8 +18,9 @@ src/
 │                      #   homework, academic/bulletin, profile, auth (login/activation)
 ├── lib/
 │   ├── canonical/     # ported desktop canonical engine (read-side) consumed by portal-derive.ts
-│   ├── hooks/         # portal-queries.ts (all Supabase queries), use-realtime.ts (4 hooks),
-│   │                  #   fcm-registration.ts
+│   ├── hooks/         # portal-queries.ts (all Supabase queries), use-realtime.ts (6 hooks:
+│   │                  #   useRealtimeInvalidation + notifications/chat-messages/chat-unread/
+│   │                  #   financial/homework subscriptions), fcm-registration.ts
 │   ├── auth/          # auth-provider.tsx (mock-auth.ts REMOVED 2026-08-29, SEC-007/T-009 — Google OAuth is the only auth path)
 │   ├── types/         # database.ts typed schema (strict: 38 row type aliases + Relationships since T-049)
 │   ├── bulletin.ts    # report-card PDF generation
@@ -41,7 +42,7 @@ supabase/
 
 - All money/KPI computations must go through `src/lib/canonical/` + `portal-derive.ts` (the ported canonical engine) — never inline formulas. Known inline-formula defects to avoid repeating: dashboard remaining-amount (WEAK-018), attendance rate (WEAK-019 family), 500-entry ledger cap (WEAK-022).
 - **Financial view structure (session 8, 2026-08-30):** tabs are Tranches | Paiements | **Relevé** (ledger statement timeline — `ledgerTimeline` replay with running balance) | Ajustements (derived from `ledger_entries` via `ledgerAdjustmentEntries` — the `account_adjustments` table is EMPTY in production). The old invoices/receipts standalone tabs were REMOVED (0 rows / orphaned table — CROSS-101); per-payment receipt download is retained for when the backend generates rows. Payment status is rendered from the row (never hardcoded "paid"); parent names use `formatParentName` (display_name first — `parents.first_name` is an empty string on ALL 258 production rows).
-- Realtime freshness depends on 4 hooks in `use-realtime.ts` — 2 are currently broken (homework subscribes to the dead legacy table; notifications realtime filter misses role-broadcasts) and the global query config has no fallback (CACHE-100). Fix tasks: T-032/T-033. NOTE: the notifications QUERY now includes parent-role broadcasts (session 8 — query-side half of REALTIME-102); the realtime-subscription half is still open.
+- Realtime freshness: the 4 defect families found by the audit are FIXED (T-032, 10th session — regression suite `src/lib/hooks/realtime-wiring.test.ts`): homework subscribes to the CANONICAL `homework` table (WEAK-016), the unread-badge invalidation key matches element-wise (REALTIME-100), markRead failures surface (REALTIME-101), the notifications subscription has NO direct-target filter so role-broadcasts arrive (REALTIME-102), and the unread badge reacts to all channels incl. the shell-level chat subscription (REALTIME-103). The freshness FALLBACK for a dead realtime connection landed with T-033 (11th session): global query defaults keep data stale-bounded — regression suite `src/test/t-033-freshness-fallback.test.tsx`.
 - **Sign-out (SYNC-105 fixed 2026-08-30):** `AuthProvider.signOut` deactivates this device's FCM token (canonical `deactivate_fcm_tokens` RPC, migration 0050) then revokes with `scope:'local'` — never 'global' (a parent signing out on one device must not kill the family's other sessions).
 - The chat MessagesView is **LIVE since session 14 (2026-08-31)**: chat is a committed feature (ADR-008 — owner decision, UNKNOWN-005 resolved). The portal stays **read+reply**: parents see the channels staff open from the desktop's parent-detail-drawer ("Messager" → canonical `create_direct_channel` RPC, migration 0061). Portal-side ordering is by `last_message_at` (0051 read-receipt policy + 0061 trigger maintain the data); archived channels are hidden. Do NOT add channel-creation UI here (staff-only by design).
 - The mock-admin authentication system was REMOVED 2026-08-29 (SEC-007 fixed by T-009): Google OAuth is the only auth path; a planted `mock-auth-session` key yields no session (regression-tested). Do not re-introduce any client-side mock auth.
@@ -79,7 +80,7 @@ Every commit body must answer five questions (hub `AGENTS.md` §14, full templat
 
 ```bash
 npm run lint          # eslint
-npm run test          # vitest (17 files / 153 tests, session 14)
+npm run test          # vitest (20 files / 425 tests, session 17)
 npm run build         # next build (strict after T-049)
 ```
 
