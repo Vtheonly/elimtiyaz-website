@@ -27,8 +27,9 @@ src/
 │   └── supabase/      # client + middleware helpers
 ├── components/, public/, middleware.ts
 supabase/
-└── functions/         # bind-activation-code (drifted duplicate — CROSS-009, blocked UNKNOWN-001),
-                       # send-push-notification (dead + internally broken — PUSH-100)
+└── functions/         # bind-activation-code ONLY (drifted duplicate — CROSS-009, blocked
+                       # UNKNOWN-001). send-push-notification was REMOVED 2026-09-02 (T-126):
+                       # the fixed canonical EF lives in the hub repo — NEVER recreate an EF here
 ```
 
 > **Migrations (T-048, 2026-08-31):** the four portal-patch migrations
