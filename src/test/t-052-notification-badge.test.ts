@@ -12,15 +12,26 @@
  * the top bar uses the NEW useUnreadNotificationCount COUNT-only hook.
  */
 import { describe, it, expect } from "vitest";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
-const DESKTOP = "/home/z/my-project/repos/AgentGithubUplaod/elimtiyaz-desktop/src";
-const WEBSITE = join(__dirname, "../../src");
+// PORTABILITY FIX (19th session, 2026-09-02 — discovered while re-running the
+// suite in a fresh container): the desktop source scan used a HARDCODED
+// absolute path that only existed on the machine that authored the test —
+// on the owner's clone or CI the suite FAILED with ENOENT. Probe the
+// standard sibling checkouts instead (the Android equivalence runner uses the
+// same convention) and SKIP the desktop leg when the hub repo is not
+// checked out next to the website (it is a separate repository).
+const WEBSITE = join(__dirname, ".."); // src/
+const DESKTOP_CANDIDATES = [
+  join(__dirname, "../../../AgentGithubUplaod/elimtiyaz-desktop/src"),
+];
+const DESKTOP = DESKTOP_CANDIDATES.find((c) => existsSync(join(c, "shared/layout/topbar.tsx")));
 
-describe("T-052 — NOTIF-102: desktop badge counts ALL unread (no 8-cap)", () => {
+const desktopDescribe = DESKTOP ? describe : describe.skip;
+desktopDescribe("T-052 — NOTIF-102: desktop badge counts ALL unread (no 8-cap)", () => {
   it("unreadCount is computed from the full visible list, before the 8-item display slice", () => {
-    const text = readFileSync(join(DESKTOP, "shared/layout/topbar.tsx"), "utf8");
+    const text = readFileSync(join(DESKTOP as string, "shared/layout/topbar.tsx"), "utf8");
     // the full list exists…
     expect(text).toContain("allVisibleNotifications");
     // …the display list is its slice…
