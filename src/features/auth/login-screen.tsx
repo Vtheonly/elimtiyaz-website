@@ -74,7 +74,13 @@ export function LoginScreen() {
           {error && (
             <div className="mb-4 flex gap-3 rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm">
               <AlertCircle className="h-5 w-5 shrink-0 text-destructive" />
-              <p className="text-destructive-foreground">{error}</p>
+              <p className="text-destructive-foreground">
+                {/* AUTH-200: the provider_disabled code is set by the
+                    auth-provider when the Supabase Google provider is
+                    disabled server-side (the only remaining portal-login
+                    blocker — owner runbook in the hub repo). */}
+                {error === "provider_disabled" ? t("auth.signin.providerDisabled") : error}
+              </p>
             </div>
           )}
 

@@ -34,6 +34,11 @@ const fr: Dict = {
   "auth.signin.google": "Se connecter avec Google",
   "auth.signin.secure": "Connexion sécurisée via Supabase Auth",
   "auth.signin.help": "Besoin d'aide ? Contactez l'administration de l'école.",
+  // AUTH-200 (19th session): shown when the Supabase Google provider is
+  // disabled server-side — the owner-side enablement runbook lives in the
+  // hub repo (docs/operations/portal-google-oauth.md).
+  "auth.signin.providerDisabled":
+    "La connexion Google n'est pas encore activée sur le portail. Veuillez contacter l'administration de l'école pour terminer la configuration.",
   "auth.signin.configError.title": "Configuration manquante",
   "auth.signin.configError.body":
     "Le portail n'est pas encore connecté à Supabase. Veuillez configurer NEXT_PUBLIC_SUPABASE_URL et NEXT_PUBLIC_SUPABASE_ANON_KEY dans .env.local",
@@ -436,6 +441,8 @@ const ar: Dict = {
   "auth.signin.google": "تسجيل الدخول عبر Google",
   "auth.signin.secure": "دخول آمن عبر Supabase Auth",
   "auth.signin.help": "تحتاجون مساعدة؟ تواصلوا مع إدارة المدرسة.",
+  "auth.signin.providerDisabled":
+    "لم يُفعَّل تسجيل الدخول عبر Google في البوابة بعد. يرجى التواصل مع إدارة المدرسة لإتمام عملية التهيئة.",
 
   "activation.pending.title": "لم يتم تفعيل حسابكم بعد",
   "activation.pending.body":
@@ -846,6 +853,8 @@ const en: Dict = {
   "auth.signin.google": "Sign in with Google",
   "auth.signin.secure": "Secure sign-in via Supabase Auth",
   "auth.signin.help": "Need help? Contact your school's administration.",
+  "auth.signin.providerDisabled":
+    "Google sign-in is not enabled on the portal yet. Please contact the school administration to finish the setup.",
 
   "activation.pending.title": "Your account has not yet been activated",
   "activation.pending.body":

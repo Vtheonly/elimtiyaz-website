@@ -233,7 +233,18 @@ export function AuthProvider({ children: reactChildren }: { children: ReactNode 
     });
     if (oauthErr) {
       console.error("[auth] Google OAuth error:", oauthErr);
-      setError(oauthErr.message);
+      // AUTH-200 (19th session, 2026-09-02): with the Google provider
+      // DISABLED server-side, the live authorize endpoint answers
+      // 400 {"error_code":"validation_failed","msg":"Unsupported provider:
+      // provider is not enabled"} (verified live). Surfacing that raw
+      // English server string to a parent is meaningless — set a STABLE
+      // code that the login screen maps to a localized, actionable message.
+      // The owner-side fix (enable the provider) is documented in the hub
+      // runbook docs/operations/portal-google-oauth.md.
+      const providerDisabled = /unsupported provider|provider is not enabled/i.test(
+        oauthErr.message ?? "",
+      );
+      setError(providerDisabled ? "provider_disabled" : oauthErr.message);
     }
   }, []);
 
