@@ -18,12 +18,16 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { renderHook, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
 
-// The Supabase client is fully mocked: getUser reports no real session, so the
-// ONLY way the provider could reach "active" is the (removed) mock hydration.
+// The Supabase client is fully mocked: no local session + getUser reports no
+// real session, so the ONLY way the provider could reach "active" is the
+// (removed) mock hydration.
+// AUTH-201 (20th session): loadProfile now reads the LOCAL session first
+// (getSession) and only validates server-side (getUser) when one exists.
 vi.mock("@/lib/supabase/client", () => ({
   isSupabaseConfigured: true,
   supabase: {
     auth: {
+      getSession: vi.fn().mockResolvedValue({ data: { session: null }, error: null }),
       getUser: vi.fn().mockResolvedValue({ data: { user: null }, error: null }),
       onAuthStateChange: vi.fn().mockReturnValue({
         data: { subscription: { unsubscribe: vi.fn() } },

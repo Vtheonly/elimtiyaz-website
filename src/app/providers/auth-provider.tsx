@@ -72,14 +72,33 @@ export function AuthProvider({ children: reactChildren }: { children: ReactNode 
   const loadProfile = useCallback(async (): Promise<AuthState> => {
     if (!supabase) return "unauthenticated";
 
+    // AUTH-201 (20th session, 2026-09-02): check the LOCAL session FIRST.
+    // `getUser()` throws AuthSessionMissingError when no session exists —
+    // which is the NORMAL state for every fresh visitor. Calling it
+    // unconditionally (a) logged a scary-looking console.error on every
+    // fresh page load and (b) set the login screen's destructive alert to
+    // the raw English "Auth session missing!" string BEFORE the visitor
+    // ever clicked sign-in (owner-reported console evidence). getSession()
+    // is a local read that never throws — no round-trip, no error state.
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) return "unauthenticated";
+
+    // A session exists → validate it server-side (detects revoked users
+    // and stale tokens). A validation failure here is NOT user-actionable
+    // on the login screen (supabase-js fires SIGNED_OUT itself when the
+    // token refresh fails), so: warn in the console for diagnostics, treat
+    // as signed out, and deliberately do NOT setError — the visitor simply
+    // sees the login screen again.
     const {
       data: { user: authUser },
       error: getUserErr,
     } = await supabase.auth.getUser();
 
     if (getUserErr) {
-      console.error("[auth] getUser error:", getUserErr);
-      setError(getUserErr.message);
+      console.warn(
+        "[auth] session validation failed, treating as signed out:",
+        getUserErr.message,
+      );
       return "unauthenticated";
     }
 

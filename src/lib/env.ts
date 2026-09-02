@@ -117,9 +117,28 @@ if (!isSupabaseConfigured) {
       "(values are public client identifiers; see docs/operations/credentials.md in the hub repo)."
   );
 }
-if (!isFcmConfigured && env.NEXT_PUBLIC_FIREBASE_API_KEY) {
+if (!isFcmConfigured && env.NEXT_PUBLIC_FIREBASE_API_KEY && !isPlaceholder(env.NEXT_PUBLIC_FIREBASE_API_KEY)) {
   // Only warn if Firebase is partially configured — fully absent is fine (push disabled).
+  // T-121 / AUTH-202 (20th session, 2026-09-02): the generic "incomplete"
+  // warning told the operator nothing actionable (owner-pasted console
+  // evidence from the production Vercel deployment). Name the EXACT missing
+  // vars — for this project the two that will actually be missing are the
+  // Firebase WEB app id (the known one is the ANDROID app id — a different
+  // app in the same Firebase project) and the web-push VAPID key, both set
+  // as Vercel environment variables.
+  const fcmRequiredVars: ReadonlyArray<readonly [string, string]> = [
+    ["NEXT_PUBLIC_FIREBASE_API_KEY", env.NEXT_PUBLIC_FIREBASE_API_KEY],
+    ["NEXT_PUBLIC_FIREBASE_PROJECT_ID", env.NEXT_PUBLIC_FIREBASE_PROJECT_ID],
+    ["NEXT_PUBLIC_FIREBASE_APP_ID (the WEB app id, 1:<project>:web:…)", env.NEXT_PUBLIC_FIREBASE_APP_ID],
+    ["NEXT_PUBLIC_FIREBASE_VAPID_KEY", env.NEXT_PUBLIC_FIREBASE_VAPID_KEY],
+  ];
+  const missingFcmVars = fcmRequiredVars
+    .filter(([, value]) => isPlaceholder(value))
+    .map(([name]) => name);
   console.warn(
-    "[env] Firebase env vars are incomplete. Push notifications will be disabled."
+    "[env] Firebase env vars incomplete — push notifications will be disabled. " +
+      `Missing: ${missingFcmVars.join(", ")}. ` +
+      "Set them as environment variables on the deployment host " +
+      "(Vercel: Project → Settings → Environment Variables) to enable web push.",
   );
 }
