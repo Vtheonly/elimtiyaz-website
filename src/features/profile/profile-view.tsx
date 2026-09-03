@@ -17,6 +17,12 @@
 import { useAuth } from "@/app/providers/auth-provider";
 import { useT } from "@/lib/i18n/use-t";
 import { useAppStore } from "@/lib/store/app-store";
+// T-151 (DATA-012): the parent's name renders through the canonical
+// formatParentName (display_name first) — never a raw first/last join, the
+// exact DATA-005 failure mode (leading space + half-missing name when
+// first_name is empty, which the 0068 repair re-introduces deliberately:
+// a child's given name must not masquerade as the parent's).
+import { formatParentName } from "@/lib/format";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -151,7 +157,7 @@ export function ProfileView() {
           )}
           <div className="min-w-0 flex-1">
             <p className="truncate font-medium">
-              {parent ? `${parent.first_name} ${parent.last_name}` : user?.display_name ?? user?.email}
+              {parent ? formatParentName(parent) : (user?.display_name ?? user?.email)}
             </p>
             <p className="truncate text-sm text-muted-foreground">{user?.email}</p>
             {parent && (
@@ -176,7 +182,7 @@ export function ProfileView() {
           <InfoRow
             icon={<UserIcon className="h-4 w-4" />}
             label={t("profile.name")}
-            value={parent ? `${parent.first_name} ${parent.last_name}` : user?.display_name}
+            value={parent ? formatParentName(parent) : user?.display_name}
           />
           <Separator />
           <InfoRow
