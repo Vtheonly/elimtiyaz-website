@@ -26,6 +26,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { KeyRound, Loader2, CheckCircle2, AlertCircle } from "lucide-react";
 import { supabase } from "@/lib/supabase/client";
+import { mapActivationError } from "@/lib/activation-errors";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -89,17 +90,18 @@ export function ActivationCodeScreen({ onDismiss }: Props) {
       const data = await resp.json().catch(() => ({}));
 
       if (!resp.ok) {
-        const msg = data?.error ?? "";
-        if (/expired/i.test(msg)) {
-          setErrorMsg(t("activation.code.error.expired"));
-        } else if (/already.*active/i.test(msg)) {
-          // Account is already active — just refresh.
+        // T-153 (ACT-200): the canonical hub EF (T-146) returns STRUCTURED
+        // errors { error: { code, message } } — the old regex tests against
+        // the stringified object never matched, so every failure showed the
+        // generic "invalide ou déjà utilisé" message. Map by error code.
+        const action = mapActivationError(data);
+        if (action.kind === "already-active") {
+          // Account is already active — just refresh into the portal.
           setPhase("success");
           setTimeout(() => refresh(), 1500);
           return;
-        } else {
-          setErrorMsg(t("activation.code.error.invalid"));
         }
+        setErrorMsg(t(action.messageKey));
         setPhase("error");
         return;
       }

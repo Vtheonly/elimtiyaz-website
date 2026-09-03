@@ -358,6 +358,10 @@ const fr: Dict = {
     "L'administration va finaliser l'activation. Vous pouvez rafraîchir cette page.",
   "activation.code.error.invalid": "Code d'activation invalide ou déjà utilisé.",
   "activation.code.error.expired": "Ce code d'activation a expiré. Veuillez en demander un nouveau à l'administration.",
+  // T-153 (ACT-200) — precise bind-failure messages (mapped by the EF's error code).
+  "activation.code.error.suspended": "Ce compte est suspendu. Veuillez contacter l'administration de l'école.",
+  "activation.code.error.session": "Session invalide. Veuillez vous reconnecter, puis réessayer.",
+  "activation.code.error.bound": "Ce dossier familial est déjà lié à un autre compte. Veuillez contacter l'administration.",
   "activation.code.error.generic": "Impossible d'activer le compte. Veuillez réessayer.",
   "activation.code.haveCode": "J'ai déjà un code d'activation",
   "activation.code.dontHaveCode": "Je n'ai pas de code d'activation",
@@ -776,6 +780,10 @@ const ar: Dict = {
     "ستقوم الإدارة بإنهاء التفعيل. يمكنكم تحديث هذه الصفحة.",
   "activation.code.error.invalid": "رمز التفعيل غير صالح أو مستخدم بالفعل.",
   "activation.code.error.expired": "انتهت صلاحية رمز التفعيل. يرجى طلب رمز جديد من الإدارة.",
+  // T-153 (ACT-200) — precise bind-failure messages (mapped by the EF's error code).
+  "activation.code.error.suspended": "هذا الحساب معلّق. يرجى التواصل مع إدارة المدرسة.",
+  "activation.code.error.session": "الجلسة غير صالحة. يرجى تسجيل الدخول مجددًا ثم إعادة المحاولة.",
+  "activation.code.error.bound": "ملف هذه العائلة مرتبط بحساب آخر. يرجى التواصل مع الإدارة.",
   "activation.code.error.generic": "تعذر تفعيل الحساب. يرجى إعادة المحاولة.",
   "activation.code.haveCode": "لديّ رمز تفعيل بالفعل",
   "activation.code.dontHaveCode": "ليس لديّ رمز تفعيل",
@@ -1190,6 +1198,10 @@ const en: Dict = {
     "The administration will finalize the activation. You can refresh this page.",
   "activation.code.error.invalid": "Invalid or already-used activation code.",
   "activation.code.error.expired": "This activation code has expired. Please request a new one from the administration.",
+  // T-153 (ACT-200) — precise bind-failure messages (mapped by the EF's error code).
+  "activation.code.error.suspended": "This account is suspended. Please contact the school administration.",
+  "activation.code.error.session": "Invalid session. Please sign in again and retry.",
+  "activation.code.error.bound": "This family profile is already linked to another account. Please contact the school administration.",
   "activation.code.error.generic": "Could not activate the account. Please try again.",
   "activation.code.haveCode": "I already have an activation code",
   "activation.code.dontHaveCode": "I don't have an activation code",
