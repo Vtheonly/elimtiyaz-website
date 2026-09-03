@@ -27,9 +27,10 @@ src/
 │   └── supabase/      # client + middleware helpers
 ├── components/, public/, middleware.ts
 supabase/
-└── functions/         # bind-activation-code ONLY (drifted duplicate — CROSS-009, blocked
-                       # UNKNOWN-001). send-push-notification was REMOVED 2026-09-02 (T-126):
-                       # the fixed canonical EF lives in the hub repo — NEVER recreate an EF here
+└── functions/         # EMPTY since T-146 (2026-09-03): bind-activation-code joined the
+                       # hub-owned set (ADR-011 resolved UNKNOWN-001). send-push-notification was
+                       # REMOVED 2026-09-02 (T-126). NEVER recreate an EF here — the canonical
+                       # sources live in the hub repo only
 ```
 
 > **Migrations (T-048, 2026-08-31):** the four portal-patch migrations
@@ -45,7 +46,7 @@ supabase/
 - **Financial view structure (session 8, 2026-08-30):** tabs are Tranches | Paiements | **Relevé** (ledger statement timeline — `ledgerTimeline` replay with running balance) | Ajustements (derived from `ledger_entries` via `ledgerAdjustmentEntries` — the `account_adjustments` table is EMPTY in production). The old invoices/receipts standalone tabs were REMOVED (0 rows / orphaned table — CROSS-101); per-payment receipt download is retained for when the backend generates rows. Payment status is rendered from the row (never hardcoded "paid"); parent names use `formatParentName` (display_name first — `parents.first_name` is an empty string on ALL 258 production rows).
 - Realtime freshness: the 4 defect families found by the audit are FIXED (T-032, 10th session — regression suite `src/lib/hooks/realtime-wiring.test.ts`): homework subscribes to the CANONICAL `homework` table (WEAK-016), the unread-badge invalidation key matches element-wise (REALTIME-100), markRead failures surface (REALTIME-101), the notifications subscription has NO direct-target filter so role-broadcasts arrive (REALTIME-102), and the unread badge reacts to all channels incl. the shell-level chat subscription (REALTIME-103). The freshness FALLBACK for a dead realtime connection landed with T-033 (11th session): global query defaults keep data stale-bounded — regression suite `src/test/t-033-freshness-fallback.test.tsx`.
 - **Sign-out (SYNC-105 fixed 2026-08-30):** `AuthProvider.signOut` deactivates this device's FCM token (canonical `deactivate_fcm_tokens` RPC, migration 0050) then revokes with `scope:'local'` — never 'global' (a parent signing out on one device must not kill the family's other sessions).
-- The chat MessagesView is **LIVE since session 14 (2026-08-31)**: chat is a committed feature (ADR-008 — owner decision, UNKNOWN-005 resolved). The portal stays **read+reply**: parents see the channels staff open from the desktop's parent-detail-drawer ("Messager" → canonical `create_direct_channel` RPC, migration 0061). Portal-side ordering is by `last_message_at` (0051 read-receipt policy + 0061 trigger maintain the data); archived channels are hidden. Do NOT add channel-creation UI here (staff-only by design).
+- The chat MessagesView is **LIVE since session 14 (2026-08-31)**: chat is a committed feature (ADR-008 — owner decision, UNKNOWN-005 resolved). The portal is **read+reply for staff-opened channels** PLUS the parent-initiated **“Contacter l'administration”** action (T-149, 2026-09-03 — ADR-012 amends ADR-008 per the owner's mandate: the web messenger connects parents to the **Administrator** one-on-one; parent↔parent channels are forbidden and enforced server-side by migration 0067's tightened `chat_messages_insert` policy). Staff still open channels from the desktop's parent-detail-drawer (“Messager” → canonical `create_direct_channel` RPC, migration 0061). Portal-side ordering is by `last_message_at` (0051 read-receipt policy + 0061 trigger maintain the data); archived channels are hidden.
 - The mock-admin authentication system was REMOVED 2026-08-29 (SEC-007 fixed by T-009): Google OAuth is the only auth path; a planted `mock-auth-session` key yields no session (regression-tested). Do not re-introduce any client-side mock auth.
 
 ## 4. Before changing anything (mandatory)
@@ -53,7 +54,7 @@ supabase/
 1. Read the hub `AGENTS.md` and the relevant hub docs (source-of-truth registry first).
 2. Read your task in `AgentGithubUplaod/docs/recovery/task-registry.md` and its problem entries (this repo owns: SEC-007/008, CROSS-009/101, WEAK-016/017/018/019/020/022/023, DEAD-012/013/014, DRIFT-009/010, ARCH-005, CACHE-100, REALTIME-100…103, NOTIF-103, PUSH-103, SYNC-105, ATT-101, GRADE-101-family …). When you need the full end-to-end trace or git forensics behind a problem ID, read the raw finding in `AgentGithubUplaod/docs/audits/` (read-only archive; see its README for ID-mapping rules).
 3. Search this repo AND the hub repo for existing implementations; check whether the desktop already solves it (canonical engine, repository patterns).
-4. Check `AgentGithubUplaod/docs/recovery/unknowns.md` for anything your change depends on (UNKNOWN-001 blocks the activation EF consolidation; UNKNOWN-004 blocks the receipt feature; UNKNOWN-005 blocks chat).
+4. Check `AgentGithubUplaod/docs/recovery/unknowns.md` for anything your change depends on (UNKNOWN-001 was RESOLVED by ADR-011/T-146, 2026-09-03 — binding an activation code activates the account; UNKNOWN-004 blocks the receipt feature; UNKNOWN-005 was resolved by ADR-008).
 5. Follow the hub's workflow (`docs/agents/workflow.md`) and commit standard (`docs/agents/git-workflow.md`).
 
 ## 5. During implementation (website-specific rules)
@@ -61,7 +62,7 @@ supabase/
 - Queries live in `portal-queries.ts`; views consume hooks — no direct `supabase.from(...)` in components except where an existing pattern does so deliberately.
 - Realtime hooks must subscribe to **canonical** tables with canonical columns (`homework.class_id`, not `homework_assignments.target_class_id`).
 - TanStack invalidation keys must match the actual query keys element-wise (see REALTIME-100 for the failure mode).
-- No financial writes; no duplicate Edge Functions; changes to `bind-activation-code` wait on UNKNOWN-001.
+- No financial writes; no local Edge Functions (all EFs are hub-owned since T-146 — including bind-activation-code, whose ADR-011 activation semantics were consolidated into the hub's canonical version).
 - Respect the typed `Database` interface — extend it when touching new tables instead of `as unknown as` casts (WEAK-017).
 - Keep `NEXT_PUBLIC_*` flags truthful; feature flags gate UI **and** behaviour (the mock-auth flag violated this — SEC-007).
 

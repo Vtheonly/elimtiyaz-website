@@ -1,7 +1,8 @@
 /**
- * T-126 regression tests — the portal carries NO local Edge Functions
- * except the grandfathered bind-activation-code (CROSS-009, blocked on
- * UNKNOWN-001).
+ * T-126 regression tests — the portal carries NO local Edge Functions.
+ * (Extended by T-146, 2026-09-03: bind-activation-code joined the hub-owned
+ * set once ADR-011 resolved UNKNOWN-001 — the website's drifted copy was
+ * deleted, T-126's send-push-notification pattern.)
  *
  * The defect (PUSH-100's source-control half): the send-push-notification
  * Edge Function was live-deployed on the Supabase project, but its ONLY
@@ -18,10 +19,17 @@
  * this repo's copy is DELETED. Schema changes AND Edge-Function changes
  * both belong to the hub repo (ADR-001).
  *
+ * T-146 (2026-09-03): the same consolidation for bind-activation-code —
+ * the canonical activation-semantics version lives in the hub
+ * (`elimtiyaz-desktop/supabase/functions/bind-activation-code/`, ADR-011);
+ * this repo's 216-line drifted duplicate is deleted.
+ *
  * These tests pin:
  *   1. `supabase/functions/send-push-notification/` does not exist here.
  *   2. `supabase/migrations/` still does not exist here (T-048 guard).
- *   3. No portal source invokes the push EF directly (pushes are
+ *   3. `supabase/functions/bind-activation-code/` does not exist here
+ *      (T-146 — ZERO local Edge Functions remain in this repo).
+ *   4. No portal source invokes the push EF directly (pushes are
  *      server-side only; the portal registers tokens via the canonical
  *      `register_fcm_token` RPC, never by calling the EF).
  */
@@ -52,11 +60,13 @@ describe("T-126 — Edge Functions are hub-owned (no local EF drift)", () => {
     expect(existsSync(resolve(REPO_ROOT, "supabase", "migrations"))).toBe(false);
   });
 
-  it("the only local Edge Function (if any) is the grandfathered bind-activation-code", () => {
+  it("this repo carries NO bind-activation-code Edge Function (T-146 — hub owns it, ADR-011)", () => {
+    expect(existsSync(resolve(FUNCTIONS_DIR, "bind-activation-code"))).toBe(false);
+  });
+
+  it("this repo carries ZERO local Edge Functions (the functions dir is empty or absent)", () => {
     const fns = listDirSafe(FUNCTIONS_DIR).filter((d) => !d.startsWith("_"));
-    // CROSS-009 / UNKNOWN-001: bind-activation-code stays until the EF
-    // consolidation decision is made. NOTHING else may appear here.
-    expect(fns.every((f) => f === "bind-activation-code")).toBe(true);
+    expect(fns).toEqual([]);
   });
 
   it("no portal source invokes the push EF directly (server-side only)", () => {
