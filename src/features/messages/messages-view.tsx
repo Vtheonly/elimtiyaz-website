@@ -22,7 +22,7 @@ import {
   ListSkeleton,
   ErrorState,
 } from "@/features/shared/state-views";
-import { MessageSquare, Send, ArrowLeft, Megaphone, BellRing } from "lucide-react";
+import { MessageSquare, Send, ArrowLeft, Megaphone, BellRing, Building2, Loader2 } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -39,8 +39,36 @@ export function MessagesView() {
   const { user } = useAuth();
   const channels = useChatChannels(user?.id ?? null);
   const [activeChannelId, setActiveChannelId] = useState<string | null>(null);
+  const queryClient = useQueryClient();
+  // T-149 (ADR-012 / hub migration 0067): the parent-initiated one-on-one
+  // conversation with the Administrator — the ONLY channel-creation action
+  // on the portal. Idempotent server-side (deterministic DM code), so the
+  // button is always safe to press: an existing conversation is simply
+  // re-opened and selected.
+  const [openingAdmin, setOpeningAdmin] = useState(false);
 
   const activeChannel = channels.data?.find((c) => c.id === activeChannelId) ?? null;
+
+  const openAdminConversation = async () => {
+    if (!supabase || openingAdmin) return;
+    setOpeningAdmin(true);
+    try {
+      const { data, error } = await supabase.rpc("open_parent_admin_channel");
+      if (error) {
+        toast.error(t("messages.contactAdmin.error"));
+      } else if (data) {
+        toast.success(t("messages.contactAdmin.success"));
+        // Element-wise prefix invalidation matching useChatChannels' key
+        // ["chat-channels", userProfileId] (the REALTIME-100 lesson).
+        await queryClient.invalidateQueries({ queryKey: ["chat-channels", user?.id] });
+        setActiveChannelId(data.id);
+      }
+    } catch {
+      toast.error(t("messages.contactAdmin.error"));
+    } finally {
+      setOpeningAdmin(false);
+    }
+  };
 
   // Realtime: new messages arrive instantly while a channel is open.
   useChatMessagesRealtime(activeChannelId);
@@ -60,6 +88,26 @@ export function MessagesView() {
           <div className="border-b border-border/60 p-3">
             <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
               Conversations
+            </p>
+          </div>
+          {/* T-149: the parent→Administrator entry point (ADR-012). Always
+              visible — idempotent RPC re-opens the existing conversation. */}
+          <div className="border-b border-border/60 p-3">
+            <Button
+              onClick={openAdminConversation}
+              disabled={openingAdmin}
+              className="w-full justify-start gap-2"
+              variant="outline"
+            >
+              {openingAdmin ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Building2 className="h-4 w-4" />
+              )}
+              <span className="truncate">{t("messages.contactAdmin")}</span>
+            </Button>
+            <p className="mt-1.5 text-[11px] leading-snug text-muted-foreground">
+              {t("messages.contactAdmin.body")}
             </p>
           </div>
           <div className="flex-1 overflow-y-auto">

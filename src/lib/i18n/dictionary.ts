@@ -284,6 +284,12 @@ const fr: Dict = {
   "messages.fromSchool": "De l'école",
   "messages.convocation": "Convocation",
   "messages.convocation.notice": "Convocation officielle de la direction — votre présence est requise. Veuillez contacter l'administration pour confirmer.",
+  // T-149 (ADR-012) — the parent-initiated administration channel.
+  "messages.contactAdmin": "Contacter l'administration",
+  "messages.contactAdmin.opening": "Ouverture de la conversation…",
+  "messages.contactAdmin.body": "Posez vos questions et consultez les rapports scolaires directement avec l'administration.",
+  "messages.contactAdmin.success": "Conversation avec l'administration ouverte.",
+  "messages.contactAdmin.error": "Impossible d'ouvrir la conversation. Veuillez réessayer.",
 
   // Notifications
   "notifications.title": "Notifications",
@@ -671,6 +677,12 @@ const ar: Dict = {
   "messages.fromSchool": "من المدرسة",
   "messages.convocation": "استدعاء",
   "messages.convocation.notice": "استدعاء رسمي من الإدارة — حضوركم مطلوب. يرجى التواصل مع الإدارة للتأكيد.",
+  // T-149 (ADR-012) — the parent-initiated administration channel.
+  "messages.contactAdmin": "التواصل مع الإدارة",
+  "messages.contactAdmin.opening": "جارٍ فتح المحادثة…",
+  "messages.contactAdmin.body": "اطرحوا أسئلتكم وتابعوا التقارير المدرسية مباشرة مع الإدارة.",
+  "messages.contactAdmin.success": "تم فتح المحادثة مع الإدارة.",
+  "messages.contactAdmin.error": "تعذر فتح المحادثة. يرجى إعادة المحاولة.",
 
   // Notifications (complete)
   "notifications.title": "الإشعارات",
@@ -1044,6 +1056,12 @@ const en: Dict = {
   "messages.fromSchool": "From school",
   "messages.convocation": "Summons",
   "messages.convocation.notice": "Official summons from the administration — your attendance is required. Please contact the school office to confirm.",
+  // T-149 (ADR-012) — the parent-initiated administration channel.
+  "messages.contactAdmin": "Contact the administration",
+  "messages.contactAdmin.opening": "Opening the conversation…",
+  "messages.contactAdmin.body": "Ask your questions and review school reports directly with the administration.",
+  "messages.contactAdmin.success": "Conversation with the administration opened.",
+  "messages.contactAdmin.error": "Could not open the conversation. Please try again.",
 
   // Notifications (complete)
   "notifications.title": "Notifications",

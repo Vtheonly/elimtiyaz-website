@@ -1070,6 +1070,15 @@ export type Database = {
       };
       expire_pending_approvals: { Args: Record<string, never>; Returns: unknown };
       refresh_all_materialized_views: { Args: Record<string, never>; Returns: void };
+      /**
+       * T-149 (hub migration 0067, ADR-012) — the PARENT side of the
+       * messenger: idempotently opens (or returns) the 1:1 direct channel
+       * between the CALLING parent and the tenant Administrator
+       * (super_admin, fallback support_staff). Caller-verified (parent
+       * role required; staff are rejected and must use
+       * create_direct_channel). Returns the single channel row.
+       */
+      open_parent_admin_channel: { Args: { p_name?: string | null }; Returns: ChatChannelRow };
     };
   };
 }
