@@ -33,6 +33,10 @@ import {
   ledgerAdjustmentEntries,
   displayCredit,
 } from "@/lib/canonical/portal-derive";
+import {
+  parentBillingBreakdown,
+  describeAdjustment,
+} from "@/lib/canonical/billing-breakdown";
 import { useFinancialRealtime } from "@/lib/hooks/use-realtime";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { KpiCard } from "@/features/shared/kpi-card";
@@ -77,8 +81,9 @@ import {
 import { supabase } from "@/lib/supabase/client";
 import { toast } from "sonner";
 import type { PaymentRow, InstallmentRow, LedgerEntryRow } from "@/lib/types/database";
+import type { ParentBillingBreakdown } from "@/lib/canonical/billing-breakdown";
 
-type TabKey = "installments" | "payments" | "ledger" | "adjustments";
+type TabKey = "billing" | "installments" | "payments" | "ledger" | "adjustments";
 
 export function FinancialView() {
   const { t } = useT();
@@ -108,7 +113,7 @@ export function FinancialView() {
   // is the account holder; children only split the charges).
   const ledgerEntries = useLedgerEntries(parentId) // T-035/WEAK-022: full ledger replay (paged) — a hard cap would corrupt the balance;
 
-  const [activeTab, setActiveTab] = useState<TabKey>("installments");
+  const [activeTab, setActiveTab] = useState<TabKey>("billing");
 
   // Aggregate balance — CANONICAL (ledger replay, never installment sums).
   const balance = useMemo(() => {
@@ -131,6 +136,22 @@ export function FinancialView() {
   const adjustments = useMemo(
     () => (ledgerEntries.data ? ledgerAdjustmentEntries(ledgerEntries.data) : []),
     [ledgerEntries.data]
+  );
+
+  // T-166: family-wide installments + ledger feed the itemized "Facturation"
+  // breakdown (per-child charges + REAL tranche coverage). Not
+  // student-filtered — the billing card shows every child of the family,
+  // mirroring the desktop parent-drawer Finances tab.
+  const familyInstallments = useInstallments(parentId, {
+    studentId: null,
+    limit: 200,
+  });
+  const billing = useMemo(
+    () =>
+      ledgerEntries.data && familyInstallments.data
+        ? parentBillingBreakdown(ledgerEntries.data, familyInstallments.data, kids)
+        : null,
+    [ledgerEntries.data, familyInstallments.data, kids],
   );
 
   const isRestricted = Boolean(parent?.is_financially_restricted);
@@ -202,9 +223,10 @@ export function FinancialView() {
         </div>
       )}
 
-      {/* Tabs — real data model: tranches, payments, statement, adjustments */}
+      {/* Tabs — real data model: billing breakdown, tranches, payments, statement, adjustments */}
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as TabKey)}>
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-5">
+          <TabsTrigger value="billing">{t("finance.billing")}</TabsTrigger>
           <TabsTrigger value="installments">{t("finance.installments")}</TabsTrigger>
           <TabsTrigger value="payments">{t("finance.payments")}</TabsTrigger>
           <TabsTrigger value="ledger">{t("finance.ledger.title")}</TabsTrigger>
@@ -217,6 +239,19 @@ export function FinancialView() {
             )}
           </TabsTrigger>
         </TabsList>
+
+        {/* Billing — itemized per-child / per-service breakdown (T-166) */}
+        <TabsContent value="billing" className="mt-4 space-y-3">
+          <p className="text-xs text-muted-foreground">{t("finance.billing.intro")}</p>
+          <BillingTab
+            breakdown={billing}
+            isLoading={ledgerEntries.isLoading || familyInstallments.isLoading}
+            onRetry={() => {
+              ledgerEntries.refetch();
+              familyInstallments.refetch();
+            }}
+          />
+        </TabsContent>
 
         {/* Tranches — the installment schedule the school issued */}
         <TabsContent value="installments" className="mt-4 space-y-3">
@@ -280,6 +315,207 @@ export function FinancialView() {
           <AdjustmentsTab adjustments={adjustments} isLoading={ledgerEntries.isLoading} />
         </TabsContent>
       </Tabs>
+    </div>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+
+/**
+ * BillingTab — T-166: the itemized "Prestations facturées" breakdown.
+ *
+ * Read-side only (ADR-002): charges come from ledger rows, tranche coverage
+ * from REAL installment rows (no client-side waterfall/synthesis — the
+ * parent sees exactly what the server's collect_and_allocate_payment
+ * waterfall produced). Same numbers as the desktop drawer's Finances tab.
+ */
+function BillingTab({
+  breakdown,
+  isLoading,
+  onRetry,
+}: {
+  breakdown: ParentBillingBreakdown | null;
+  isLoading: boolean;
+  onRetry: () => void;
+}) {
+  const { t } = useT();
+  const [mode, setMode] = useState<"by_child" | "by_service">("by_child");
+
+  if (isLoading) {
+    return <ListSkeleton count={4} />;
+  }
+  if (!breakdown) {
+    return <ErrorState title={t("common.error.title")} onRetry={onRetry} />;
+  }
+  if (breakdown.totalBilled <= 0 && breakdown.byChild.every((c) => c.lineItems.length === 0)) {
+    return (
+      <EmptyState
+        title={t("finance.billing.noCharges")}
+        description={t("finance.billing.noChargesBody")}
+        icon={<Receipt className="h-6 w-6" />}
+      />
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      {/* Header: academic year + view toggle */}
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="text-xs font-medium text-muted-foreground">
+          {t("finance.billing.year")} {breakdown.academicYear}
+        </p>
+        <div className="flex items-center rounded-md border border-border bg-background p-0.5 text-xs">
+          <button
+            type="button"
+            onClick={() => setMode("by_child")}
+            className={`flex items-center gap-1 px-2.5 py-1 rounded transition-colors ${
+              mode === "by_child"
+                ? "bg-primary text-primary-foreground font-medium"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            <BookOpenText className="h-3 w-3" /> {t("finance.billing.perChild")}
+          </button>
+          <button
+            type="button"
+            onClick={() => setMode("by_service")}
+            className={`flex items-center gap-1 px-2.5 py-1 rounded transition-colors ${
+              mode === "by_service"
+                ? "bg-primary text-primary-foreground font-medium"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            <Scale className="h-3 w-3" /> {t("finance.billing.perService")}
+          </button>
+        </div>
+      </div>
+
+      {mode === "by_child" ? (
+        /* Per-child cards: itemized charges + real tranche coverage */
+        <div className="space-y-3">
+          {breakdown.byChild.map((child) => (
+            <div key={child.student.id} className="rounded-lg border border-border/50 bg-card p-4 space-y-3">
+              <div className="flex items-center justify-between border-b border-border/40 pb-2">
+                <p className="font-medium">{child.displayName}</p>
+                <div className="text-right">
+                  <p className="font-mono font-semibold">{formatCurrency(child.billedTotal)}</p>
+                  <p className="text-[10px] uppercase text-muted-foreground">
+                    {t("finance.billing.engagedTotal")}
+                  </p>
+                </div>
+              </div>
+
+              {/* Itemized charges */}
+              {child.lineItems.length > 0 ? (
+                <div>
+                  <p className="mb-1 text-[10px] uppercase tracking-wide text-muted-foreground">
+                    {t("finance.billing.items")}
+                  </p>
+                  <ul className="divide-y divide-border/40 rounded border border-border/40 bg-muted/20 text-sm">
+                    {child.lineItems.map((item) => (
+                      <li key={item.id} className="flex items-center justify-between gap-2 px-3 py-1.5">
+                        <span className="min-w-0 flex-1 truncate">{item.label}</span>
+                        <span className="font-mono">{formatCurrency(item.amount)}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : (
+                <p className="text-xs text-muted-foreground">{t("finance.billing.noCharges")}</p>
+              )}
+
+              {/* Real tranche coverage — where the money landed */}
+              {child.tranches.length > 0 && (
+                <div>
+                  <p className="mb-1 text-[10px] uppercase tracking-wide text-muted-foreground">
+                    {t("finance.billing.tranches")}
+                  </p>
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                    {child.tranches.map((tr) => {
+                      const progress =
+                        tr.amountDue > 0
+                          ? Math.min(100, ((tr.amountPaid + tr.amountPending) / tr.amountDue) * 100)
+                          : 0;
+                      const settled = tr.status === "paid" || tr.remaining <= 0;
+                      return (
+                        <div
+                          key={tr.installmentId}
+                          className={`rounded-md border p-2.5 text-xs space-y-1.5 ${
+                            settled
+                              ? "border-success/40 bg-success/5"
+                              : tr.amountPaid + tr.amountPending > 0
+                                ? "border-warning/40 bg-warning/5"
+                                : "border-border"
+                          }`}
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="truncate font-medium">{tr.label}</span>
+                            {settled ? (
+                              <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-success" />
+                            ) : (
+                              <StatusPill tone={paymentStatusTone(tr.status ?? "unpaid").tone}>
+                                {t(paymentStatusTone(tr.status ?? "unpaid").key)}
+                              </StatusPill>
+                            )}
+                          </div>
+                          {tr.dueDate && (
+                            <p className="text-[10px] text-muted-foreground">
+                              {t("finance.installment.due")} {formatDate(tr.dueDate)}
+                            </p>
+                          )}
+                          <div className="h-1 w-full overflow-hidden rounded-full bg-muted">
+                            <div
+                              className={`h-full rounded-full ${settled ? "bg-success" : "bg-primary"}`}
+                              style={{ width: `${progress}%` }}
+                            />
+                          </div>
+                          <div className="flex justify-between text-[10px] text-muted-foreground">
+                            <span className="text-success">
+                              {formatCurrency(tr.amountPaid)} {t("finance.installment.paid").toLowerCase()}
+                              {tr.amountPending > 0 && (
+                                <span className="text-warning">
+                                  {" "}• {formatCurrency(tr.amountPending)}{" "}
+                                  {t("finance.installment.pending").toLowerCase()}
+                                </span>
+                              )}
+                            </span>
+                            <span className={tr.remaining > 0 ? "font-semibold text-destructive" : ""}>
+                              {formatCurrency(tr.remaining)}
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      ) : (
+        /* Consolidated per-service totals */
+        <ul className="divide-y divide-border/40 rounded border border-border/40 bg-muted/20 text-sm">
+          {breakdown.byService.map((svc) => (
+            <li key={svc.category} className="flex items-center justify-between gap-2 px-3 py-2">
+              <div>
+                <p className="font-medium">{svc.label}</p>
+                <p className="text-[10px] text-muted-foreground">{svc.count}</p>
+              </div>
+              <span className="font-mono font-semibold text-primary">
+                {formatCurrency(svc.amount)}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {/* Reconciliation footer */}
+      <div className="flex items-center justify-between rounded-b-lg border border-border/40 bg-muted/30 px-3 py-2.5 text-xs">
+        <span className="text-muted-foreground">
+          {t("finance.billing.engagedTotal")}{" "}
+          <strong className="font-mono text-foreground">{formatCurrency(breakdown.totalBilled)}</strong>
+        </span>
+      </div>
     </div>
   );
 }
@@ -509,10 +745,11 @@ function AdjustmentsTab({
   return (
     <div className="space-y-2">
       {adjustments.map((adj) => {
-        // Ledger adjustments are signed: negative = credit in the parent's
-        // favour (reduction), positive = surcharge.
-        const amount = Number(adj.amount);
-        const isCredit = amount < 0;
+        // T-166: badge + reason diagnostics via the canonical derivation —
+        // same wording as the desktop drawer and the Android terminal, with
+        // a clearly-flagged fallback for legacy blank descriptions.
+        const diag = describeAdjustment(adj);
+        const isCredit = diag.kind === "credit";
         return (
           <CardListItem
             key={adj.entry_number ?? adj.id ?? Math.random()}
@@ -525,13 +762,20 @@ function AdjustmentsTab({
                 <Scale className="h-4 w-4" />
               </div>
             }
-            title={`${isCredit ? "−" : "+"}${formatCurrency(Math.abs(amount))}`}
-            subtitle={`${formatDate(adj.at)}${
-              adj.description ? ` • ${adj.description}` : ""
-            }${adj.receipt_number ? ` • ${adj.receipt_number}` : ""}`}
+            title={`${isCredit ? "−" : "+"}${formatCurrency(Math.abs(Number(adj.amount)))}`}
+            subtitle={
+              <>
+                {formatDate(adj.at)}
+                {" • "}
+                <span className={diag.isDiagnosticFallback ? "italic text-muted-foreground" : ""}>
+                  {diag.reasonLabel}
+                </span>
+                {adj.receipt_number ? ` • ${adj.receipt_number}` : ""}
+              </>
+            }
             trailing={
               <StatusPill tone={isCredit ? "success" : "warning"}>
-                {isCredit ? t("finance.adjustment.credit") : t("finance.adjustment.debit")}
+                {diag.badgeLabel}
               </StatusPill>
             }
           />

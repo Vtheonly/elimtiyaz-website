@@ -37,9 +37,11 @@ describe("T-057 — the canonical port is pruned to the consumed surface", () =>
     expect(existsSync(join(CANONICAL, "index.ts"))).toBe(false);
   });
 
-  it("the kept surface is exactly the consumed set (10 source files + 1 test)", () => {
+  it("the kept surface is exactly the consumed set (11 source files + 2 tests)", () => {
     const files = walk(CANONICAL).map((f) => f.replace(CANONICAL + "/", "")).sort();
     expect(files).toEqual([
+      "billing-breakdown.test.ts", // T-166: Facturation breakdown vectors (parity with the desktop suite)
+      "billing-breakdown.ts",      // T-166: read-side itemized billing derivation (no pricing/waterfall port — ADR-002)
       "calc/ledger/account-id.ts", // kept: portal-derive.test exercises deriveAccountId
       "calc/ledger/balance.ts",    // computeParentSummary
       "calc/ledger/overdue.ts",    // buildOverdueDueDateMap
