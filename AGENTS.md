@@ -65,6 +65,7 @@ supabase/
 - No financial writes; no local Edge Functions (all EFs are hub-owned since T-146 — including bind-activation-code, whose ADR-011 activation semantics were consolidated into the hub's canonical version).
 - Respect the typed `Database` interface — extend it when touching new tables instead of `as unknown as` casts (WEAK-017).
 - Keep `NEXT_PUBLIC_*` flags truthful; feature flags gate UI **and** behaviour (the mock-auth flag violated this — SEC-007).
+- **NEVER read `process.env.NEXT_PUBLIC_*` directly in a client component** (T-184/ACT-201, 2026-09-05): Next.js inlines those values at BUILD time — a deployment host that hasn't set them yields `undefined` in the bundle (the production 404 `/undefined/functions/v1/bind-activation-code` that broke EVERY activation attempt). Always resolve through `@/lib/env`, which falls back to the committed `PUBLIC_CONFIG_DEFAULTS` (T-096). A whole-src regression test enforces this (`src/test/t-184-activation-ef-url.test.ts`).
 
 ## 6. Before finishing
 

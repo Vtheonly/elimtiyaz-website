@@ -26,6 +26,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { KeyRound, Loader2, CheckCircle2, AlertCircle } from "lucide-react";
 import { supabase } from "@/lib/supabase/client";
+import { env } from "@/lib/env";
 import { mapActivationError } from "@/lib/activation-errors";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -70,19 +71,30 @@ export function ActivationCodeScreen({ onDismiss }: Props) {
       }
       const accessToken = sessionData.session.access_token;
 
-      // Determine the Edge Function URL. We assume the function is deployed
-      // to the same Supabase project the portal talks to (its URL is in
-      // NEXT_PUBLIC_SUPABASE_URL).
-      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-      const functionUrl = `${supabaseUrl}/functions/v1/bind-activation-code`;
+      // Determine the Edge Function URL. T-184 / ACT-201 (2026-09-05,
+      // owner-reported 404): this line used to read the raw build-time env
+      // value (`NEXT_PUBLIC_SUPABASE_URL`) DIRECTLY inside a client
+      // component. Next.js inlines NEXT_PUBLIC_* values at BUILD time — on a
+      // deployment host that has not set the env var (the production Vercel
+      // project), the inlined value is `undefined` and the browser requested
+      // `/undefined/functions/v1/bind-activation-code` on the PORTAL origin
+      // → 404 on every activation attempt, no matter how valid the code was.
+      // The live EF itself was healthy (anon probe: 401 structured + OPTIONS
+      // 200). Fix: resolve through `@/lib/env`, which falls back to the
+      // committed PUBLIC_CONFIG_DEFAULTS (T-096) — the same chain the
+      // `supabase` browser client above already uses. NEVER read the raw
+      // `process.env` NEXT_PUBLIC_* values directly in a client component.
+      const functionUrl = `${env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/bind-activation-code`;
 
       const resp = await fetch(functionUrl, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${accessToken}`,
-          // Supabase Edge Functions also require the anon key as apikey.
-          apikey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "",
+          // Supabase Edge Functions also require the anon key as apikey
+          // (T-184: through `env` for the same fallback-chain reason; the
+          // default is the new-format publishable key, accepted live).
+          apikey: env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
         },
         body: JSON.stringify({ code: trimmed }),
       });
