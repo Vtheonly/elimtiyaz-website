@@ -21,7 +21,6 @@ import {
   PaymentRow,
   InstallmentRow,
   InvoiceRow,
-  ReceiptRow,
   ServiceEnrollmentRow,
   AttendanceRecordRow,
   HomeworkRow,
@@ -261,24 +260,16 @@ export function useInvoices(
   });
 }
 
-export function useReceiptsForPayment(
-  paymentId: string | null | undefined
-): UseQueryResult<ReceiptRow | null> {
-  return useQuery({
-    queryKey: ["receipt", paymentId],
-    queryFn: async () => {
-      if (!paymentId || !supabase) return null;
-      const { data, error } = await supabase
-        .from("receipts")
-        .select("*")
-        .eq("payment_id", paymentId)
-        .maybeSingle();
-      if (error) throw error;
-      return (data as ReceiptRow) ?? null;
-    },
-    enabled: Boolean(paymentId),
-  });
-}
+/**
+ * REMOVED (T-195, 30th session — CROSS-101 resolution): the per-payment and
+ * per-parent receipt hooks that queried the orphaned `receipts` table (no
+ * writer since migration 0034; 0 live rows) with ZERO consumers. Receipt
+ * downloads are now real and client-side (ADR-014):
+ * src/lib/pdf/payment-receipt.ts (per payment) + account-statement.ts (per
+ * family). The `receipts` table itself is dropped by hub migration 0079 —
+ * guarded by src/test/t-194-receipt-pdf.test.ts (S2 scan: the `receipts`
+ * consumer class cannot return).
+ */
 
 export function useServiceEnrollments(
   studentId: string | null | undefined
@@ -701,32 +692,5 @@ export function useAllStudentDocuments(
 }
 
 /* -------------------------------------------------------------------------- */
-/* Receipts (parent-scoped, both kinds)                                       */
+/* Receipts — see the REMOVED note above (T-195/CROSS-101/ADR-014)          */
 /* -------------------------------------------------------------------------- */
-
-/**
- * Fetch all receipts (recent_payment + account_statement) for the parent.
- * Used by the financial view to surface downloadable PDFs.
- */
-export function useReceipts(
-  parentId: string | null | undefined,
-  options: { limit?: number; kind?: "recent_payment" | "account_statement" } = {}
-): UseQueryResult<ReceiptRow[]> {
-  return useQuery({
-    queryKey: ["receipts", parentId, options.limit, options.kind],
-    queryFn: async () => {
-      if (!parentId || !supabase) return [];
-      let q = supabase
-        .from("receipts")
-        .select("*")
-        .eq("parent_id", parentId)
-        .order("generated_at", { ascending: false });
-      if (options.kind) q = q.eq("receipt_kind", options.kind);
-      if (options.limit) q = q.limit(options.limit);
-      const { data, error } = await q;
-      if (error) throw error;
-      return (data ?? []) as ReceiptRow[];
-    },
-    enabled: Boolean(parentId),
-  });
-}

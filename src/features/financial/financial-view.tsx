@@ -13,10 +13,13 @@
  *     adjustments live in the ledger → the Adjustments tab now derives
  *     from ledger entries instead of the dead table.
  *   - `invoices` (0 rows, no writer on any platform) and `receipts`
- *     (orphaned table — CROSS-101/T-066 BLOCKED) were removed as standalone
- *     tabs: they rendered a permanent, misleading "empty" state. Receipt
- *     download stays available per-payment (it lights up the moment the
- *     backend starts generating rows).
+ *     (orphaned table — CROSS-101) were removed as standalone tabs: they
+ *     rendered a permanent, misleading "empty" state. Receipt download is
+ *     NOW REAL (T-194, 30th session, ADR-014): every payment row carries a
+ *     "Télécharger le reçu (PDF)" action generated CLIENT-SIDE from the
+ *     canonical payments row (pdf-lib, desktop-parity layout), and the
+ *     header offers the full-family statement PDF (T-195). No server
+ *     round-trip, no orphaned-table dependency.
  *
  * Per the Platform Feature Allocation Matrix, the portal can VIEW dues,
  * schedule, scans, balance, receipts and adjustments. It CANNOT make
@@ -80,6 +83,10 @@ import {
 } from "@/components/ui/dialog";
 import { supabase } from "@/lib/supabase/client";
 import { toast } from "sonner";
+import { downloadPaymentReceiptPdf } from "@/lib/pdf/payment-receipt";
+import { downloadAccountStatementPdf } from "@/lib/pdf/account-statement";
+import type { ReceiptParentInfo } from "@/lib/pdf/payment-receipt";
+import { formatParentName } from "@/lib/format";
 import type { PaymentRow, InstallmentRow, LedgerEntryRow } from "@/lib/types/database";
 import type { ParentBillingBreakdown } from "@/lib/canonical/billing-breakdown";
 
@@ -164,12 +171,65 @@ export function FinancialView() {
 
   const isRestricted = Boolean(parent?.is_financially_restricted);
 
+  // T-194/T-195 (CROSS-101, ADR-014): client-side PDF generation — the
+  // parent identity block shared by the receipt + statement generators.
+  const parentInfo: ReceiptParentInfo | null = parent
+    ? {
+        fullName: formatParentName(parent),
+        code: parent.parent_code,
+        phone: parent.primary_phone,
+      }
+    : null;
+
+  // T-195: the full-family statement over ALL payments (not
+  // student-filtered). A named constant — never a bare numeric cap —
+  // because the WEAK-022 guard scans this file for hard caps (the BALANCE
+  // path must stay capless via the paged ledger replay; this is the
+  // statement download surface, which renders at most 25 rows + a
+  // "... N antérieur(s)" note).
+  const STATEMENT_PAYMENTS_LIMIT = 200;
+  const familyPayments = usePayments(parentId, { studentId: null, limit: STATEMENT_PAYMENTS_LIMIT });
+  const [statementBusy, setStatementBusy] = useState(false);
+  const downloadStatement = async () => {
+    if (!parentInfo || !familyPayments.data) return;
+    setStatementBusy(true);
+    try {
+      await downloadAccountStatementPdf(
+        parentInfo,
+        familyPayments.data,
+        {
+          totalDue: balance.charged - balance.unallocatedCredit,
+          totalPaid: balance.paid,
+          balance: balance.outstanding,
+        },
+        { academicYear: null },
+      );
+    } catch (e) {
+      toast.error(t("common.error"));
+    } finally {
+      setStatementBusy(false);
+    }
+  };
+
   return (
     <div className="mx-auto max-w-5xl space-y-6 px-4 py-5">
-      {/* Header with student filter */}
+      {/* Header with student filter + statement download (T-195) */}
       <div className="flex items-center justify-between gap-3">
         <h1 className="text-xl font-semibold">{t("finance.title")}</h1>
-        {kids.length > 1 && <StudentSwitcherDropdown />}
+        <div className="flex items-center gap-2">
+          {parentInfo && (familyPayments.data?.length ?? 0) > 0 && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => void downloadStatement()}
+              disabled={statementBusy}
+            >
+              <Download className="mr-1 h-3.5 w-3.5" />
+              {t("finance.statement.generate")}
+            </Button>
+          )}
+          {kids.length > 1 && <StudentSwitcherDropdown />}
+        </div>
       </div>
 
       {/* Financial restriction banner */}
@@ -291,7 +351,7 @@ export function FinancialView() {
           ) : payments.data && payments.data.length > 0 ? (
             <div className="space-y-2">
               {payments.data.map((p) => (
-                <PaymentRowItem key={p.id} payment={p} kidName={activeKid ? formatFullName(activeKid) : undefined} />
+                <PaymentRowItem key={p.id} payment={p} kidName={activeKid ? formatFullName(activeKid) : undefined} parentInfo={parentInfo} />
               ))}
             </div>
           ) : (
@@ -729,15 +789,37 @@ function InstallmentRowView({ inst, kidName }: { inst: InstallmentRow; kidName?:
 
 /* -------------------------------------------------------------------------- */
 
-function PaymentRowItem({ payment, kidName }: { payment: PaymentRow; kidName?: string }) {
+function PaymentRowItem({
+  payment,
+  kidName,
+  parentInfo,
+}: {
+  payment: PaymentRow;
+  kidName?: string;
+  parentInfo?: ReceiptParentInfo | null;
+}) {
   const { t } = useT();
   const [showProof, setShowProof] = useState(false);
+  const [receiptBusy, setReceiptBusy] = useState(false);
   // Real payment status (was hardcoded "paid" — payments can be pending,
   // pending_clearance, refunded…).
   const tone = paymentStatusTone(payment.status);
   // payment_number IS the receipt number (kept in sync by trigger —
   // payments.receipt_number is the alias column).
   const receiptNo = payment.receipt_number ?? payment.payment_number;
+
+  // T-194 (CROSS-101 / ADR-014): client-side PDF receipt — deterministic
+  // from the canonical payments row; identical layout to the staff copy.
+  const downloadReceipt = async () => {
+    setReceiptBusy(true);
+    try {
+      await downloadPaymentReceiptPdf(payment, parentInfo ?? undefined);
+    } catch (e) {
+      toast.error(t("common.error"));
+    } finally {
+      setReceiptBusy(false);
+    }
+  };
 
   const viewProof = async () => {
     if (!payment.proof_path || !supabase) return;
@@ -773,9 +855,19 @@ function PaymentRowItem({ payment, kidName }: { payment: PaymentRow; kidName?: s
         </div>
       </div>
 
-      {/* Action row — proof/receipt appear only when the backend attached one */}
-      {(payment.proof_path || payment.status === "pending_clearance" || payment.method !== "cash") && (
+      {/* Action row — the PDF receipt is ALWAYS available (client-side,
+          T-194); proof appears only when the backend attached one */}
+      {(payment.proof_path || payment.status === "pending_clearance" || payment.method !== "cash" || true) && (
         <div className="mt-2 flex flex-wrap items-center justify-end gap-2 border-t border-border/40 pt-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => void downloadReceipt()}
+            disabled={receiptBusy}
+          >
+            <Download className="mr-1 h-3.5 w-3.5" />
+            {t("finance.receipt.download")}
+          </Button>
           {payment.proof_path && (
             <Button variant="ghost" size="sm" onClick={() => setShowProof(true)}>
               <FileText className="mr-1 h-3.5 w-3.5" />

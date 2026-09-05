@@ -470,21 +470,11 @@ export type InvoiceRow = {
   updated_at: string;
 }
 
-export type ReceiptRow = {
-  id: string;
-  tenant_id: string;
-  receipt_number: string;
-  receipt_kind: "recent_payment" | "account_statement";
-  payment_id: string | null;
-  parent_id: string;
-  pdf_path: string;
-  pdf_size_bytes: number | null;
-  generated_at: string;
-  generated_by: string | null;
-  created_at: string;
-  updated_at: string;
-}
-
+/**
+ * REMOVED (T-195, 30th session — CROSS-101): the `receipts` table had no
+ * writer since migration 0034 (collect_payment dropped) and 0 live rows;
+ * the hub migration 0079 drops it. Receipt PDFs are client-side (ADR-014).
+ */
 export type ServiceEnrollmentRow = {
   id: string;
   tenant_id: string;
@@ -876,7 +866,6 @@ export type Database = {
       audit_logs: { Row: AuditLogRow; Insert: Partial<AuditLogRow>; Update: Partial<AuditLogRow>; Relationships: [] };
       notifications: { Row: NotificationRow; Insert: Partial<NotificationRow>; Update: Partial<NotificationRow>; Relationships: [] };
       invoices: { Row: InvoiceRow; Insert: Partial<InvoiceRow>; Update: Partial<InvoiceRow>; Relationships: [] };
-      receipts: { Row: ReceiptRow; Insert: Partial<ReceiptRow>; Update: Partial<ReceiptRow>; Relationships: [] };
       service_enrollments: { Row: ServiceEnrollmentRow; Insert: Partial<ServiceEnrollmentRow>; Update: Partial<ServiceEnrollmentRow>; Relationships: [] };
       account_adjustments: { Row: AccountAdjustmentRow; Insert: Partial<AccountAdjustmentRow>; Update: Partial<AccountAdjustmentRow>; Relationships: [] };
       attendance_records: { Row: AttendanceRecordRow; Insert: Partial<AttendanceRecordRow>; Update: Partial<AttendanceRecordRow>; Relationships: [] };
