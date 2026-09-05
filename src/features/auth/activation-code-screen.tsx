@@ -125,7 +125,18 @@ export function ActivationCodeScreen({ onDismiss }: Props) {
       setTimeout(() => refresh(), 1500);
     } catch (err) {
       console.error("[activation-code] submit failed:", err);
-      setErrorMsg(t("activation.code.error.generic"));
+      // T-187 (ACT-204): a thrown TypeError is a fetch-level failure — no
+      // HTTP response exists (connection dropped, offline, or the browser
+      // blocked the request, e.g. a CORS rejection during the ACT-203
+      // allowlist gap). mapActivationError never runs in that case, and the
+      // generic "impossible d'activer" message wrongly blamed the CODE.
+      // Show the dedicated connection message instead; anything else keeps
+      // the generic key.
+      const messageKey =
+        err instanceof TypeError
+          ? "activation.code.error.network"
+          : "activation.code.error.generic";
+      setErrorMsg(t(messageKey));
       setPhase("error");
     }
   };

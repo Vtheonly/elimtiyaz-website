@@ -385,6 +385,12 @@ const fr: Dict = {
   "activation.code.error.suspended": "Ce compte est suspendu. Veuillez contacter l'administration de l'école.",
   "activation.code.error.session": "Session invalide. Veuillez vous reconnecter, puis réessayer.",
   "activation.code.error.bound": "Ce dossier familial est déjà lié à un autre compte. Veuillez contacter l'administration.",
+  // T-187 (ACT-204) — fetch-level failure (network / CORS block / offline):
+  // no HTTP response exists, so mapActivationError never runs; the generic
+  // key misled users during the ACT-201/ACT-203 era.
+  "activation.code.error.network":
+    "Impossible de joindre le serveur. Vérifiez votre connexion internet, puis réessayez. " +
+    "Si le problème persiste, contactez l'administration.",
   "activation.code.error.generic": "Impossible d'activer le compte. Veuillez réessayer.",
   "activation.code.haveCode": "J'ai déjà un code d'activation",
   "activation.code.dontHaveCode": "Je n'ai pas de code d'activation",
