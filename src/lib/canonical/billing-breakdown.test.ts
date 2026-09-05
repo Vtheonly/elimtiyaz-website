@@ -17,6 +17,7 @@ import { describe, expect, it } from "vitest";
 import {
   parentBillingBreakdown,
   describeAdjustment,
+  classifyAdjustmentRows,
   resolveBillingAcademicYear,
   serviceLabelOf,
 } from "@/lib/canonical/billing-breakdown";
@@ -231,5 +232,163 @@ describe("describeAdjustment — cross-platform diagnostics", () => {
     expect(debit.reasonLabel).toBe(
       "Régularisation / rétablissement de dette (contrepassation automatique, motif non documenté)",
     );
+  });
+});
+
+/* ============================================================ */
+/*  T-168 — parity corpus (identical vectors to the desktop)     */
+/* ============================================================ */
+
+describe("parentBillingBreakdown — T-168 complete itemized shopping list", () => {
+  const kids2 = [
+    kid({ id: "s1", first_name: "Sara", last_name: "BENALI" }),
+    kid({ id: "s2", first_name: "Yanis", last_name: "BENALI" }),
+  ];
+  const charges = [
+    ledgerRow({ entry_number: "c-t1", student_id: "s1", amount: 285000, category: "tuition" }),
+    ledgerRow({ entry_number: "c-t2", student_id: "s2", amount: 285000, category: "tuition" }),
+    ledgerRow({ entry_number: "c-tr1", student_id: "s1", amount: 45000, category: "transport" }),
+    ledgerRow({ entry_number: "c-tr2", student_id: "s2", amount: 45000, category: "transport" }),
+    ledgerRow({
+      entry_number: "c-ins",
+      student_id: null,
+      amount: 40000,
+      category: "other",
+      description: "Frais d'inscription (family-level)",
+    }),
+  ];
+
+  it("accounts for every dinar: Σ byChild + unattributed === totalBilled (700 000)", () => {
+    const breakdown = parentBillingBreakdown(charges, [], kids2);
+    expect(breakdown.totalBilled).toBe(700000);
+    expect(breakdown.byChild.map((c) => c.billedTotal)).toEqual([330000, 330000]);
+    expect(breakdown.unattributedTotal).toBe(40000);
+    expect(
+      breakdown.byChild.reduce((s, c) => s + c.billedTotal, 0) + breakdown.unattributedTotal,
+    ).toBe(breakdown.totalBilled);
+  });
+
+  it("consolidates per service with share % + child attribution (same numbers as desktop)", () => {
+    const breakdown = parentBillingBreakdown(charges, [], kids2);
+    const tuition = breakdown.byService.find((s) => s.category === "tuition")!;
+    const transport = breakdown.byService.find((s) => s.category === "transport")!;
+    const other = breakdown.byService.find((s) => s.category === "other")!;
+    expect(tuition.amount).toBe(570000);
+    expect(tuition.sharePct).toBe(81);
+    expect(tuition.childAttribution).toEqual([
+      { studentId: "s1", studentName: "Sara BENALI", amount: 285000 },
+      { studentId: "s2", studentName: "Yanis BENALI", amount: 285000 },
+    ]);
+    expect(transport.amount).toBe(90000);
+    expect(transport.sharePct).toBe(13);
+    expect(other.amount).toBe(40000);
+    expect(other.childAttribution).toEqual([
+      { studentId: null, studentName: "Famille", amount: 40000 },
+    ]);
+    expect(breakdown.byService.reduce((s, x) => s + x.sharePct, 0)).toBe(100);
+  });
+
+  it("folds family-level charges into the single child of a single-child family", () => {
+    const breakdown = parentBillingBreakdown(
+      [
+        ledgerRow({ entry_number: "c-t", student_id: "s1", amount: 285000, category: "tuition" }),
+        ledgerRow({ entry_number: "c-ins", student_id: null, amount: 40000, category: "other" }),
+      ],
+      [],
+      [kids2[0]],
+    );
+    expect(breakdown.byChild[0].billedTotal).toBe(325000);
+    expect(breakdown.unattributedItems).toEqual([]);
+  });
+});
+
+describe("parentBillingBreakdown — T-168 adjustment-aware reconciliation", () => {
+  it("derives the full equation and balances to the server balance", () => {
+    const breakdown = parentBillingBreakdown(
+      [ledgerRow({ amount: 285000 })],
+      [],
+      [kid({})],
+      {
+        adjustmentRows: [
+          ledgerRow({ entry_type: "adjustment", entry_number: "adj-1", amount: -71000, description: "Remise fratrie" }),
+          ledgerRow({ entry_type: "adjustment", entry_number: "adj-2", amount: 20000, description: "Majoration transport" }),
+        ],
+        clearedPaid: 95000,
+        pendingPaid: 30000,
+        serverOutstanding: 109000,
+      },
+    );
+    const r = breakdown.reconciliation;
+    expect(r.grossBilled).toBe(285000);
+    expect(r.adjustmentsCredit).toBe(71000);
+    expect(r.adjustmentsDebit).toBe(20000);
+    expect(r.netDue).toBe(234000);
+    expect(r.clearedPaid).toBe(95000);
+    expect(r.pendingPaid).toBe(30000);
+    expect(r.derivedRemaining).toBe(109000);
+    expect(r.serverOutstanding).toBe(109000);
+    expect(r.bridge).toBe(0);
+    expect(r.hasBridge).toBe(false);
+  });
+
+  it("surfaces the bridge when the server balance has invisible items", () => {
+    const breakdown = parentBillingBreakdown([ledgerRow({ amount: 285000 })], [], [kid({})], {
+      clearedPaid: 125000,
+      serverOutstanding: 79000, // 10 000 refund server-side only
+    });
+    const r = breakdown.reconciliation;
+    expect(r.derivedRemaining).toBe(160000);
+    expect(r.bridge).toBe(-81000);
+    expect(r.hasBridge).toBe(true);
+  });
+});
+
+describe("classifyAdjustmentRows — provenance classification (T-168 parity)", () => {
+  it("detects the owner's +X/−X re-import flip-flop as reversal pairs (order-independent)", () => {
+    const classified = classifyAdjustmentRows([
+      ledgerRow({ entry_type: "adjustment", entry_number: "adj-c1", amount: 50000, description: "", at: "2025-09-05T09:00:00Z" }),
+      ledgerRow({ entry_type: "adjustment", entry_number: "adj-d2", amount: -71000, description: "", at: "2025-09-06T09:00:00Z" }),
+      ledgerRow({ entry_type: "adjustment", entry_number: "adj-d1", amount: 71000, description: "", at: "2025-09-05T10:00:00Z" }),
+      ledgerRow({ entry_type: "adjustment", entry_number: "adj-c2", amount: -50000, description: "", at: "2025-09-06T10:00:00Z" }),
+    ]);
+    const byId = new Map(classified.map((c) => [c.id, c]));
+    expect(byId.get("adj-d1")!.pairedWithId).toBe("adj-d2");
+    expect(byId.get("adj-d2")!.pairedWithId).toBe("adj-d1");
+    expect(byId.get("adj-c1")!.pairedWithId).toBe("adj-c2");
+    expect(byId.get("adj-c2")!.pairedWithId).toBe("adj-c1");
+    for (const c of classified) {
+      expect(c.provenance).toBe("reversal_pair");
+      expect(c.provenanceLabel).toBe("Contrepassation");
+      expect(c.meaningLabel).toContain("nul");
+    }
+  });
+
+  it("classifies documented rows as actual content and blank rows as undocumented", () => {
+    const [doc] = classifyAdjustmentRows([
+      ledgerRow({ entry_type: "adjustment", entry_number: "adj-1", amount: -71000, description: "Remise fratrie (3 enfants)" }),
+    ]);
+    expect(doc.provenance).toBe("documented");
+    expect(doc.provenanceLabel).toBe("Documenté");
+    expect(doc.meaningLabel).toContain("réduit le solde dû");
+
+    const [blank] = classifyAdjustmentRows([
+      ledgerRow({ entry_type: "adjustment", entry_number: "adj-2", amount: -50000, description: "   " }),
+    ]);
+    expect(blank.provenance).toBe("undocumented");
+    expect(blank.meaningLabel).toContain("auditer");
+  });
+
+  it("never pairs two same-sign entries and skips zero-amount rows", () => {
+    const classified = classifyAdjustmentRows([
+      ledgerRow({ entry_type: "adjustment", entry_number: "adj-a", amount: 50000, description: "Note A", at: "2025-09-01T09:00:00Z" }),
+      ledgerRow({ entry_type: "adjustment", entry_number: "adj-b", amount: 50000, description: "Note B", at: "2025-09-02T09:00:00Z" }),
+      ledgerRow({ entry_type: "adjustment", entry_number: "adj-c", amount: -50000, description: "Remise", at: "2025-09-03T09:00:00Z" }),
+      ledgerRow({ entry_type: "adjustment", entry_number: "adj-z", amount: 0, description: "", at: "2025-09-04T09:00:00Z" }),
+    ]);
+    const byId = new Map(classified.map((c) => [c.id, c]));
+    expect(byId.get("adj-a")!.provenance).toBe("reversal_pair");
+    expect(byId.get("adj-b")!.provenance).toBe("documented");
+    expect(byId.get("adj-b")!.pairedWithId).toBeNull();
+    expect(byId.get("adj-z")!.pairedWithId).toBeNull();
   });
 });

@@ -35,7 +35,7 @@ import {
 } from "@/lib/canonical/portal-derive";
 import {
   parentBillingBreakdown,
-  describeAdjustment,
+  classifyAdjustmentRows,
 } from "@/lib/canonical/billing-breakdown";
 import { useFinancialRealtime } from "@/lib/hooks/use-realtime";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -149,9 +149,17 @@ export function FinancialView() {
   const billing = useMemo(
     () =>
       ledgerEntries.data && familyInstallments.data
-        ? parentBillingBreakdown(ledgerEntries.data, familyInstallments.data, kids)
+        ? parentBillingBreakdown(ledgerEntries.data, familyInstallments.data, kids, {
+            // T-168: adjustment-aware reconciliation — same equation as the
+            // desktop drawer (gross − remises + majorations = net; net −
+            // cleared − pending = reste; bridge to the server balance).
+            adjustmentRows: adjustments,
+            clearedPaid: Math.max(0, balance.paid - balance.pending),
+            pendingPaid: balance.pending,
+            serverOutstanding: balance.outstanding,
+          })
         : null,
-    [ledgerEntries.data, familyInstallments.data, kids],
+    [ledgerEntries.data, familyInstallments.data, kids, adjustments, balance],
   );
 
   const isRestricted = Boolean(parent?.is_financially_restricted);
@@ -493,28 +501,138 @@ function BillingTab({
           ))}
         </div>
       ) : (
-        /* Consolidated per-service totals */
-        <ul className="divide-y divide-border/40 rounded border border-border/40 bg-muted/20 text-sm">
+        /* Consolidated per-service totals — T-168: share % + child attribution */
+        <div className="space-y-2">
           {breakdown.byService.map((svc) => (
-            <li key={svc.category} className="flex items-center justify-between gap-2 px-3 py-2">
-              <div>
-                <p className="font-medium">{svc.label}</p>
-                <p className="text-[10px] text-muted-foreground">{svc.count}</p>
+            <div key={svc.category} className="rounded-md border border-border/40 bg-muted/10 p-3 space-y-1.5">
+              <div className="flex items-center justify-between gap-2">
+                <div className="min-w-0">
+                  <p className="font-medium">{svc.label}</p>
+                  <p className="text-[10px] text-muted-foreground">{svc.count}</p>
+                </div>
+                <div className="text-right shrink-0">
+                  <span className="block font-mono font-semibold text-primary">
+                    {formatCurrency(svc.amount)}
+                  </span>
+                  <span className="text-[10px] text-muted-foreground">{svc.sharePct} % {t("finance.billing.share")}</span>
+                </div>
               </div>
-              <span className="font-mono font-semibold text-primary">
-                {formatCurrency(svc.amount)}
-              </span>
-            </li>
+              <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
+                <div
+                  className="h-full rounded-full bg-primary/70"
+                  style={{ width: `${Math.min(100, svc.sharePct)}%` }}
+                />
+              </div>
+              <div className="flex flex-wrap gap-x-3 gap-y-0.5">
+                {svc.childAttribution.map((a) => (
+                  <span key={`${svc.category}-${a.studentId ?? "famille"}`} className="text-[10px] text-muted-foreground">
+                    {a.studentName} : <strong className="font-mono text-foreground">{formatCurrency(a.amount)}</strong>
+                  </span>
+                ))}
+              </div>
+            </div>
           ))}
-        </ul>
+          {breakdown.unattributedItems.length > 0 && (
+            <div className="rounded-md border border-dashed border-border p-3 space-y-1">
+              <p className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold">
+                {t("finance.billing.familyItems")}
+              </p>
+              <ul className="divide-y divide-border/40 text-sm">
+                {breakdown.unattributedItems.map((item) => (
+                  <li key={item.id} className="flex items-center justify-between gap-2 py-1.5">
+                    <span className="min-w-0 flex-1 truncate">{item.label}</span>
+                    <span className="font-mono">{formatCurrency(item.amount)}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
       )}
 
-      {/* Reconciliation footer */}
-      <div className="flex items-center justify-between rounded-b-lg border border-border/40 bg-muted/30 px-3 py-2.5 text-xs">
-        <span className="text-muted-foreground">
-          {t("finance.billing.engagedTotal")}{" "}
-          <strong className="font-mono text-foreground">{formatCurrency(breakdown.totalBilled)}</strong>
-        </span>
+      {/* Family-level block (per-child view) — keeps the list exhaustive */}
+      {mode === "by_child" && breakdown.unattributedItems.length > 0 && (
+        <div className="rounded-md border border-dashed border-border p-3 space-y-1">
+          <p className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold">
+            {t("finance.billing.familyItems")}
+          </p>
+          <ul className="divide-y divide-border/40 text-sm">
+            {breakdown.unattributedItems.map((item) => (
+              <li key={item.id} className="flex items-center justify-between gap-2 py-1.5">
+                <span className="min-w-0 flex-1 truncate">{item.label}</span>
+                <span className="font-mono">{formatCurrency(item.amount)}</span>
+              </li>
+            ))}
+          </ul>
+          <p className="text-right text-[10px] text-muted-foreground">
+            {t("finance.billing.subtotal")} :{" "}
+            <strong className="font-mono text-foreground">{formatCurrency(breakdown.unattributedTotal)}</strong>
+          </p>
+        </div>
+      )}
+
+      {/* T-168 — adjustment-aware reconciliation footer (full equation) */}
+      <div className="space-y-1 rounded-b-lg border border-border/40 bg-muted/30 px-3 py-2.5 text-xs">
+        <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+          {t("finance.billing.recon")}
+        </p>
+        <div className="flex items-center justify-between">
+          <span className="text-muted-foreground">{t("finance.billing.recon.gross")}</span>
+          <span className="font-mono font-semibold">{formatCurrency(breakdown.reconciliation.grossBilled)}</span>
+        </div>
+        {breakdown.reconciliation.adjustmentsCredit > 0 && (
+          <div className="flex items-center justify-between">
+            <span className="text-muted-foreground">{t("finance.billing.recon.credit")}</span>
+            <span className="font-mono text-success">− {formatCurrency(breakdown.reconciliation.adjustmentsCredit)}</span>
+          </div>
+        )}
+        {breakdown.reconciliation.adjustmentsDebit > 0 && (
+          <div className="flex items-center justify-between">
+            <span className="text-muted-foreground">{t("finance.billing.recon.debit")}</span>
+            <span className="font-mono text-destructive">+ {formatCurrency(breakdown.reconciliation.adjustmentsDebit)}</span>
+          </div>
+        )}
+        <div className="flex items-center justify-between">
+          <span className="text-muted-foreground">{t("finance.billing.recon.net")}</span>
+          <span className="font-mono font-semibold">{formatCurrency(breakdown.reconciliation.netDue)}</span>
+        </div>
+        <div className="flex items-center justify-between">
+          <span className="text-muted-foreground">{t("finance.billing.recon.cleared")}</span>
+          <span className="font-mono text-success">− {formatCurrency(breakdown.reconciliation.clearedPaid)}</span>
+        </div>
+        {breakdown.reconciliation.pendingPaid > 0 && (
+          <div className="flex items-center justify-between">
+            <span className="text-muted-foreground">{t("finance.billing.recon.pending")}</span>
+            <span className="font-mono text-warning">− {formatCurrency(breakdown.reconciliation.pendingPaid)}</span>
+          </div>
+        )}
+        <div className="flex items-center justify-between">
+          <span className="text-muted-foreground">{t("finance.billing.recon.remaining")}</span>
+          <span className="font-mono font-bold">{formatCurrency(breakdown.reconciliation.derivedRemaining)}</span>
+        </div>
+        {breakdown.reconciliation.hasBridge && (
+          <div className="flex items-center justify-between rounded border border-warning/40 bg-warning/10 px-2 py-1 text-[11px]">
+            <span className="text-warning">{t("finance.billing.recon.bridge")}</span>
+            <span className="font-mono font-bold text-warning">
+              {formatCurrency(breakdown.reconciliation.bridge)}
+            </span>
+          </div>
+        )}
+        {breakdown.reconciliation.serverOutstanding != null && (
+          <div className="flex items-center justify-between border-t border-border/40 pt-1 text-sm">
+            <span className="flex items-center gap-1 font-medium text-muted-foreground">
+              {!breakdown.reconciliation.hasBridge && <CheckCircle2 className="h-3.5 w-3.5 text-success" />}
+              {t("finance.billing.recon.server")}
+            </span>
+            <span
+              className={`font-mono font-bold ${
+                breakdown.reconciliation.serverOutstanding > 0 ? "text-destructive" : "text-success"
+              }`}
+            >
+              {formatCurrency(breakdown.reconciliation.serverOutstanding)}
+            </span>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -744,43 +862,79 @@ function AdjustmentsTab({
 
   return (
     <div className="space-y-2">
-      {adjustments.map((adj) => {
-        // T-166: badge + reason diagnostics via the canonical derivation —
-        // same wording as the desktop drawer and the Android terminal, with
-        // a clearly-flagged fallback for legacy blank descriptions.
-        const diag = describeAdjustment(adj);
-        const isCredit = diag.kind === "credit";
-        return (
-          <CardListItem
-            key={adj.entry_number ?? adj.id ?? Math.random()}
-            leading={
-              <div
-                className={`flex h-10 w-10 items-center justify-center rounded-lg ${
-                  isCredit ? "bg-success/10 text-success" : "bg-warning/10 text-warning"
-                }`}
-              >
-                <Scale className="h-4 w-4" />
-              </div>
-            }
-            title={`${isCredit ? "−" : "+"}${formatCurrency(Math.abs(Number(adj.amount)))}`}
-            subtitle={
-              <>
-                {formatDate(adj.at)}
-                {" • "}
-                <span className={diag.isDiagnosticFallback ? "italic text-muted-foreground" : ""}>
-                  {diag.reasonLabel}
-                </span>
-                {adj.receipt_number ? ` • ${adj.receipt_number}` : ""}
-              </>
-            }
-            trailing={
-              <StatusPill tone={isCredit ? "success" : "warning"}>
-                {diag.badgeLabel}
-              </StatusPill>
-            }
-          />
-        );
-      })}
+      {(() => {
+        // T-168: badge + reason + PROVENANCE derived by the canonical
+        // derivation — same wording and the same pairing algorithm as the
+        // desktop drawer and the Android terminal: Documenté = actual
+        // content · Contrepassation = net-zero reversal pair · Non documenté
+        // = legacy import to audit.
+        const classified = classifyAdjustmentRows(adjustments);
+        return classified.map((c) => {
+          const isCredit = c.kind === "credit";
+          const pair = c.pairedWithId
+            ? classified.find((x) => x.id === c.pairedWithId)
+            : null;
+          return (
+            <CardListItem
+              key={c.id}
+              leading={
+                <div
+                  className={`flex h-10 w-10 items-center justify-center rounded-lg ${
+                    isCredit ? "bg-success/10 text-success" : "bg-warning/10 text-warning"
+                  }`}
+                >
+                  <Scale className="h-4 w-4" />
+                </div>
+              }
+              title={`${isCredit ? "−" : "+"}${formatCurrency(Math.abs(c.amount))}`}
+              subtitle={
+                <>
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    {formatDate(c.at)}
+                    <ProvenancePill provenance={c.provenance} label={c.provenanceLabel} />
+                    {c.receiptRef ? <span className="text-[10px] text-muted-foreground">{c.receiptRef}</span> : null}
+                  </div>
+                  <p className={c.isDiagnosticFallback ? "italic text-muted-foreground" : ""}>
+                    {c.reasonLabel}
+                  </p>
+                  {/* T-168 — explicit meaning: what this entry IS and what it
+                      does to the balance (content vs trap vs mistake). */}
+                  <p className="mt-0.5 text-[11px] text-muted-foreground">{c.meaningLabel}</p>
+                  {pair && (
+                    <p className="mt-0.5 text-[10px] font-medium text-warning">
+                      ↔ {formatDate(pair.at)} — {formatCurrency(Math.abs(pair.amount))}
+                    </p>
+                  )}
+                </>
+              }
+              trailing={
+                <StatusPill tone={isCredit ? "success" : "warning"}>
+                  {c.badgeLabel}
+                </StatusPill>
+              }
+            />
+          );
+        });
+      })()}
     </div>
+  );
+}
+
+/** T-168 — provenance pill (documented / reversal pair / undocumented). */
+function ProvenancePill({
+  provenance,
+  label,
+}: {
+  provenance: "documented" | "reversal_pair" | "undocumented";
+  label: string;
+}) {
+  const tone =
+    provenance === "documented"
+      ? "bg-success/10 text-success border-success/30"
+      : provenance === "reversal_pair"
+        ? "bg-warning/10 text-warning border-warning/40"
+        : "bg-destructive/10 text-destructive border-destructive/30";
+  return (
+    <span className={`rounded border px-1.5 py-0.5 text-[9px] font-medium ${tone}`}>{label}</span>
   );
 }
