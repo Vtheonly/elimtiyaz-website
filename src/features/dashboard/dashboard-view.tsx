@@ -38,6 +38,8 @@ import {
   useNotifications,
   useUpcomingEvents,
   useLedgerEntries,
+  useAcademicLevels,
+  useClass,
 } from "@/lib/hooks/portal-queries";
 import {
   installmentRemainingAmount,
@@ -58,6 +60,12 @@ import {
   ErrorState,
 } from "@/features/shared/state-views";
 import { PullToRefresh } from "@/features/shared/pull-to-refresh";
+import { childLevelClassLine } from "@/features/students/child-summary";
+import {
+  enrollmentStatusLabels,
+  enrollmentStatusTone,
+} from "@/features/profile/children-info-card";
+import type { StudentRow } from "@/lib/types/database";
 import { StudentSwitcher } from "@/features/students/student-switcher";
 import { eventKindLabelKey } from "@/features/calendar/event-kind";
 import {
@@ -395,33 +403,71 @@ export function DashboardView() {
           )}
         </section>
 
-        {/* Children cards (when only 1, show full profile card; multi handled above) */}
+        {/* Children cards (when only 1, show full profile card; multi handled above).
+            T-213: the card carries the child's level · class + enrollment
+            status (the dashboard was name + code only — the owner's
+            "not enough detailed information about the parents' children"
+            applied portal-wide, and this is the first screen parents see). */}
         {kids.length === 1 && activeKid && (
           <section className="space-y-3">
             <SectionHeader title={t("dashboard.section.children")} />
-            <Card
-              className="cursor-pointer border-border/60 card-hover"
-              onClick={() => {
-                setActiveStudentId(activeKid.id);
-                setActiveView("academic");
-              }}
-            >
-              <CardContent className="flex items-center gap-4 p-4">
-                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/15 text-primary">
-                  <GraduationCap className="h-6 w-6" />
-                </div>
-                <div className="flex-1">
-                  <p className="font-medium">{formatFullName(activeKid)}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {activeKid.student_code}
-                  </p>
-                </div>
-                <ChevronRight className="h-4 w-4 text-muted-foreground" />
-              </CardContent>
-            </Card>
+            <SingleChildCard kid={activeKid} />
           </section>
         )}
       </div>
     </PullToRefresh>
+  );
+}
+
+/** T-213 — the single-child dashboard card: name, code, level · class and
+ *  the enrollment-status pill, tapping through to the academic view. */
+function SingleChildCard({ kid }: { kid: StudentRow }) {
+  const { t } = useT();
+  const setActiveStudentId = useAppStore((s) => s.setActiveStudentId);
+  const setActiveView = useAppStore((s) => s.setActiveView);
+  const levels = useAcademicLevels();
+  const klass = useClass(kid.class_id);
+  const levelClass = childLevelClassLine(levels.data, klass.data, kid);
+
+  return (
+    <Card
+      className="cursor-pointer border-border/60 card-hover"
+      onClick={() => {
+        setActiveStudentId(kid.id);
+        setActiveView("academic");
+      }}
+    >
+      <CardContent className="flex items-center gap-4 p-4">
+        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-primary/15 text-primary">
+          <GraduationCap className="h-6 w-6" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="truncate font-medium">{formatFullName(kid)}</p>
+          <p className="truncate text-xs text-muted-foreground">
+            {kid.student_code}
+          </p>
+          {levelClass && (
+            <p className="mt-0.5 truncate text-xs font-medium text-primary/90">
+              {levelClass}
+            </p>
+          )}
+        </div>
+        <div className="flex shrink-0 flex-col items-end gap-1">
+          {kid.enrollment_status && (
+            <span
+              className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${
+                enrollmentStatusTone[kid.enrollment_status] ??
+                "bg-muted text-muted-foreground"
+              }`}
+            >
+              {t(
+                enrollmentStatusLabels[kid.enrollment_status] ?? "student.status.enrolled",
+              )}
+            </span>
+          )}
+          <ChevronRight className="h-4 w-4 text-muted-foreground" />
+        </div>
+      </CardContent>
+    </Card>
   );
 }

@@ -37,14 +37,17 @@ import { CalendarDays, GraduationCap, Users } from "lucide-react";
 import { formatDate, formatFullName } from "@/lib/format";
 import type { StudentRow } from "@/lib/types/database";
 import { StudentEnrollmentsCard } from "@/features/profile/student-enrollments-card";
+import { childLevelLabel, childClassLabel } from "@/features/students/child-summary";
 
-const genderLabels: Record<string, string> = {
+// T-210/T-213: shared with the dashboard child cards — exported so the
+// enrollment status renders identically on every surface (one derivation).
+export const genderLabels: Record<string, string> = {
   male: "student.gender.male",
   female: "student.gender.female",
   other: "student.gender.other",
 };
 
-const enrollmentStatusLabels: Record<string, string> = {
+export const enrollmentStatusLabels: Record<string, string> = {
   inquiry: "student.status.inquiry",
   quoted: "student.status.quoted",
   enrolled: "student.status.enrolled",
@@ -54,7 +57,7 @@ const enrollmentStatusLabels: Record<string, string> = {
 };
 
 /** Status pill tone — mirrors the financial view's status tone logic. */
-const enrollmentStatusTone: Record<string, string> = {
+export const enrollmentStatusTone: Record<string, string> = {
   active: "bg-success/15 text-success",
   enrolled: "bg-info/15 text-info",
   graduated: "bg-primary/15 text-primary",
@@ -94,15 +97,11 @@ function ChildIdentityCard({
   const { t } = useT();
   const klass = useClass(kid.class_id);
 
-  const level = levels?.find((l) => l.id === kid.grade_level_id) ?? null;
-  // Live values: year_label "1ère Année Primaire" + grade_code "1ap" —
-  // join both when present, either alone otherwise (bulletin parity).
-  const levelLabel = level
-    ? [level.year_label, level.grade_code].filter(Boolean).join(" · ") || null
-    : null;
-  const classLabel = klass.data
-    ? [klass.data.name ?? klass.data.code, klass.data.room].filter(Boolean).join(" · ")
-    : null;
+  // T-213: the level/class label derivation lives in the shared
+  // child-summary module (one derivation — dashboard child cards + this
+  // profile card consume the same functions).
+  const levelLabel = childLevelLabel(levels, kid.grade_level_id);
+  const classLabel = childClassLabel(klass.data);
 
   return (
     <Card className="border-border/60" data-testid={`child-card-${kid.id}`}>
