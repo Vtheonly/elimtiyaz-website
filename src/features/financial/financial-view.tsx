@@ -213,10 +213,13 @@ export function FinancialView() {
 
   return (
     <div className="mx-auto max-w-5xl space-y-6 px-4 py-5">
-      {/* Header with student filter + statement download (T-195) */}
-      <div className="flex items-center justify-between gap-3">
-        <h1 className="text-xl font-semibold">{t("finance.title")}</h1>
-        <div className="flex items-center gap-2">
+      {/* Header with student filter + statement download (T-195).
+          T-201/UI-302: flex-wrap + gap-y so the action cluster stacks below
+          the title on narrow screens instead of pushing the page wide
+          (163px of document overflow at 320px before the fix). */}
+      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
+        <h1 className="min-w-0 text-xl font-semibold">{t("finance.title")}</h1>
+        <div className="flex flex-wrap items-center gap-2">
           {parentInfo && (familyPayments.data?.length ?? 0) > 0 && (
             <Button
               variant="outline"

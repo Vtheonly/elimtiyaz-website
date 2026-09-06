@@ -89,8 +89,11 @@ export function StudentDocumentsCard() {
 
   return (
     <Card className="border-border/60">
+      {/* T-201/UI-302: flex-wrap + gap-y so the upload button stacks below
+          the title on narrow screens (42px of document overflow at 320px
+          before the fix). */}
       <CardHeader className="pb-3">
-        <CardTitle className="flex items-center justify-between gap-2 text-sm font-medium uppercase tracking-wide text-muted-foreground">
+        <CardTitle className="flex flex-wrap items-center justify-between gap-x-2 gap-y-2 text-sm font-medium uppercase tracking-wide text-muted-foreground">
           <span className="flex items-center gap-2">
             <FileText className="h-4 w-4" />
             {t("documents.title")}

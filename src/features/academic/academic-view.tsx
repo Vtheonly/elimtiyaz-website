@@ -132,10 +132,12 @@ export function AcademicView() {
 
   return (
     <div className="mx-auto max-w-5xl space-y-6 px-4 py-5">
-      {/* Header */}
-      <div className="flex items-center justify-between gap-3">
-        <h1 className="text-xl font-semibold">{t("nav.academic")}</h1>
-        <div className="flex items-center gap-2">
+      {/* Header. T-201/UI-302: flex-wrap + gap-y so the action cluster stacks
+          below the title on narrow screens (77px of document overflow at
+          320px before the fix). */}
+      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
+        <h1 className="min-w-0 text-xl font-semibold">{t("nav.academic")}</h1>
+        <div className="flex flex-wrap items-center gap-2">
           {activeKid && (
             <Button variant="outline" size="sm" onClick={handleDownloadBulletin} disabled={grades.isLoading}>
               <Download className="mr-1 h-3.5 w-3.5" />

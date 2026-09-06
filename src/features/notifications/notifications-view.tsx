@@ -130,8 +130,11 @@ export function NotificationsView() {
 
   return (
     <div className="mx-auto max-w-3xl space-y-4 px-4 py-5">
-      <div className="flex items-center justify-between gap-3">
-        <h1 className="text-xl font-semibold">{t("notifications.title")}</h1>
+      {/* T-201/UI-302: flex-wrap + gap-y so the mark-all button stacks below
+          the title on narrow screens (39px of document overflow at 320px
+          before the fix). */}
+      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
+        <h1 className="min-w-0 text-xl font-semibold">{t("notifications.title")}</h1>
         {notifications.data && notifications.data.some((n) => !n.is_read) && (
           <Button variant="outline" size="sm" onClick={markAllRead}>
             <CheckCheck className="mr-1 h-3.5 w-3.5" />
