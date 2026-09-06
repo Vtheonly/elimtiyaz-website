@@ -45,6 +45,17 @@ import type { GradeRow } from "@/lib/types/database";
 // old numeric `Term = 1 | 2 | 3` described a state that never existed.
 type TermFilter = "all" | "1" | "2" | "3";
 
+/** T-212: full, unabbreviated term labels — the owner's mandate ("use the
+ * full labels Trimester 1, Trimester 2, and Trimester 3 throughout the
+ * portal"; the portal's UI language is French → "Trimestre N"). The
+ * bulletin PDF already printed the full form; the tab triggers and the
+ * per-assessment chips used the T1/T2/T3 abbreviations. */
+const TERM_NUMBERS = ["1", "2", "3"] as const;
+
+export function fullTermLabel(t: (key: string) => string, term: string | number): string {
+  return `${t("student.term")} ${term}`;
+}
+
 export function AcademicView() {
   const { t } = useT();
   const { children: kids } = useAuth();
@@ -192,19 +203,26 @@ export function AcademicView() {
           />
           <KpiCard
             label={t("student.term")}
-            value={activeTerm === "all" ? "Toutes" : `T${activeTerm}`}
+            value={
+              activeTerm === "all" ? t("academic.terms.all") : fullTermLabel(t, activeTerm)
+            }
             icon={<TrendingUp className="h-5 w-5" />}
           />
         </div>
       )}
 
-      {/* Term filter */}
+      {/* Term filter — T-212: full "Trimestre N" labels (no T1/T2/T3
+          abbreviations) + the t-202 mobile pattern: the row scrolls below
+          sm (4 full labels need ~70–85px each — the bare grid clipped at
+          320px) and restores the equal 4-cell grid at sm+. */}
       <Tabs value={activeTerm} onValueChange={(v) => setActiveTerm(v as TermFilter)}>
-        <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="all">Toutes</TabsTrigger>
-          <TabsTrigger value="1">T1</TabsTrigger>
-          <TabsTrigger value="2">T2</TabsTrigger>
-          <TabsTrigger value="3">T3</TabsTrigger>
+        <TabsList className="flex w-full overflow-x-auto scrollbar-none sm:grid sm:grid-cols-4 [&_[data-slot=tabs-trigger]]:basis-auto [&_[data-slot=tabs-trigger]]:shrink-0">
+          <TabsTrigger value="all">{t("academic.terms.all")}</TabsTrigger>
+          {TERM_NUMBERS.map((n) => (
+            <TabsTrigger key={n} value={n}>
+              {fullTermLabel(t, n)}
+            </TabsTrigger>
+          ))}
         </TabsList>
 
         <TabsContent value={activeTerm} className="mt-4">
@@ -259,7 +277,7 @@ export function AcademicView() {
                             key={a.id}
                             className="flex items-center gap-2 rounded-md border border-border/40 bg-muted/30 px-2 py-1 text-xs"
                           >
-                            <span className="text-muted-foreground">T{a.term}</span>
+                            <span className="text-muted-foreground">{fullTermLabel(t, a.term)}</span>
                             <span className="font-mono">
                               {a.devoir1 != null ? a.devoir1.toFixed(2) : "—"} · {a.devoir2 != null ? a.devoir2.toFixed(2) : "—"} · {a.examen != null ? a.examen.toFixed(2) : "—"}
                             </span>
