@@ -65,6 +65,7 @@ import { cn } from "@/lib/utils";
 import { NotificationPreferencesCard } from "@/features/profile/notification-preferences-card";
 import { StudentDocumentsCard } from "@/features/profile/student-documents-card";
 import { ParentContactEditCard } from "@/features/profile/parent-contact-edit-card";
+import { ChildrenInfoCard } from "@/features/profile/children-info-card";
 import { formatDate } from "@/lib/format";
 
 const localeLabels: Record<Locale, string> = {
@@ -253,6 +254,9 @@ export function ProfileView() {
           )}
         </CardContent>
       </Card>
+
+      {/* Children identity + enrollment details (T-210) */}
+      <ChildrenInfoCard />
 
       {/* Parent contact info (self-edit) */}
       {parent && <ParentContactEditCard />}

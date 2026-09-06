@@ -115,6 +115,24 @@ const fr: Dict = {
   "student.bulletin": "Bulletin",
   "student.bulletin.download": "Télécharger le bulletin (PDF)",
 
+  // Children detail (T-210 — the per-child identity + enrollment card)
+  "children.title": "Mes enfants",
+  "children.identityNote": "Informations gérées par l'administration",
+  "student.dateOfBirth": "Date de naissance",
+  "student.gender": "Sexe",
+  "student.gender.male": "Garçon",
+  "student.gender.female": "Fille",
+  "student.gender.other": "Autre",
+  "student.enrollmentDate": "Date d'inscription",
+  "student.yearsOld": "ans",
+  "student.status.inquiry": "Demande d'information",
+  "student.status.quoted": "Devis envoyé",
+  "student.status.enrolled": "Inscrit",
+  "student.status.active": "En cours",
+  "student.status.withdrawn": "Retiré",
+  "student.status.graduated": "Diplômé",
+
+
 
   // Attendance
   "attendance.title": "Absences et retards",
@@ -584,6 +602,24 @@ const ar: Dict = {
   "student.appreciation": "التقدير",
   "student.bulletin": "كشف النقاط",
   "student.bulletin.download": "تحميل كشف النقاط (PDF)",
+
+  // Children detail (T-210)
+  "children.title": "أطفالي",
+  "children.identityNote": "معلومات تديرها الإدارة",
+  "student.dateOfBirth": "تاريخ الميلاد",
+  "student.gender": "الجنس",
+  "student.gender.male": "ذكر",
+  "student.gender.female": "أنثى",
+  "student.gender.other": "آخر",
+  "student.enrollmentDate": "تاريخ التسجيل",
+  "student.yearsOld": "سنة",
+  "student.status.inquiry": "استفسار",
+  "student.status.quoted": "عرض سعر",
+  "student.status.enrolled": "مسجل",
+  "student.status.active": "نشط",
+  "student.status.withdrawn": "منسحب",
+  "student.status.graduated": "متخرج",
+
 
 
   // Attendance (complete)
@@ -1060,6 +1096,24 @@ const en: Dict = {
   "student.appreciation": "Appreciation",
   "student.bulletin": "Report card",
   "student.bulletin.download": "Download report card (PDF)",
+
+  // Children detail (T-210)
+  "children.title": "My children",
+  "children.identityNote": "Information managed by the administration",
+  "student.dateOfBirth": "Date of birth",
+  "student.gender": "Gender",
+  "student.gender.male": "Boy",
+  "student.gender.female": "Girl",
+  "student.gender.other": "Other",
+  "student.enrollmentDate": "Enrollment date",
+  "student.yearsOld": "years old",
+  "student.status.inquiry": "Inquiry",
+  "student.status.quoted": "Quoted",
+  "student.status.enrolled": "Enrolled",
+  "student.status.active": "Active",
+  "student.status.withdrawn": "Withdrawn",
+  "student.status.graduated": "Graduated",
+
 
 
   // Attendance (complete)
