@@ -507,6 +507,27 @@ export type ServiceEnrollmentRow = {
   updated_at: string;
 }
 
+/**
+ * Transport destination — the `destination_id` join target for transport
+ * service_enrollments (migration 0006). Added by T-211 (WEAK-017: the
+ * typed Database interface is extended when a new table is consumed,
+ * instead of `as unknown as` casts).
+ */
+export type TransportDestinationRow = {
+  id: string;
+  /** Pricing-config FK omitted — not consumed by the portal read. */
+  code: string;
+  label_fr: string;
+  label_ar: string | null;
+  annual_amount: number;
+  tranche_1_amount: number;
+  tranche_2_amount: number;
+  tranche_3_amount: number;
+  tranche_1_month: number;
+  tranche_2_month: number;
+  tranche_3_month: number;
+};
+
 export type AccountAdjustmentRow = {
   id: string;
   tenant_id: string;
@@ -867,6 +888,9 @@ export type Database = {
       notifications: { Row: NotificationRow; Insert: Partial<NotificationRow>; Update: Partial<NotificationRow>; Relationships: [] };
       invoices: { Row: InvoiceRow; Insert: Partial<InvoiceRow>; Update: Partial<InvoiceRow>; Relationships: [] };
       service_enrollments: { Row: ServiceEnrollmentRow; Insert: Partial<ServiceEnrollmentRow>; Update: Partial<ServiceEnrollmentRow>; Relationships: [] };
+      // T-211 / WEAK-017: consumed by useTransportDestination (the
+      // destination join for transport service enrollments).
+      transport_destinations: { Row: TransportDestinationRow; Insert: Partial<TransportDestinationRow>; Update: Partial<TransportDestinationRow>; Relationships: [] };
       account_adjustments: { Row: AccountAdjustmentRow; Insert: Partial<AccountAdjustmentRow>; Update: Partial<AccountAdjustmentRow>; Relationships: [] };
       attendance_records: { Row: AttendanceRecordRow; Insert: Partial<AttendanceRecordRow>; Update: Partial<AttendanceRecordRow>; Relationships: [] };
       homework_assignments: { Row: HomeworkAssignmentRow; Insert: Partial<HomeworkAssignmentRow>; Update: Partial<HomeworkAssignmentRow>; Relationships: [] };

@@ -30,6 +30,8 @@ import {
   SubjectRow,
   ClassRow,
   AcademicLevelRow,
+  AcademicYearRow,
+  TransportDestinationRow,
   NotificationRow,
   CalendarEventRow,
   ChatChannelRow,
@@ -694,3 +696,89 @@ export function useAllStudentDocuments(
 /* -------------------------------------------------------------------------- */
 /* Receipts — see the REMOVED note above (T-195/CROSS-101/ADR-014)          */
 /* -------------------------------------------------------------------------- */
+
+/* -------------------------------------------------------------------------- */
+/* Children enrollments (T-211 — the owner's "children's enrollments"        */
+/* mandate: per-child service enrollments + the REAL per-student fee        */
+/* schedule + the academic-year context)                                     */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * The child's installment schedule — every tranche the school issued for
+ * THIS student (fees + transport), straight from the canonical
+ * `installments` table (0007 + 0032). This is the REAL enrollment billing
+ * data on the live DB (1 276 rows, 100% student-attributed) — unlike
+ * `service_enrollments` which is currently empty (32nd-session probe).
+ *
+ * The financial view filters installments by PARENT; this per-student view
+ * is what the enrollment card shows (amount_due / amount_paid per tranche).
+ */
+export function useInstallmentsForStudent(
+  studentId: string | null | undefined,
+  options: { activeOnly?: boolean } = {}
+): UseQueryResult<InstallmentRow[]> {
+  return useQuery({
+    queryKey: ["installments-for-student", studentId, options.activeOnly ?? false],
+    queryFn: async () => {
+      if (!studentId || !supabase) return [];
+      // The full installment schedule for the child — every tranche the
+      // school issued (fees + transport), including paid history. The
+      // financial view filters by parent; this per-student view is what
+      // the enrollment card shows (amount_due/paid per tranche).
+      let q = supabase
+        .from("installments")
+        .select("*")
+        .eq("student_id", studentId)
+        .order("tranche_number", { ascending: true });
+      if (options.activeOnly) q = q.neq("status", "paid");
+      const { data, error } = await q;
+      if (error) throw error;
+      return (data ?? []) as InstallmentRow[];
+    },
+    enabled: Boolean(studentId),
+  });
+}
+
+/**
+ * The CURRENT academic year row (exactly one per the seed: is_current=true).
+ * Gives the enrollment card its "Année scolaire 2026-2027" context line.
+ */
+export function useCurrentAcademicYear(): UseQueryResult<AcademicYearRow | null> {
+  return useQuery({
+    queryKey: ["academic-year-current"],
+    queryFn: async () => {
+      if (!supabase) return null;
+      const { data, error } = await supabase
+        .from("academic_years")
+        .select("*")
+        .eq("is_current", true)
+        .maybeSingle();
+      if (error) throw error;
+      return (data as AcademicYearRow) ?? null;
+    },
+  });
+}
+
+/**
+ * A single transport destination (label_fr / label_ar + tranche months) —
+ * the `destination_id` join target for transport service_enrollments.
+ * RLS: tenant-scoped via pricing_configs (0019).
+ */
+export function useTransportDestination(
+  destinationId: string | null | undefined
+): UseQueryResult<TransportDestinationRow | null> {
+  return useQuery({
+    queryKey: ["transport-destination", destinationId],
+    queryFn: async () => {
+      if (!destinationId || !supabase) return null;
+      const { data, error } = await supabase
+        .from("transport_destinations")
+        .select("id, code, label_fr, label_ar, annual_amount, tranche_1_amount, tranche_2_amount, tranche_3_amount, tranche_1_month, tranche_2_month, tranche_3_month")
+        .eq("id", destinationId)
+        .maybeSingle();
+      if (error) throw error;
+      return (data as TransportDestinationRow) ?? null;
+    },
+    enabled: Boolean(destinationId),
+  });
+}

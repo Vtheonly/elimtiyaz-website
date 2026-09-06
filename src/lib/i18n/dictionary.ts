@@ -132,6 +132,19 @@ const fr: Dict = {
   "student.status.withdrawn": "Retiré",
   "student.status.graduated": "Diplômé",
 
+  // Children enrollments (T-211 — per-child services + fee schedule)
+  "enrollments.title": "Inscriptions et services",
+  "enrollments.academicYear": "Année scolaire",
+  "enrollments.services": "Services inscrits",
+  "enrollments.servicesEmpty": "Aucun service inscrit pour le moment (scolarité hors périmètre).",
+  "enrollments.feeSchedule": "Échéancier des frais",
+  "enrollments.feeScheduleEmpty": "Aucun échéancier pour le moment.",
+  "enrollments.destination": "Destination",
+  "enrollments.inactive": "Inactif",
+  "enrollments.service.club": "Club",
+  "enrollments.service.psychotherapy": "Psychothérapie",
+  "enrollments.service.rattrapage": "Rattrapage",
+
 
 
   // Attendance
@@ -619,6 +632,19 @@ const ar: Dict = {
   "student.status.active": "نشط",
   "student.status.withdrawn": "منسحب",
   "student.status.graduated": "متخرج",
+
+  // Children enrollments (T-211)
+  "enrollments.title": "التسجيلات والخدمات",
+  "enrollments.academicYear": "السنة الدراسية",
+  "enrollments.services": "الخدمات المسجلة",
+  "enrollments.servicesEmpty": "لا توجد خدمات مسجلة حالياً.",
+  "enrollments.feeSchedule": "جدول الرسوم",
+  "enrollments.feeScheduleEmpty": "لا يوجد جدول رسوم حالياً.",
+  "enrollments.destination": "الوجهة",
+  "enrollments.inactive": "غير نشط",
+  "enrollments.service.club": "نادٍ",
+  "enrollments.service.psychotherapy": "العلاج النفسي",
+  "enrollments.service.rattrapage": "الدعم والاستدراك",
 
 
 
@@ -1113,6 +1139,19 @@ const en: Dict = {
   "student.status.active": "Active",
   "student.status.withdrawn": "Withdrawn",
   "student.status.graduated": "Graduated",
+
+  // Children enrollments (T-211)
+  "enrollments.title": "Enrollments and services",
+  "enrollments.academicYear": "School year",
+  "enrollments.services": "Enrolled services",
+  "enrollments.servicesEmpty": "No services enrolled yet (tuition excluded).",
+  "enrollments.feeSchedule": "Fee schedule",
+  "enrollments.feeScheduleEmpty": "No fee schedule yet.",
+  "enrollments.destination": "Destination",
+  "enrollments.inactive": "Inactive",
+  "enrollments.service.club": "Club",
+  "enrollments.service.psychotherapy": "Psychotherapy",
+  "enrollments.service.rattrapage": "Catch-up tutoring",
 
 
 

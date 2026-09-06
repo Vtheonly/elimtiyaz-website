@@ -21,8 +21,9 @@
  * (desktop CRM module); parents submit changes through the administration
  * channel (ADR-012 messenger).
  *
- * The per-child service/fee ENROLLMENTS will live in a companion card
- * (T-211) rendered below each child's identity section.
+ * The per-child service/fee ENROLLMENTS live in the companion
+ * StudentEnrollmentsCard (T-211) rendered below each child's identity
+ * section.
  */
 
 import { useAuth } from "@/app/providers/auth-provider";
@@ -35,6 +36,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CalendarDays, GraduationCap, Users } from "lucide-react";
 import { formatDate, formatFullName } from "@/lib/format";
 import type { StudentRow } from "@/lib/types/database";
+import { StudentEnrollmentsCard } from "@/features/profile/student-enrollments-card";
 
 const genderLabels: Record<string, string> = {
   male: "student.gender.male",
@@ -153,6 +155,9 @@ function ChildIdentityCard({
           {t("children.identityNote")}
         </div>
       </CardContent>
+
+      {/* T-211: the child's service enrollments + per-student fee schedule. */}
+      <StudentEnrollmentsCard studentId={kid.id} />
     </Card>
   );
 }
