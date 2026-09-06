@@ -53,23 +53,11 @@ const MONTHS_FR = [
   "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre",
 ];
 
-// Map the database `kind` enum to a UI-facing event_type for i18n keys.
-// The DB schema uses 'payment_received', 'audit_log', 'expense_event',
-// 'follow_up_call', 'reminder', 'meeting', 'custom'. We surface the parent-
-// relevant ones with friendly French labels.
-const kindToUiType: Record<string, "exam" | "holiday" | "meeting" | "deadline" | "activity" | "payment" | "other"> = {
-  // The desktop schema doesn't have a dedicated 'exam' kind — exams are
-  // created as calendar_events with kind='meeting' or 'custom' and
-  // target_entity_type='exam'. We treat 'custom' as 'activity' for the
-  // parent unless target_entity_type hints otherwise.
-  meeting: "meeting",
-  reminder: "deadline",
-  custom: "activity",
-  payment_received: "payment",
-  follow_up_call: "meeting",
-  audit_log: "other",
-  expense_event: "other",
-};
+// T-203/UI-304: the kind map + label-key helper live in `./event-kind.ts`
+// (extracted so the dashboard's upcoming-events section renders the SAME
+// localized labels — it previously showed the raw English enums). This
+// view is now a CONSUMER of the single canonical mapping.
+import { kindToUiType, uiTypeLabelKey } from "@/features/calendar/event-kind";
 
 const eventTypeTone: Record<string, "danger" | "info" | "warning" | "success"> = {
   exam: "danger",
@@ -318,7 +306,7 @@ export function CalendarView() {
                 : "border-border/60 text-muted-foreground hover:bg-muted/40"
             )}
           >
-            {type === "all" ? t("calendar.filterAll") : t(`calendar.eventType.${type === "payment" ? "deadline" : type}`)}
+            {type === "all" ? t("calendar.filterAll") : t(uiTypeLabelKey(type))}
           </button>
         ))}
       </div>
@@ -382,7 +370,7 @@ function UnifiedEventCard({ ev }: { ev: { id: string; uiType: string; title: str
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
               <p className="truncate font-medium">{ev.title}</p>
-              <StatusPill tone={tone}>{t(`calendar.eventType.${ev.uiType === "payment" ? "deadline" : ev.uiType}`)}</StatusPill>
+              <StatusPill tone={tone}>{t(uiTypeLabelKey(ev.uiType))}</StatusPill>
             </div>
             <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
               <span className="flex items-center gap-1">

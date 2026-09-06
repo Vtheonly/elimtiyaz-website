@@ -59,6 +59,7 @@ import {
 } from "@/features/shared/state-views";
 import { PullToRefresh } from "@/features/shared/pull-to-refresh";
 import { StudentSwitcher } from "@/features/students/student-switcher";
+import { eventKindLabelKey } from "@/features/calendar/event-kind";
 import {
   Wallet,
   CalendarClock,
@@ -277,8 +278,12 @@ export function DashboardView() {
                     title={ev.title}
                     subtitle={`${formatDate(ev.start_at, { withTime: !ev.all_day })}${ev.location ? ` • ${ev.location}` : ""}`}
                     trailing={
-                      <StatusPill tone={ev.kind === "custom" ? "info" : "info"}>
-                        {ev.kind}
+                      /* T-203/UI-304: localized label via the canonical map
+                          (was the raw English enum: {ev.kind} → "meeting").
+                          The mapping + payment→deadline label convention are
+                          shared with the calendar view (event-kind.ts). */
+                      <StatusPill tone="info">
+                        {t(eventKindLabelKey(ev.kind))}
                       </StatusPill>
                     }
                   />
