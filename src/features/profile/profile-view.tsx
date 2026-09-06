@@ -38,6 +38,7 @@ import {
   ShieldCheck,
   Languages,
   Bell,
+  CalendarDays,
 } from "lucide-react";
 import { LOCALES, type Locale } from "@/lib/i18n/dictionary";
 import {
@@ -64,6 +65,7 @@ import { cn } from "@/lib/utils";
 import { NotificationPreferencesCard } from "@/features/profile/notification-preferences-card";
 import { StudentDocumentsCard } from "@/features/profile/student-documents-card";
 import { ParentContactEditCard } from "@/features/profile/parent-contact-edit-card";
+import { formatDate } from "@/lib/format";
 
 const localeLabels: Record<Locale, string> = {
   fr: "Français",
@@ -76,6 +78,16 @@ const statusLabels: Record<string, string> = {
   pending: "profile.status.pending",
   suspended: "profile.status.suspended",
   deleted: "profile.status.suspended",
+};
+
+// T-209: relationship values come from the canonical CHECK constraint
+// (0005_crm.sql) — localized once here, "—" when the column is NULL
+// (258 of 259 live rows carry NULL per the 32nd-session data probe).
+const relationshipLabels: Record<string, string> = {
+  father: "profile.relationship.father",
+  mother: "profile.relationship.mother",
+  guardian: "profile.relationship.guardian",
+  other: "profile.relationship.other",
 };
 
 export function ProfileView() {
@@ -191,11 +203,42 @@ export function ProfileView() {
             value={parent?.primary_phone ?? user?.phone}
           />
           <Separator />
+          {/* T-209: the parent's personal identity details — staff-controlled
+              fields rendered read-only (the 0027 self-update trigger forbids
+              changing them; ParentContactEditCard covers the editable set). */}
+          <InfoRow
+            icon={<UserIcon className="h-4 w-4" />}
+            label={t("profile.relationship")}
+            value={
+              parent?.relationship
+                ? t(relationshipLabels[parent.relationship] ?? "profile.relationship.other")
+                : null
+            }
+          />
+          <Separator />
+          <InfoRow
+            icon={<ShieldCheck className="h-4 w-4" />}
+            label={t("profile.nationalId")}
+            value={parent?.national_id}
+          />
+          <Separator />
+          <InfoRow
+            icon={<Building2 className="h-4 w-4" />}
+            label={t("profile.parentCode")}
+            value={parent?.parent_code}
+          />
+          <Separator />
           <InfoRow
             icon={<ShieldCheck className="h-4 w-4" />}
             label={t("profile.status")}
             value={user ? t(statusLabels[user.status] ?? "profile.status.pending") : "—"}
             tone={user?.status === "active" ? "success" : "warning"}
+          />
+          <Separator />
+          <InfoRow
+            icon={<CalendarDays className="h-4 w-4" />}
+            label={t("profile.memberSince")}
+            value={parent ? formatDate(parent.created_at) : null}
           />
           {parent?.is_financially_restricted && (
             <>

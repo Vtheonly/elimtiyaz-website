@@ -115,6 +115,7 @@ const fr: Dict = {
   "student.bulletin": "Bulletin",
   "student.bulletin.download": "Télécharger le bulletin (PDF)",
 
+
   // Attendance
   "attendance.title": "Absences et retards",
   "attendance.summary.present": "Présences",
@@ -447,6 +448,17 @@ const fr: Dict = {
   "profile.edit.cancel": "Annuler",
   "profile.edit.saved": "Informations mises à jour",
 
+  // Profile — identity details (T-209: the parent's personal details the
+  // owner asked for; identity fields are staff-controlled — read-only here)
+  "profile.relationship": "Lien de parenté",
+  "profile.relationship.father": "Père",
+  "profile.relationship.mother": "Mère",
+  "profile.relationship.guardian": "Tuteur",
+  "profile.relationship.other": "Autre",
+  "profile.nationalId": "N° d'identité nationale",
+  "profile.memberSince": "Membre depuis",
+  "profile.parentCode": "Code parent",
+
   // Notifications extras
   "notifications.dismiss": "Ignorer",
   "notifications.open": "Ouvrir",
@@ -572,6 +584,7 @@ const ar: Dict = {
   "student.appreciation": "التقدير",
   "student.bulletin": "كشف النقاط",
   "student.bulletin.download": "تحميل كشف النقاط (PDF)",
+
 
   // Attendance (complete)
   "attendance.title": "الغيابات والتأخيرات",
@@ -892,6 +905,16 @@ const ar: Dict = {
   "profile.edit.cancel": "إلغاء",
   "profile.edit.saved": "تم تحديث المعلومات",
 
+  // Profile — identity details (T-209)
+  "profile.relationship": "صلة القرابة",
+  "profile.relationship.father": "الأب",
+  "profile.relationship.mother": "الأم",
+  "profile.relationship.guardian": "الوصي",
+  "profile.relationship.other": "آخر",
+  "profile.nationalId": "الرقم الوطني للتعريف",
+  "profile.memberSince": "عضو منذ",
+  "profile.parentCode": "رمز الوالدين",
+
   // Notifications extras
   "notifications.dismiss": "تجاهل",
   "notifications.open": "فتح",
@@ -1037,6 +1060,7 @@ const en: Dict = {
   "student.appreciation": "Appreciation",
   "student.bulletin": "Report card",
   "student.bulletin.download": "Download report card (PDF)",
+
 
   // Attendance (complete)
   "attendance.title": "Absences and tardiness",
@@ -1332,6 +1356,16 @@ const en: Dict = {
   "profile.edit.save": "Save",
   "profile.edit.cancel": "Cancel",
   "profile.edit.saved": "Information updated",
+
+  // Profile — identity details (T-209)
+  "profile.relationship": "Relationship",
+  "profile.relationship.father": "Father",
+  "profile.relationship.mother": "Mother",
+  "profile.relationship.guardian": "Guardian",
+  "profile.relationship.other": "Other",
+  "profile.nationalId": "National ID number",
+  "profile.memberSince": "Member since",
+  "profile.parentCode": "Parent code",
 
   // Notifications extras
   "notifications.dismiss": "Dismiss",
