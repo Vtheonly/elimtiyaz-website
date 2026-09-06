@@ -242,8 +242,13 @@ export function DashboardView() {
           </section>
         )}
 
-        {/* Two-column layout on desktop */}
-        <div className="grid gap-6 lg:grid-cols-2">
+        {/* Two-column layout on desktop. T-199/UI-300: the base `grid-cols-1`
+            is MANDATORY — without it the implicit grid track sizes to
+            max-content (the untruncated CardListItem text) and the page
+            scrolls horizontally by ~900px on mobile. grid-cols-1 =
+            repeat(1, minmax(0, 1fr)); the 0-min track is what prevents
+            the blowout. */}
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
           {/* Upcoming events */}
           <section className="space-y-3">
             <SectionHeader
