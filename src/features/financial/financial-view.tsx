@@ -294,9 +294,17 @@ export function FinancialView() {
         </div>
       )}
 
-      {/* Tabs — real data model: billing breakdown, tranches, payments, statement, adjustments */}
+      {/* Tabs — real data model: billing breakdown, tranches, payments, statement, adjustments.
+          T-202/UI-303: below sm the list becomes a horizontally scrollable
+          chip row (the codebase's established mobile pattern — calendar
+          filters and StudentSwitcher use the same overflow-x-auto
+          scrollbar-none idiom) because five equal cells at 320px are ~54px
+          each while the French labels need 58–84px — they clipped mid-word.
+          The triggers' base `flex-1` (basis-0) is neutralized via
+          basis-auto + shrink-0 so they size to their content in flex mode;
+          at sm the display switches back to the equal 5-cell grid. */}
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as TabKey)}>
-        <TabsList className="grid w-full grid-cols-5">
+        <TabsList className="flex w-full overflow-x-auto scrollbar-none sm:grid sm:grid-cols-5 [&_[data-slot=tabs-trigger]]:basis-auto [&_[data-slot=tabs-trigger]]:shrink-0">
           <TabsTrigger value="billing">{t("finance.billing")}</TabsTrigger>
           <TabsTrigger value="installments">{t("finance.installments")}</TabsTrigger>
           <TabsTrigger value="payments">{t("finance.payments")}</TabsTrigger>
