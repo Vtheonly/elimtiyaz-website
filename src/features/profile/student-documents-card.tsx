@@ -234,9 +234,17 @@ function UploadDocumentDialog({
         return;
       }
 
+      // UPLOAD-104/T-367 — the row INSERT must carry tenant_id EXPLICITLY:
+      // the column has NO default (0005) and the parent INSERT policy's
+      // WITH CHECK (0043) requires `tenant_id = current_tenant_id()` — an
+      // omitted tenant_id lands as NULL, fails the RLS check with SQLSTATE
+      // 42501, and PostgREST answers HTTP 403 (the owner's live console
+      // evidence). Same convention as the chat_messages insert
+      // (`tenant_id: channel.tenant_id`).
       const { error: insertErr } = await supabase
         .from("student_documents")
         .insert({
+          tenant_id: tenantId,
           student_id: studentId,
           kind,
           file_name: file.name,
