@@ -43,6 +43,9 @@ supabase/
 ## 3. Role in the system & critical context
 
 - All money/KPI computations must go through `src/lib/canonical/` + `portal-derive.ts` (the ported canonical engine) — never inline formulas. Known inline-formula defects to avoid repeating: dashboard remaining-amount (WEAK-018), attendance rate (WEAK-019 family), 500-entry ledger cap (WEAK-022).
+- **Payment coverage (T-330, 58th session):** the "what does this payment cover" derivation lives ONCE in `src/lib/canonical/payment-coverage.ts` — the canonical chain `payment_allocations` rows → ledger receipt-number join → single-category line, in lockstep with the desktop's PaymentBreakdownCard (PARITY-004). Views consume `paymentCoverageLines()`; NEVER re-derive allocations inline (guarded by t-214 + the canonical parity suite).
+- **The per-child dossier (T-329, 58th session):** every user-facing string in the dossier dialog routes through the dictionary (fr/ar/en) — the 58th-session audit found ~40 hardcoded French strings in the previous iteration (guarded by t-214). The academic history reads `student_academic_histories` through `useStudentAcademicHistories` (the 0029 canonical table; parents read it under hub migration 0091's policy).
+- **The desktop layout (T-327, 58th session):** the app shell is `lg:flex-row` with a STICKY full-height DesktopRail; every responsive grid keeps its base `grid-cols-*` token (UI-300); views own a deliberate width hierarchy (dashboard 7xl / financial 6xl / reading 5xl / profile 2xl). Guarded by t-214.
 - **Financial view structure (session 8, 2026-08-30):** tabs are Tranches | Paiements | **Relevé** (ledger statement timeline — `ledgerTimeline` replay with running balance) | Ajustements (derived from `ledger_entries` via `ledgerAdjustmentEntries` — the `account_adjustments` table is EMPTY in production). The old invoices/receipts standalone tabs were REMOVED (0 rows / orphaned table — CROSS-101); per-payment receipt download is retained for when the backend generates rows. Payment status is rendered from the row (never hardcoded "paid"); parent names use `formatParentName` (display_name first — `parents.first_name` is an empty string on ALL 258 production rows).
 - Realtime freshness: the 4 defect families found by the audit are FIXED (T-032, 10th session — regression suite `src/lib/hooks/realtime-wiring.test.ts`): homework subscribes to the CANONICAL `homework` table (WEAK-016), the unread-badge invalidation key matches element-wise (REALTIME-100), markRead failures surface (REALTIME-101), the notifications subscription has NO direct-target filter so role-broadcasts arrive (REALTIME-102), and the unread badge reacts to all channels incl. the shell-level chat subscription (REALTIME-103). The freshness FALLBACK for a dead realtime connection landed with T-033 (11th session): global query defaults keep data stale-bounded — regression suite `src/test/t-033-freshness-fallback.test.tsx`.
 - **Sign-out (SYNC-105 fixed 2026-08-30):** `AuthProvider.signOut` deactivates this device's FCM token (canonical `deactivate_fcm_tokens` RPC, migration 0050) then revokes with `scope:'local'` — never 'global' (a parent signing out on one device must not kill the family's other sessions).
@@ -84,7 +87,7 @@ Every commit body must answer five questions (hub `AGENTS.md` §14, full templat
 
 ```bash
 npm run lint          # eslint
-npm run test          # vitest (20 files / 425 tests, session 17)
+npm run test          # vitest (41 files / 565 tests, session 58)
 npm run build         # next build (strict after T-049)
 ```
 
