@@ -6,8 +6,11 @@
  * Per the plan §04.07: parents can upload documents (birth certificate,
  * medical certificate, contract, etc.) to the `student_documents` table.
  * The portal uses the `student-documents` Storage bucket + RLS policies
- * (migration 0027) that let a parent read + upload only for their own
- * children.
+ * (hub migrations 0018 + 0043) that let a parent read + upload only for
+ * their own children, under the TENANT-SCOPED path convention
+ * `<tenant_id>/<student_id>/<filename>` — folder[1] MUST be the caller's
+ * tenant (UPLOAD-101/T-360: the previous tenant-less `${studentId}/…`
+ * path was RLS-rejected on every upload — live-proven).
  *
  * The card lists documents for the currently-active student and lets the
  * parent upload a new one. Deletion is NOT supported from the portal —
@@ -164,6 +167,7 @@ export function StudentDocumentsCard() {
           open={showUpload}
           onOpenChange={setShowUpload}
           studentId={activeKid.id}
+          tenantId={activeKid.tenant_id}
           studentName={formatFullName(activeKid)}
           onUploaded={() => documents.refetch()}
         />
@@ -178,12 +182,15 @@ function UploadDocumentDialog({
   open,
   onOpenChange,
   studentId,
+  tenantId,
   studentName,
   onUploaded,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   studentId: string;
+  /** The child's tenant — folder[1] of the storage path (RLS-enforced, UPLOAD-101). */
+  tenantId: string;
   studentName: string;
   onUploaded: () => void;
 }) {
@@ -213,7 +220,11 @@ function UploadDocumentDialog({
     setSaving(true);
     try {
       const ext = file.name.split(".").pop() ?? "bin";
-      const objectPath = `${studentId}/${kind}-${Date.now()}.${ext}`;
+      // UPLOAD-101/T-360 — the storage policies (0018/0043) require
+      // folder[1] = the caller's tenant AND folder[2] = an own child.
+      // The previous `${studentId}/…` path put the student in folder[1]
+      // and was RLS-rejected on EVERY upload (live RED proof, t-359 E/F).
+      const objectPath = `${tenantId}/${studentId}/${kind}-${Date.now()}.${ext}`;
       const { error: upErr } = await supabase.storage
         .from("student-documents")
         .upload(objectPath, file, { upsert: false });
