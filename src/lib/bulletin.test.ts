@@ -23,41 +23,46 @@ const student: StudentRow = {
   parent_id: "par-1",
   student_code: "ELV-1",
   first_name: "Karim",
+  middle_name: null,
   last_name: "Benali",
   date_of_birth: "2015-01-01",
+  gender: null,
+  grade_level_id: "lvl-1",
   grade_level_code: "1am",
+  class_id: "cls-1",
+  enrollment_date: "2025-09-01",
   enrollment_status: "active",
-  phone: null,
-  address: null,
-  notes: null,
-  picture_url: null,
+  medical_notes: null,
+  is_active: true,
+  auth_user_id: null,
   created_at: "2025-09-01",
   updated_at: "2025-09-01",
+  deleted_at: null,
 };
 
 const klass: ClassRow = {
   id: "cls-1",
   tenant_id: "t1",
-  grade_level_code: "1am",
+  academic_year_id: "ay-1",
+  academic_level_id: "lvl-1",
+  section: "A",
   code: "1AM-A",
   name: "1AM-A",
-  academic_year: "2025-2026",
+  capacity: 30,
   homeroom_teacher_id: null,
-  created_at: "2025-09-01",
-  updated_at: "2025-09-01",
+  room: null,
+  is_active: true,
 };
 
 const level: AcademicLevelRow = {
   id: "lvl-1",
   tenant_id: "t1",
-  code: "1am",
-  name: "1ère année moyenne",
-  cycle: "moyen",
-  order: 7,
+  cycle: "cem",
   year_label: "1AM",
+  year_number: 1,
   grade_code: "1am",
-  created_at: "2025-09-01",
-  updated_at: "2025-09-01",
+  sort_order: 7,
+  is_active: true,
 };
 
 function makeAttendance(
@@ -112,7 +117,7 @@ describe("T-027 — canonical attendance rate in the bulletin", () => {
     expect(html).toMatch(/Taux de présence/);
     // And it must show 100% (canonical: late counts as attended).
     // The KPI card body is: <div class="value" ...>100%</div>
-    expect(html).toMatch(/Taux de présence.*?100%/s);
+    expect(html).toMatch(/Taux de pr[\s\S]*?100%/);
   });
 
   it("bulletin shows '—' when no attendance records exist", () => {
@@ -123,7 +128,7 @@ describe("T-027 — canonical attendance rate in the bulletin", () => {
       grades: [] as PortalAssessmentRow[],
       attendance: [],
     });
-    expect(html).toMatch(/Taux de présence.*?—/s);
+    expect(html).toMatch(/Taux de pr[\s\S]*?—/);
   });
 
   it("bulletin still shows raw counts breakdown alongside the rate KPI", () => {

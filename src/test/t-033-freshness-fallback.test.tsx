@@ -36,8 +36,8 @@ describe("T-033 — production query config enables the freshness fallback (CACH
   it("mounts the SAME config in the QueryClient (no copy divergence)", () => {
     const qc = new QueryClient({ defaultOptions: queryClientDefaultOptions });
     const resolved = qc.getDefaultOptions().queries;
-    expect(resolved.refetchOnWindowFocus).toBe(true);
-    expect(resolved.refetchInterval).toBe(5 * 60 * 1000);
+    expect(resolved?.refetchOnWindowFocus).toBe(true);
+    expect(resolved?.refetchInterval).toBe(5 * 60 * 1000);
   });
 });
 

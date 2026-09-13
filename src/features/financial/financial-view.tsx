@@ -8,6 +8,8 @@ import {
   usePayments,
   useLedgerEntries,
   usePaymentAllocations,
+  usePricingCatalog,
+  useClassesByIds,
 } from "@/lib/hooks/portal-queries";
 import {
   installmentRemainingAmount,
@@ -20,6 +22,12 @@ import {
   classifyAdjustmentRows,
 } from "@/lib/canonical/billing-breakdown";
 import { paymentCoverageLines } from "@/lib/canonical/payment-coverage";
+import {
+  servicePricingProfiles,
+  pricingCatalogFromRows,
+  type ServicePricingProfile,
+} from "@/lib/canonical/service-pricing-profile";
+import { ServicePricingCard } from "@/features/financial/service-pricing-card";
 import { useFinancialRealtime } from "@/lib/hooks/use-realtime";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { KpiCard } from "@/features/shared/kpi-card";
@@ -160,6 +168,36 @@ export function FinancialView() {
   );
 
   const isRestricted = Boolean(parent?.is_financially_restricted);
+
+  /* T-333 (DATA-016): the exhaustive per-service pricing profiles — derived
+   * from the SAME ledger + installment rows as `billing`, plus the pricing
+   * catalog (parent-readable under 0019 tenant-scoped SELECT) and the class
+   * labels. Pure derivation; the card only renders. */
+  const pricingCatalog = usePricingCatalog();
+  const classesMap = useClassesByIds(
+    kids.map((k) => k.class_id).filter((id): id is string => id != null),
+  );
+  const serviceProfiles = useMemo(() => {
+    if (!ledgerEntries.data || !familyInstallments.data || !pricingCatalog.data) return null;
+    const catalog = pricingCatalogFromRows(
+      pricingCatalog.data.config,
+      pricingCatalog.data.tuitionRows,
+      pricingCatalog.data.gradeInfoByLevelId,
+      pricingCatalog.data.transportRows,
+      pricingCatalog.data.discountRows,
+      pricingCatalog.data.additionalRows,
+      pricingCatalog.data.complementaryRows,
+      pricingCatalog.data.academicYearLabel,
+    );
+    return servicePricingProfiles({
+      ledgerRows: ledgerEntries.data,
+      installmentRows: familyInstallments.data,
+      kids,
+      catalog,
+      classLabels: classesMap.data ?? new Map<string, string>(),
+      fallbackAcademicYear: billing?.academicYear,
+    });
+  }, [ledgerEntries.data, familyInstallments.data, kids, pricingCatalog.data, classesMap.data, billing?.academicYear]);
 
   const parentInfo: ReceiptParentInfo | null = parent
     ? {
@@ -318,6 +356,7 @@ export function FinancialView() {
           </p>
           <BillingTab
             breakdown={billing}
+            profiles={serviceProfiles}
             isLoading={ledgerEntries.isLoading || familyInstallments.isLoading}
             onRetry={() => {
               ledgerEntries.refetch();
@@ -413,10 +452,13 @@ export function FinancialView() {
 
 function BillingTab({
   breakdown,
+  profiles,
   isLoading,
   onRetry,
 }: {
   breakdown: ParentBillingBreakdown | null;
+  /** T-333: the exhaustive per-service pricing profiles (may lag the catalog fetch). */
+  profiles: readonly ServicePricingProfile[] | null;
   isLoading: boolean;
   onRetry: () => void;
 }) {
@@ -640,46 +682,11 @@ function BillingTab({
       ) : (
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
           {breakdown.byService.map((svc) => (
-            <div
+            <ServicePricingCard
               key={svc.category}
-              className="rounded-xl border border-border/40 bg-muted/10 p-5 space-y-3"
-            >
-              <div className="flex items-center justify-between gap-2">
-                <div className="min-w-0">
-                  <p className="font-semibold text-base">{svc.label}</p>
-                  <p className="text-[11px] text-muted-foreground">
-                    {svc.count} éléments
-                  </p>
-                </div>
-                <div className="text-right shrink-0">
-                  <span className="block font-mono font-bold text-lg text-primary">
-                    {formatCurrency(svc.amount)}
-                  </span>
-                  <span className="text-[11px] font-medium text-muted-foreground">
-                    {svc.sharePct} % {t("finance.billing.share")}
-                  </span>
-                </div>
-              </div>
-              <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
-                <div
-                  className="h-full rounded-full bg-primary"
-                  style={{ width: `${Math.min(100, svc.sharePct)}%` }}
-                />
-              </div>
-              <div className="flex flex-col gap-1.5 pt-1">
-                {svc.childAttribution.map((a) => (
-                  <div
-                    key={`${svc.category}-${a.studentId ?? "famille"}`}
-                    className="flex justify-between items-center text-xs text-muted-foreground bg-background rounded border border-border/40 px-2 py-1"
-                  >
-                    <span>{a.studentName}</span>
-                    <strong className="font-mono text-foreground">
-                      {formatCurrency(a.amount)}
-                    </strong>
-                  </div>
-                ))}
-              </div>
-            </div>
+              svc={svc}
+              profile={profiles?.find((p) => p.category === svc.category) ?? null}
+            />
           ))}
         </div>
       )}

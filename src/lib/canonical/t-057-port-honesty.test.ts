@@ -37,7 +37,7 @@ describe("T-057 — the canonical port is pruned to the consumed surface", () =>
     expect(existsSync(join(CANONICAL, "index.ts"))).toBe(false);
   });
 
-  it("the kept surface is exactly the consumed set (12 source files + 3 tests)", () => {
+  it("the kept surface is exactly the consumed set (13 source files + 4 tests)", () => {
     const files = walk(CANONICAL).map((f) => f.replace(CANONICAL + "/", "")).sort();
     expect(files).toEqual([
       "billing-breakdown.test.ts", // T-166: Facturation breakdown vectors (parity with the desktop suite)
@@ -56,6 +56,8 @@ describe("T-057 — the canonical port is pruned to the consumed surface", () =>
       "payment-coverage.ts",       // T-330: the canonical "what this payment covers" derivation (desktop PaymentBreakdownCard parity)
       "portal-derive.test.ts",
       "portal-derive.ts",
+      "service-pricing-profile.test.ts", // T-333: the exhaustive per-service pricing profile vectors (parity with the desktop suite)
+      "service-pricing-profile.ts",      // T-333: DATA-016 — year/level/catalog/conditions/discounts/schedule/construction derivation
       "t-057-port-honesty.test.ts", // this file
     ]);
   });

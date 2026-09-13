@@ -180,6 +180,9 @@ export type StudentRow = {
   date_of_birth: string;
   gender: "male" | "female" | "other" | null;
   grade_level_id: string | null;
+  /** Canonical grade code (e.g. "4am") — T-333/DATA-016: on the live table
+   *  since 0028; the exhaustive per-service pricing profile reads it. */
+  grade_level_code: string | null;
   class_id: string | null;
   enrollment_date: string;
   enrollment_status:
@@ -507,6 +510,78 @@ export type TransportDestinationRow = {
   tranche_1_month: number;
   tranche_2_month: number;
   tranche_3_month: number;
+};
+
+/* ─── T-333/DATA-016: the pricing catalog tables (0006 + 0089 real grid) ──── */
+
+/** pricing_configs — one row per tenant per academic year (0006). */
+export type PricingConfigRow = {
+  id: string;
+  tenant_id: string;
+  academic_year_id: string;
+  label: string;
+  registration_fee: number;
+  late_penalty_per_day: number;
+  second_apron_fee: number;
+  early_payment_bonus_pct: number;
+  early_payment_deadline: string | null;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
+/** grade_level_tuition — the per-grade annual + 3-tranche schedule (0006 + 0089). */
+export type GradeLevelTuitionRow = {
+  id: string;
+  pricing_config_id: string;
+  academic_level_id: string;
+  annual_amount: number;
+  tranche_1_amount: number;
+  tranche_2_amount: number;
+  tranche_3_amount: number;
+  tranche_1_month: number;
+  tranche_2_month: number;
+  tranche_3_month: number;
+  registration_fee: number | null;
+};
+
+/** discounts — the named discount rules (0006; CALC-001 realigned). */
+export type DiscountRow = {
+  id: string;
+  pricing_config_id: string;
+  code: string;
+  label_fr: string;
+  label_ar: string | null;
+  discount_type: "percentage" | "fixed_amount";
+  amount: number;
+  is_active: boolean;
+};
+
+/** additional_services — the real ETAT services (PSY/ORTH/E-PLANT/Ratrapage/AUTISTE). */
+export type AdditionalServiceRow = {
+  id: string;
+  pricing_config_id: string;
+  code: string;
+  label_fr: string;
+  label_ar: string | null;
+  amount: number;
+  billing_model: string;
+  is_active: boolean;
+  updated_at: string;
+};
+
+/** complementary_services — psychology / speech therapy with semester+annual options. */
+export type ComplementaryServiceRow = {
+  id: string;
+  pricing_config_id: string;
+  code: string;
+  label_fr: string;
+  label_ar: string | null;
+  semester_amount: number;
+  annual_amount: number;
+  billing_model: string;
+  is_active: boolean;
+  updated_at: string;
 };
 
 export type AccountAdjustmentRow = {
@@ -928,6 +1003,11 @@ export type Database = {
         Relationships: [];
       };
       transport_destinations: { Row: TransportDestinationRow; Insert: Partial<TransportDestinationRow>; Update: Partial<TransportDestinationRow>; Relationships: [] };
+      pricing_configs: { Row: PricingConfigRow; Insert: Partial<PricingConfigRow>; Update: Partial<PricingConfigRow>; Relationships: [] };
+      grade_level_tuition: { Row: GradeLevelTuitionRow; Insert: Partial<GradeLevelTuitionRow>; Update: Partial<GradeLevelTuitionRow>; Relationships: [] };
+      discounts: { Row: DiscountRow; Insert: Partial<DiscountRow>; Update: Partial<DiscountRow>; Relationships: [] };
+      additional_services: { Row: AdditionalServiceRow; Insert: Partial<AdditionalServiceRow>; Update: Partial<AdditionalServiceRow>; Relationships: [] };
+      complementary_services: { Row: ComplementaryServiceRow; Insert: Partial<ComplementaryServiceRow>; Update: Partial<ComplementaryServiceRow>; Relationships: [] };
       account_adjustments: {
         Row: AccountAdjustmentRow;
         Insert: Partial<AccountAdjustmentRow>;

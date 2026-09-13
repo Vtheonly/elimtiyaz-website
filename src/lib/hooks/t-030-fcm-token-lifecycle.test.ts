@@ -22,6 +22,8 @@
  *   3. unregisterFcmToken surfaces failure as false (best-effort contract).
  */
 
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
 type RpcCall = { fn: string; args: Record<string, unknown> };
 
 const rpcCalls: RpcCall[] = [];

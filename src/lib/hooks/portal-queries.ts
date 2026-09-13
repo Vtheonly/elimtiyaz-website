@@ -45,6 +45,11 @@ import {
   LedgerEntryRow,
   PaymentAllocationRow,
   StudentAcademicHistoryRow,
+  PricingConfigRow,
+  GradeLevelTuitionRow,
+  DiscountRow,
+  AdditionalServiceRow,
+  ComplementaryServiceRow,
 } from "@/lib/types/database";
 
 /* -------------------------------------------------------------------------- */
@@ -812,6 +817,118 @@ export function useTransportDestination(
 /* -------------------------------------------------------------------------- */
 /* Payment Coverage Allocations                                               */
 /* -------------------------------------------------------------------------- */
+
+/* -------------------------------------------------------------------------- */
+/* Pricing catalog (T-333 / DATA-016 — the exhaustive per-service profile)    */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * The full pricing catalog snapshot behind the per-service pricing profile:
+ * the active pricing_configs row + the per-grade tuition grid (with the
+ * academic_levels join for grade codes/cycles) + transport destinations +
+ * discounts + additional/complementary services + the year label.
+ *
+ * RLS: every table is tenant-scoped SELECT for authenticated (0019), so a
+ * signed-in parent reads the same catalog the staff clients render.
+ */
+export interface PricingCatalogData {
+  config: PricingConfigRow | null;
+  tuitionRows: GradeLevelTuitionRow[];
+  /** academic_level_id → grade code + cycle (the join carried on tuition rows). */
+  gradeInfoByLevelId: Map<string, { code: string; cycle: string | null }>;
+  transportRows: TransportDestinationRow[];
+  discountRows: DiscountRow[];
+  additionalRows: AdditionalServiceRow[];
+  complementaryRows: ComplementaryServiceRow[];
+  academicYearLabel: string | null;
+}
+
+type TuitionWithLevel = GradeLevelTuitionRow & {
+  academic_levels: { grade_code: string; cycle: string | null } | null;
+};
+
+export function usePricingCatalog(): UseQueryResult<PricingCatalogData | null> {
+  return useQuery({
+    queryKey: ["pricing-catalog"],
+    queryFn: async () => {
+      if (!supabase) return null;
+      const [configRes, tuitionRes, transportRes, discountRes, additionalRes, complementaryRes, yearRes] =
+        await Promise.all([
+          supabase
+            .from("pricing_configs")
+            .select("*")
+            .eq("is_active", true)
+            .order("created_at", { ascending: false })
+            .limit(1)
+            .maybeSingle(),
+          supabase
+            .from("grade_level_tuition")
+            .select("*, academic_levels(grade_code, cycle)")
+            .order("id"),
+          supabase.from("transport_destinations").select("*").order("code"),
+          supabase.from("discounts").select("*").order("code"),
+          supabase.from("additional_services").select("*").order("code"),
+          supabase.from("complementary_services").select("*").order("code"),
+          supabase
+            .from("academic_years")
+            .select("id, label")
+            .eq("is_current", true)
+            .maybeSingle(),
+        ]);
+      // The catalog tables are reference data: partial failure degrades the
+      // profile's catalog legs (rendered as "—") rather than throwing the
+      // whole financial tab — every leg is independently optional.
+      const config = (configRes.data as PricingConfigRow | null) ?? null;
+      const tuitionRows = (tuitionRes.data ?? []) as unknown as TuitionWithLevel[];
+      const gradeInfoByLevelId = new Map<string, { code: string; cycle: string | null }>();
+      for (const t of tuitionRows) {
+        if (t.academic_levels) {
+          gradeInfoByLevelId.set(t.academic_level_id, {
+            code: t.academic_levels.grade_code,
+            cycle: t.academic_levels.cycle,
+          });
+        }
+      }
+      return {
+        config,
+        tuitionRows: tuitionRows.map(({ academic_levels: _levels, ...rest }) => rest),
+        gradeInfoByLevelId,
+        transportRows: (transportRes.data ?? []) as TransportDestinationRow[],
+        discountRows: (discountRes.data ?? []) as DiscountRow[],
+        additionalRows: (additionalRes.data ?? []) as AdditionalServiceRow[],
+        complementaryRows: (complementaryRes.data ?? []) as ComplementaryServiceRow[],
+        academicYearLabel: (yearRes.data as { label: string } | null)?.label ?? null,
+      } satisfies PricingCatalogData;
+    },
+  });
+}
+
+/**
+ * The classes lookup for a set of class ids (the child-coverage class labels
+ * inside the per-service profile). RLS: tenant-scoped SELECT (0019).
+ */
+export function useClassesByIds(
+  classIds: readonly string[],
+): UseQueryResult<Map<string, string>> {
+  const ids = [...new Set(classIds.filter(Boolean))];
+  return useQuery({
+    queryKey: ["classes-by-ids", ids],
+    queryFn: async () => {
+      if (ids.length === 0 || !supabase) return new Map<string, string>();
+      const { data, error } = await supabase
+        .from("classes")
+        .select("id, name, code, room")
+        .in("id", ids);
+      if (error) throw error;
+      const map = new Map<string, string>();
+      for (const c of (data ?? []) as { id: string; name: string | null; code: string | null; room: string | null }[]) {
+        map.set(c.id, [c.name ?? c.code, c.room].filter(Boolean).join(" · ") || c.code || c.id);
+      }
+      return map;
+    },
+    enabled: ids.length > 0,
+  });
+}
 
 export function usePaymentAllocations(
   paymentId: string | null | undefined

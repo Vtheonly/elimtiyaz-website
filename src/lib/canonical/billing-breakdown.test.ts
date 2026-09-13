@@ -89,6 +89,7 @@ function kid(overrides: Partial<StudentRow>): StudentRow {
     date_of_birth: "2015-04-02",
     gender: "female",
     grade_level_id: null,
+    grade_level_code: null,
     class_id: null,
     enrollment_date: "2025-09-01",
     enrollment_status: "active",

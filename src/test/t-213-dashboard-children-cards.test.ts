@@ -21,6 +21,7 @@ import { readFileSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { childLevelLabel, childClassLabel, childLevelClassLine } from "@/features/students/child-summary";
+import type { ClassRow } from "@/lib/types/database";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const SRC = join(__dirname, "../../src");
@@ -36,7 +37,14 @@ const levels = [
   { id: "lvl-2", year_label: "2ème Année Primaire", grade_code: "2ap" },
 ] as never[];
 
-const klass = { id: "cls-1", name: "1ère Année Moyenne", code: "CLS-1AM", room: "B12" } as never;
+// Domain-typed fixture (REG-007/§15.25: fixtures typed against the real
+// contract — the previous `as never` broke the spread sites below).
+const klass = {
+  id: "cls-1",
+  name: "1ère Année Moyenne",
+  code: "CLS-1AM",
+  room: "B12",
+} satisfies Partial<ClassRow> as ClassRow;
 
 describe("T-213 — dashboard children cards enrichment", () => {
   it("the single-child card renders level·class + the enrollment status pill", () => {
@@ -80,8 +88,8 @@ describe("T-213 — child-summary behavior", () => {
 
   it("class label prefers name over code and appends the room", () => {
     expect(childClassLabel(klass)).toBe("1ère Année Moyenne · B12");
-    expect(childClassLabel({ ...klass, name: null } as never)).toBe("CLS-1AM · B12");
-    expect(childClassLabel({ ...klass, room: null } as never)).toBe("1ère Année Moyenne");
+    expect(childClassLabel({ ...klass, name: null })).toBe("CLS-1AM · B12");
+    expect(childClassLabel({ ...klass, room: null })).toBe("1ère Année Moyenne");
     expect(childClassLabel(null)).toBeNull();
   });
 

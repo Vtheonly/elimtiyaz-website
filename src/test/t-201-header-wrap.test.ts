@@ -33,7 +33,7 @@ function read(rel: string): string {
   return readFileSync(join(SRC, rel), "utf8");
 }
 
-const SURFACES: Array<{ file: string; headerProbe: RegExp; titleProbe: RegExp }> = [
+const SURFACES: Array<{ file: string; headerProbe: RegExp; titleProbe: RegExp | null }> = [
   {
     file: "features/financial/financial-view.tsx",
     headerProbe: /flex flex-wrap items-center justify-between gap-x-3 gap-y-2/,

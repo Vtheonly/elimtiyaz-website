@@ -22,6 +22,8 @@
  * Wiring pinned by source-scan: the auth-provider re-wires the listener
  * whenever the signed-in profile changes.
  */
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
 type RpcCall = { fn: string; args: Record<string, unknown> };
 
 const rpcCalls: RpcCall[] = [];
