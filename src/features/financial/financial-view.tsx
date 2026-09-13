@@ -1,35 +1,14 @@
 "use client";
 
-/**
- * FinancialView — parent-facing financial account.
- *
- * RESTRUCTURED (session 8, 2026-08-30) around the real backend data model
- * instead of the demo-era tab list. Live-backend evidence that drove it:
- *
- *   - `ledger_entries` is the single source of truth (INV-1) and the ONLY
- *     table holding charges AND adjustments (1,597 live rows) → the new
- *     "Relevé" statement tab replays it with a running balance.
- *   - `account_adjustments` is EMPTY in production (0 rows) while 318
- *     adjustments live in the ledger → the Adjustments tab now derives
- *     from ledger entries instead of the dead table.
- *   - `invoices` (0 rows, no writer on any platform) and `receipts`
- *     (orphaned table — CROSS-101) were removed as standalone tabs: they
- *     rendered a permanent, misleading "empty" state. Receipt download is
- *     NOW REAL (T-194, 30th session, ADR-014): every payment row carries a
- *     "Télécharger le reçu (PDF)" action generated CLIENT-SIDE from the
- *     canonical payments row (pdf-lib, desktop-parity layout), and the
- *     header offers the full-family statement PDF (T-195). No server
- *     round-trip, no orphaned-table dependency.
- *
- * Per the Platform Feature Allocation Matrix, the portal can VIEW dues,
- * schedule, scans, balance, receipts and adjustments. It CANNOT make
- * payments, issue invoices, apply adjustments or refund — desktop-only.
- */
-
 import { useAuth } from "@/app/providers/auth-provider";
 import { useT } from "@/lib/i18n/use-t";
 import { useAppStore } from "@/lib/store/app-store";
-import { useInstallments, usePayments, useLedgerEntries } from "@/lib/hooks/portal-queries";
+import {
+  useInstallments,
+  usePayments,
+  useLedgerEntries,
+  usePaymentAllocations,
+} from "@/lib/hooks/portal-queries";
 import {
   installmentRemainingAmount,
   portalFinancialSummary,
@@ -43,10 +22,7 @@ import {
 import { useFinancialRealtime } from "@/lib/hooks/use-realtime";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { KpiCard } from "@/features/shared/kpi-card";
-import {
-  StatusPill,
-  paymentStatusTone,
-} from "@/features/shared/status-pill";
+import { StatusPill, paymentStatusTone } from "@/features/shared/status-pill";
 import {
   SectionHeader,
   EmptyState,
@@ -70,8 +46,16 @@ import {
   Bus,
   MoreHorizontal,
   PiggyBank,
+  PieChart,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
-import { formatCurrency, formatDate, formatFullName, daysUntil } from "@/lib/format";
+import {
+  formatCurrency,
+  formatDate,
+  formatFullName,
+  daysUntil,
+} from "@/lib/format";
 import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
@@ -87,24 +71,30 @@ import { downloadPaymentReceiptPdf } from "@/lib/pdf/payment-receipt";
 import { downloadAccountStatementPdf } from "@/lib/pdf/account-statement";
 import type { ReceiptParentInfo } from "@/lib/pdf/payment-receipt";
 import { formatParentName } from "@/lib/format";
-import type { PaymentRow, InstallmentRow, LedgerEntryRow } from "@/lib/types/database";
+import type {
+  PaymentRow,
+  InstallmentRow,
+  LedgerEntryRow,
+} from "@/lib/types/database";
 import type { ParentBillingBreakdown } from "@/lib/canonical/billing-breakdown";
+import { cn } from "@/lib/utils";
 
-type TabKey = "billing" | "installments" | "payments" | "ledger" | "adjustments";
+type TabKey =
+  | "billing"
+  | "installments"
+  | "payments"
+  | "ledger"
+  | "adjustments";
 
 export function FinancialView() {
   const { t } = useT();
   const { parent, children: kids } = useAuth();
   const activeStudentId = useAppStore((s) => s.activeStudentId);
   const activeKid = kids.find((k) => k.id === activeStudentId);
-  // Hoisted so the React Compiler can preserve the memoizations below.
   const parentId = parent?.id ?? null;
 
-  // Realtime: balance updates the moment staff records a payment on desktop.
   useFinancialRealtime(parentId);
 
-  // Tranches + payments for the active child (or the whole family when no
-  // child is selected).
   const installments = useInstallments(parentId, {
     studentId: activeKid?.id ?? null,
     limit: 100,
@@ -113,19 +103,20 @@ export function FinancialView() {
     studentId: activeKid?.id ?? null,
     limit: 50,
   });
-  // Canonical balance source (INV-1): replay the parent's ledger entries —
-  // the exact same computation the desktop debt dashboard, the Android
-  // installment screen, and the backend compute_parent_summary RPC run.
-  // NOT student-filtered: the balance is a FAMILY-level figure (the parent
-  // is the account holder; children only split the charges).
-  const ledgerEntries = useLedgerEntries(parentId) // T-035/WEAK-022: full ledger replay (paged) — a hard cap would corrupt the balance;
+  const ledgerEntries = useLedgerEntries(parentId);
 
   const [activeTab, setActiveTab] = useState<TabKey>("billing");
 
-  // Aggregate balance — CANONICAL (ledger replay, never installment sums).
   const balance = useMemo(() => {
     if (!ledgerEntries.data || !parentId) {
-      return { outstanding: 0, overdue: 0, unallocatedCredit: 0, pending: 0, charged: 0, paid: 0 };
+      return {
+        outstanding: 0,
+        overdue: 0,
+        unallocatedCredit: 0,
+        pending: 0,
+        charged: 0,
+        paid: 0,
+      };
     }
     const summary = portalFinancialSummary(ledgerEntries.data, parentId);
     return {
@@ -138,17 +129,12 @@ export function FinancialView() {
     };
   }, [ledgerEntries.data, parentId]);
 
-  // Adjustments derived from the ledger (the account_adjustments table is
-  // empty in production — the real rows are ledger adjustment entries).
   const adjustments = useMemo(
-    () => (ledgerEntries.data ? ledgerAdjustmentEntries(ledgerEntries.data) : []),
-    [ledgerEntries.data]
+    () =>
+      ledgerEntries.data ? ledgerAdjustmentEntries(ledgerEntries.data) : [],
+    [ledgerEntries.data],
   );
 
-  // T-166: family-wide installments + ledger feed the itemized "Facturation"
-  // breakdown (per-child charges + REAL tranche coverage). Not
-  // student-filtered — the billing card shows every child of the family,
-  // mirroring the desktop parent-drawer Finances tab.
   const familyInstallments = useInstallments(parentId, {
     studentId: null,
     limit: 200,
@@ -156,23 +142,23 @@ export function FinancialView() {
   const billing = useMemo(
     () =>
       ledgerEntries.data && familyInstallments.data
-        ? parentBillingBreakdown(ledgerEntries.data, familyInstallments.data, kids, {
-            // T-168: adjustment-aware reconciliation — same equation as the
-            // desktop drawer (gross − remises + majorations = net; net −
-            // cleared − pending = reste; bridge to the server balance).
-            adjustmentRows: adjustments,
-            clearedPaid: Math.max(0, balance.paid - balance.pending),
-            pendingPaid: balance.pending,
-            serverOutstanding: balance.outstanding,
-          })
+        ? parentBillingBreakdown(
+            ledgerEntries.data,
+            familyInstallments.data,
+            kids,
+            {
+              adjustmentRows: adjustments,
+              clearedPaid: Math.max(0, balance.paid - balance.pending),
+              pendingPaid: balance.pending,
+              serverOutstanding: balance.outstanding,
+            },
+          )
         : null,
     [ledgerEntries.data, familyInstallments.data, kids, adjustments, balance],
   );
 
   const isRestricted = Boolean(parent?.is_financially_restricted);
 
-  // T-194/T-195 (CROSS-101, ADR-014): client-side PDF generation — the
-  // parent identity block shared by the receipt + statement generators.
   const parentInfo: ReceiptParentInfo | null = parent
     ? {
         fullName: formatParentName(parent),
@@ -181,14 +167,11 @@ export function FinancialView() {
       }
     : null;
 
-  // T-195: the full-family statement over ALL payments (not
-  // student-filtered). A named constant — never a bare numeric cap —
-  // because the WEAK-022 guard scans this file for hard caps (the BALANCE
-  // path must stay capless via the paged ledger replay; this is the
-  // statement download surface, which renders at most 25 rows + a
-  // "... N antérieur(s)" note).
   const STATEMENT_PAYMENTS_LIMIT = 200;
-  const familyPayments = usePayments(parentId, { studentId: null, limit: STATEMENT_PAYMENTS_LIMIT });
+  const familyPayments = usePayments(parentId, {
+    studentId: null,
+    limit: STATEMENT_PAYMENTS_LIMIT,
+  });
   const [statementBusy, setStatementBusy] = useState(false);
   const downloadStatement = async () => {
     if (!parentInfo || !familyPayments.data) return;
@@ -212,11 +195,7 @@ export function FinancialView() {
   };
 
   return (
-    <div className="mx-auto max-w-5xl space-y-6 px-4 py-5">
-      {/* Header with student filter + statement download (T-195).
-          T-201/UI-302: flex-wrap + gap-y so the action cluster stacks below
-          the title on narrow screens instead of pushing the page wide
-          (163px of document overflow at 320px before the fix). */}
+    <div className="mx-auto max-w-6xl space-y-6 px-4 py-5">
       <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
         <h1 className="min-w-0 text-xl font-semibold">{t("finance.title")}</h1>
         <div className="flex flex-wrap items-center gap-2">
@@ -235,26 +214,29 @@ export function FinancialView() {
         </div>
       </div>
 
-      {/* Financial restriction banner */}
       {isRestricted && (
         <div className="flex items-start gap-3 rounded-lg border border-warning/40 bg-warning/10 p-3 text-sm">
           <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-warning" />
           <div className="flex-1">
-            <p className="font-medium text-warning">{t("finance.restrictions.title")}</p>
-            <p className="mt-1 text-muted-foreground">{t("finance.restrictions.body")}</p>
+            <p className="font-medium text-warning">
+              {t("finance.restrictions.title")}
+            </p>
+            <p className="mt-1 text-muted-foreground">
+              {t("finance.restrictions.body")}
+            </p>
           </div>
         </div>
       )}
 
-      {/* KPI row — canonical ledger-replay values (INV-1), correctly labeled */}
+      {/* KPI row - Responsive desktop grid (lg:grid-cols-4) */}
       {ledgerEntries.isLoading ? (
-        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
           {Array.from({ length: 4 }).map((_, i) => (
             <KpiSkeleton key={i} />
           ))}
         </div>
       ) : (
-        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
           <KpiCard
             label={t("finance.balance.outstanding")}
             value={formatCurrency(balance.outstanding)}
@@ -271,42 +253,51 @@ export function FinancialView() {
             value={formatCurrency(balance.overdue)}
             tone={balance.overdue > 0 ? "danger" : "success"}
             icon={<AlertTriangle className="h-5 w-5" />}
-            hint={balance.overdue > 0 ? t("finance.balance.overdueHint") : t("finance.balance.noOverdue")}
+            hint={
+              balance.overdue > 0
+                ? t("finance.balance.overdueHint")
+                : t("finance.balance.noOverdue")
+            }
           />
           <KpiCard
             label={t("finance.installment.paid")}
             value={formatCurrency(balance.paid)}
             tone="success"
             icon={<CheckCircle2 className="h-5 w-5" />}
-            hint={balance.pending > 0 ? t("finance.balance.pendingHint", { amount: formatCurrency(balance.pending) }) : t("finance.balance.paidHint")}
+            hint={
+              balance.pending > 0
+                ? t("finance.balance.pendingHint", {
+                    amount: formatCurrency(balance.pending),
+                  })
+                : t("finance.balance.paidHint")
+            }
           />
           <KpiCard
             label={t("finance.balance.credit")}
-            /* T-104/ADR-010: derived credit (DATA-009) — the raw negative
-               balance double-counts credit for canonical-path overpayments;
-               booked unallocated credit wins, else the raw balance is used.
-               Same rule as the desktop dossier card (displayParentCredit). */
-            value={formatCurrency(displayCredit(balance.outstanding, balance.unallocatedCredit))}
-            tone={displayCredit(balance.outstanding, balance.unallocatedCredit) > 0 ? "info" : "default"}
+            value={formatCurrency(
+              displayCredit(balance.outstanding, balance.unallocatedCredit),
+            )}
+            tone={
+              displayCredit(balance.outstanding, balance.unallocatedCredit) > 0
+                ? "info"
+                : "default"
+            }
             icon={<PiggyBank className="h-5 w-5" />}
-            hint={displayCredit(balance.outstanding, balance.unallocatedCredit) > 0 ? t("finance.balance.creditHint") : t("finance.balance.noCredit")}
+            hint={
+              displayCredit(balance.outstanding, balance.unallocatedCredit) > 0
+                ? t("finance.balance.creditHint")
+                : t("finance.balance.noCredit")
+            }
           />
         </div>
       )}
 
-      {/* Tabs — real data model: billing breakdown, tranches, payments, statement, adjustments.
-          T-202/UI-303: below sm the list becomes a horizontally scrollable
-          chip row (the codebase's established mobile pattern — calendar
-          filters and StudentSwitcher use the same overflow-x-auto
-          scrollbar-none idiom) because five equal cells at 320px are ~54px
-          each while the French labels need 58–84px — they clipped mid-word.
-          The triggers' base `flex-1` (basis-0) is neutralized via
-          basis-auto + shrink-0 so they size to their content in flex mode;
-          at sm the display switches back to the equal 5-cell grid. */}
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as TabKey)}>
         <TabsList className="flex w-full overflow-x-auto scrollbar-none sm:grid sm:grid-cols-5 [&_[data-slot=tabs-trigger]]:basis-auto [&_[data-slot=tabs-trigger]]:shrink-0">
           <TabsTrigger value="billing">{t("finance.billing")}</TabsTrigger>
-          <TabsTrigger value="installments">{t("finance.installments")}</TabsTrigger>
+          <TabsTrigger value="installments">
+            {t("finance.installments")}
+          </TabsTrigger>
           <TabsTrigger value="payments">{t("finance.payments")}</TabsTrigger>
           <TabsTrigger value="ledger">{t("finance.ledger.title")}</TabsTrigger>
           <TabsTrigger value="adjustments">
@@ -319,9 +310,10 @@ export function FinancialView() {
           </TabsTrigger>
         </TabsList>
 
-        {/* Billing — itemized per-child / per-service breakdown (T-166) */}
         <TabsContent value="billing" className="mt-4 space-y-3">
-          <p className="text-xs text-muted-foreground">{t("finance.billing.intro")}</p>
+          <p className="text-xs text-muted-foreground">
+            {t("finance.billing.intro")}
+          </p>
           <BillingTab
             breakdown={billing}
             isLoading={ledgerEntries.isLoading || familyInstallments.isLoading}
@@ -332,16 +324,22 @@ export function FinancialView() {
           />
         </TabsContent>
 
-        {/* Tranches — the installment schedule the school issued */}
         <TabsContent value="installments" className="mt-4 space-y-3">
           {installments.isLoading ? (
             <ListSkeleton count={4} />
           ) : installments.isError ? (
-            <ErrorState title={t("common.error.title")} onRetry={() => installments.refetch()} />
+            <ErrorState
+              title={t("common.error.title")}
+              onRetry={() => installments.refetch()}
+            />
           ) : installments.data && installments.data.length > 0 ? (
-            <div className="space-y-2">
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
               {installments.data.map((inst) => (
-                <InstallmentRowView key={inst.id} inst={inst} kidName={activeKid ? formatFullName(activeKid) : undefined} />
+                <InstallmentRowView
+                  key={inst.id}
+                  inst={inst}
+                  kidName={activeKid ? formatFullName(activeKid) : undefined}
+                />
               ))}
             </div>
           ) : (
@@ -353,16 +351,23 @@ export function FinancialView() {
           )}
         </TabsContent>
 
-        {/* Payments — money actually collected at the counter */}
         <TabsContent value="payments" className="mt-4 space-y-3">
           {payments.isLoading ? (
             <ListSkeleton count={4} />
           ) : payments.isError ? (
-            <ErrorState title={t("common.error.title")} onRetry={() => payments.refetch()} />
+            <ErrorState
+              title={t("common.error.title")}
+              onRetry={() => payments.refetch()}
+            />
           ) : payments.data && payments.data.length > 0 ? (
-            <div className="space-y-2">
+            <div className="space-y-4">
               {payments.data.map((p) => (
-                <PaymentRowItem key={p.id} payment={p} kidName={activeKid ? formatFullName(activeKid) : undefined} parentInfo={parentInfo} />
+                <PaymentRowItem
+                  key={p.id}
+                  payment={p}
+                  kidName={activeKid ? formatFullName(activeKid) : undefined}
+                  parentInfo={parentInfo}
+                />
               ))}
             </div>
           ) : (
@@ -374,13 +379,16 @@ export function FinancialView() {
           )}
         </TabsContent>
 
-        {/* Statement — the ledger replay (source of truth) */}
         <TabsContent value="ledger" className="mt-4 space-y-3">
-          <p className="text-xs text-muted-foreground">{t("finance.ledger.intro")}</p>
+          <p className="text-xs text-muted-foreground">
+            {t("finance.ledger.intro")}
+          </p>
           <LedgerTimeline
             entries={
               activeKid
-                ? (ledgerEntries.data ?? []).filter((e) => e.student_id === activeKid.id)
+                ? (ledgerEntries.data ?? []).filter(
+                    (e) => e.student_id === activeKid.id,
+                  )
                 : ledgerEntries.data
             }
             isLoading={ledgerEntries.isLoading}
@@ -389,25 +397,17 @@ export function FinancialView() {
           />
         </TabsContent>
 
-        {/* Adjustments — derived from ledger adjustment entries */}
         <TabsContent value="adjustments" className="mt-4 space-y-3">
-          <AdjustmentsTab adjustments={adjustments} isLoading={ledgerEntries.isLoading} />
+          <AdjustmentsTab
+            adjustments={adjustments}
+            isLoading={ledgerEntries.isLoading}
+          />
         </TabsContent>
       </Tabs>
     </div>
   );
 }
 
-/* -------------------------------------------------------------------------- */
-
-/**
- * BillingTab — T-166: the itemized "Prestations facturées" breakdown.
- *
- * Read-side only (ADR-002): charges come from ledger rows, tranche coverage
- * from REAL installment rows (no client-side waterfall/synthesis — the
- * parent sees exactly what the server's collect_and_allocate_payment
- * waterfall produced). Same numbers as the desktop drawer's Finances tab.
- */
 function BillingTab({
   breakdown,
   isLoading,
@@ -420,13 +420,13 @@ function BillingTab({
   const { t } = useT();
   const [mode, setMode] = useState<"by_child" | "by_service">("by_child");
 
-  if (isLoading) {
-    return <ListSkeleton count={4} />;
-  }
-  if (!breakdown) {
+  if (isLoading) return <ListSkeleton count={4} />;
+  if (!breakdown)
     return <ErrorState title={t("common.error.title")} onRetry={onRetry} />;
-  }
-  if (breakdown.totalBilled <= 0 && breakdown.byChild.every((c) => c.lineItems.length === 0)) {
+  if (
+    breakdown.totalBilled <= 0 &&
+    breakdown.byChild.every((c) => c.lineItems.length === 0)
+  ) {
     return (
       <EmptyState
         title={t("finance.billing.noCharges")}
@@ -437,8 +437,7 @@ function BillingTab({
   }
 
   return (
-    <div className="space-y-3">
-      {/* Header: academic year + view toggle */}
+    <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-xs font-medium text-muted-foreground">
           {t("finance.billing.year")} {breakdown.academicYear}
@@ -447,118 +446,154 @@ function BillingTab({
           <button
             type="button"
             onClick={() => setMode("by_child")}
-            className={`flex items-center gap-1 px-2.5 py-1 rounded transition-colors ${
+            className={cn(
+              "flex items-center gap-1 px-3 py-1.5 rounded transition-colors",
               mode === "by_child"
                 ? "bg-primary text-primary-foreground font-medium"
-                : "text-muted-foreground hover:text-foreground"
-            }`}
+                : "text-muted-foreground hover:text-foreground",
+            )}
           >
-            <BookOpenText className="h-3 w-3" /> {t("finance.billing.perChild")}
+            <BookOpenText className="h-3.5 w-3.5" />{" "}
+            {t("finance.billing.perChild")}
           </button>
           <button
             type="button"
             onClick={() => setMode("by_service")}
-            className={`flex items-center gap-1 px-2.5 py-1 rounded transition-colors ${
+            className={cn(
+              "flex items-center gap-1 px-3 py-1.5 rounded transition-colors",
               mode === "by_service"
                 ? "bg-primary text-primary-foreground font-medium"
-                : "text-muted-foreground hover:text-foreground"
-            }`}
+                : "text-muted-foreground hover:text-foreground",
+            )}
           >
-            <Scale className="h-3 w-3" /> {t("finance.billing.perService")}
+            <Scale className="h-3.5 w-3.5" /> {t("finance.billing.perService")}
           </button>
         </div>
       </div>
 
       {mode === "by_child" ? (
-        /* Per-child cards: itemized charges + real tranche coverage */
-        <div className="space-y-3">
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
           {breakdown.byChild.map((child) => (
-            <div key={child.student.id} className="rounded-lg border border-border/50 bg-card p-4 space-y-3">
-              <div className="flex items-center justify-between border-b border-border/40 pb-2">
-                <p className="font-medium">{child.displayName}</p>
+            <div
+              key={child.student.id}
+              className="rounded-xl border border-border/60 bg-card p-5 space-y-4 shadow-sm"
+            >
+              <div className="flex items-center justify-between border-b border-border/40 pb-3">
+                <p className="font-semibold text-lg">{child.displayName}</p>
                 <div className="text-right">
-                  <p className="font-mono font-semibold">{formatCurrency(child.billedTotal)}</p>
-                  <p className="text-[10px] uppercase text-muted-foreground">
+                  <p className="font-mono font-bold text-lg">
+                    {formatCurrency(child.billedTotal)}
+                  </p>
+                  <p className="text-[10px] uppercase tracking-wide text-muted-foreground">
                     {t("finance.billing.engagedTotal")}
                   </p>
                 </div>
               </div>
-
-              {/* Itemized charges */}
-              {child.lineItems.length > 0 ? (
+              {child.lineItems.length > 0 && (
                 <div>
-                  <p className="mb-1 text-[10px] uppercase tracking-wide text-muted-foreground">
+                  <p className="mb-2 text-[10px] uppercase tracking-wide text-muted-foreground font-semibold">
                     {t("finance.billing.items")}
                   </p>
                   <ul className="divide-y divide-border/40 rounded border border-border/40 bg-muted/20 text-sm">
                     {child.lineItems.map((item) => (
-                      <li key={item.id} className="flex items-center justify-between gap-2 px-3 py-1.5">
-                        <span className="min-w-0 flex-1 truncate">{item.label}</span>
-                        <span className="font-mono">{formatCurrency(item.amount)}</span>
+                      <li
+                        key={item.id}
+                        className="flex items-center justify-between gap-2 px-3 py-2"
+                      >
+                        <span className="min-w-0 flex-1 truncate font-medium">
+                          {item.label}
+                        </span>
+                        <span className="font-mono text-muted-foreground">
+                          {formatCurrency(item.amount)}
+                        </span>
                       </li>
                     ))}
                   </ul>
                 </div>
-              ) : (
-                <p className="text-xs text-muted-foreground">{t("finance.billing.noCharges")}</p>
               )}
-
-              {/* Real tranche coverage — where the money landed */}
               {child.tranches.length > 0 && (
                 <div>
-                  <p className="mb-1 text-[10px] uppercase tracking-wide text-muted-foreground">
+                  <p className="mb-2 text-[10px] uppercase tracking-wide text-muted-foreground font-semibold">
                     {t("finance.billing.tranches")}
                   </p>
-                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                  <div className="grid grid-cols-1 gap-2">
                     {child.tranches.map((tr) => {
                       const progress =
                         tr.amountDue > 0
-                          ? Math.min(100, ((tr.amountPaid + tr.amountPending) / tr.amountDue) * 100)
+                          ? Math.min(
+                              100,
+                              ((tr.amountPaid + tr.amountPending) /
+                                tr.amountDue) *
+                                100,
+                            )
                           : 0;
                       const settled = tr.status === "paid" || tr.remaining <= 0;
                       return (
                         <div
                           key={tr.installmentId}
-                          className={`rounded-md border p-2.5 text-xs space-y-1.5 ${
+                          className={cn(
+                            "rounded-md border p-3 text-xs space-y-2",
                             settled
                               ? "border-success/40 bg-success/5"
                               : tr.amountPaid + tr.amountPending > 0
                                 ? "border-warning/40 bg-warning/5"
-                                : "border-border"
-                          }`}
+                                : "border-border",
+                          )}
                         >
                           <div className="flex items-center justify-between gap-2">
-                            <span className="truncate font-medium">{tr.label}</span>
+                            <span className="truncate font-semibold">
+                              {tr.label}
+                            </span>
                             {settled ? (
-                              <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-success" />
+                              <CheckCircle2 className="h-4 w-4 shrink-0 text-success" />
                             ) : (
-                              <StatusPill tone={paymentStatusTone(tr.status ?? "unpaid").tone}>
-                                {t(paymentStatusTone(tr.status ?? "unpaid").key)}
+                              <StatusPill
+                                tone={
+                                  paymentStatusTone(tr.status ?? "unpaid").tone
+                                }
+                              >
+                                {t(
+                                  paymentStatusTone(tr.status ?? "unpaid").key,
+                                )}
                               </StatusPill>
                             )}
                           </div>
                           {tr.dueDate && (
                             <p className="text-[10px] text-muted-foreground">
-                              {t("finance.installment.due")} {formatDate(tr.dueDate)}
+                              {t("finance.installment.due")}{" "}
+                              {formatDate(tr.dueDate)}
                             </p>
                           )}
-                          <div className="h-1 w-full overflow-hidden rounded-full bg-muted">
+                          <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
                             <div
-                              className={`h-full rounded-full ${settled ? "bg-success" : "bg-primary"}`}
+                              className={cn(
+                                "h-full rounded-full",
+                                settled ? "bg-success" : "bg-primary",
+                              )}
                               style={{ width: `${progress}%` }}
                             />
                           </div>
-                          <div className="flex justify-between text-[10px] text-muted-foreground">
-                            <span className="text-success">
-                              {formatCurrency(tr.amountPaid)} {t("finance.installment.paid").toLowerCase()}
+                          <div className="flex justify-between text-[11px] text-muted-foreground">
+                            <span className="text-success font-medium">
+                              {formatCurrency(tr.amountPaid)}{" "}
+                              {t("finance.installment.paid").toLowerCase()}
                               {tr.amountPending > 0 && (
                                 <span className="text-warning">
-                                  {" "}• {formatCurrency(tr.amountPending)}{" "}
-                                  {t("finance.installment.pending").toLowerCase()}
+                                  {" "}
+                                  • {formatCurrency(tr.amountPending)}{" "}
+                                  {t(
+                                    "finance.installment.pending",
+                                  ).toLowerCase()}
                                 </span>
                               )}
                             </span>
-                            <span className={tr.remaining > 0 ? "font-semibold text-destructive" : ""}>
+                            <span
+                              className={
+                                tr.remaining > 0
+                                  ? "font-bold text-destructive"
+                                  : "font-medium"
+                              }
+                            >
                               {formatCurrency(tr.remaining)}
                             </span>
                           </div>
@@ -570,148 +605,194 @@ function BillingTab({
               )}
             </div>
           ))}
-        </div>
-      ) : (
-        /* Consolidated per-service totals — T-168: share % + child attribution */
-        <div className="space-y-2">
-          {breakdown.byService.map((svc) => (
-            <div key={svc.category} className="rounded-md border border-border/40 bg-muted/10 p-3 space-y-1.5">
-              <div className="flex items-center justify-between gap-2">
-                <div className="min-w-0">
-                  <p className="font-medium">{svc.label}</p>
-                  <p className="text-[10px] text-muted-foreground">{svc.count}</p>
-                </div>
-                <div className="text-right shrink-0">
-                  <span className="block font-mono font-semibold text-primary">
-                    {formatCurrency(svc.amount)}
-                  </span>
-                  <span className="text-[10px] text-muted-foreground">{svc.sharePct} % {t("finance.billing.share")}</span>
-                </div>
-              </div>
-              <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
-                <div
-                  className="h-full rounded-full bg-primary/70"
-                  style={{ width: `${Math.min(100, svc.sharePct)}%` }}
-                />
-              </div>
-              <div className="flex flex-wrap gap-x-3 gap-y-0.5">
-                {svc.childAttribution.map((a) => (
-                  <span key={`${svc.category}-${a.studentId ?? "famille"}`} className="text-[10px] text-muted-foreground">
-                    {a.studentName} : <strong className="font-mono text-foreground">{formatCurrency(a.amount)}</strong>
-                  </span>
-                ))}
-              </div>
-            </div>
-          ))}
           {breakdown.unattributedItems.length > 0 && (
-            <div className="rounded-md border border-dashed border-border p-3 space-y-1">
+            <div className="rounded-xl border border-dashed border-border p-5 space-y-2 bg-muted/10">
               <p className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold">
                 {t("finance.billing.familyItems")}
               </p>
               <ul className="divide-y divide-border/40 text-sm">
                 {breakdown.unattributedItems.map((item) => (
-                  <li key={item.id} className="flex items-center justify-between gap-2 py-1.5">
-                    <span className="min-w-0 flex-1 truncate">{item.label}</span>
-                    <span className="font-mono">{formatCurrency(item.amount)}</span>
+                  <li
+                    key={item.id}
+                    className="flex items-center justify-between gap-2 py-2"
+                  >
+                    <span className="min-w-0 flex-1 truncate font-medium">
+                      {item.label}
+                    </span>
+                    <span className="font-mono text-muted-foreground">
+                      {formatCurrency(item.amount)}
+                    </span>
                   </li>
                 ))}
               </ul>
+              <p className="text-right text-xs text-muted-foreground pt-2">
+                {t("finance.billing.subtotal")} :{" "}
+                <strong className="font-mono text-foreground text-sm">
+                  {formatCurrency(breakdown.unattributedTotal)}
+                </strong>
+              </p>
             </div>
           )}
         </div>
-      )}
-
-      {/* Family-level block (per-child view) — keeps the list exhaustive */}
-      {mode === "by_child" && breakdown.unattributedItems.length > 0 && (
-        <div className="rounded-md border border-dashed border-border p-3 space-y-1">
-          <p className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold">
-            {t("finance.billing.familyItems")}
-          </p>
-          <ul className="divide-y divide-border/40 text-sm">
-            {breakdown.unattributedItems.map((item) => (
-              <li key={item.id} className="flex items-center justify-between gap-2 py-1.5">
-                <span className="min-w-0 flex-1 truncate">{item.label}</span>
-                <span className="font-mono">{formatCurrency(item.amount)}</span>
-              </li>
-            ))}
-          </ul>
-          <p className="text-right text-[10px] text-muted-foreground">
-            {t("finance.billing.subtotal")} :{" "}
-            <strong className="font-mono text-foreground">{formatCurrency(breakdown.unattributedTotal)}</strong>
-          </p>
-        </div>
-      )}
-
-      {/* T-168 — adjustment-aware reconciliation footer (full equation) */}
-      <div className="space-y-1 rounded-b-lg border border-border/40 bg-muted/30 px-3 py-2.5 text-xs">
-        <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-          {t("finance.billing.recon")}
-        </p>
-        <div className="flex items-center justify-between">
-          <span className="text-muted-foreground">{t("finance.billing.recon.gross")}</span>
-          <span className="font-mono font-semibold">{formatCurrency(breakdown.reconciliation.grossBilled)}</span>
-        </div>
-        {breakdown.reconciliation.adjustmentsCredit > 0 && (
-          <div className="flex items-center justify-between">
-            <span className="text-muted-foreground">{t("finance.billing.recon.credit")}</span>
-            <span className="font-mono text-success">− {formatCurrency(breakdown.reconciliation.adjustmentsCredit)}</span>
-          </div>
-        )}
-        {breakdown.reconciliation.adjustmentsDebit > 0 && (
-          <div className="flex items-center justify-between">
-            <span className="text-muted-foreground">{t("finance.billing.recon.debit")}</span>
-            <span className="font-mono text-destructive">+ {formatCurrency(breakdown.reconciliation.adjustmentsDebit)}</span>
-          </div>
-        )}
-        <div className="flex items-center justify-between">
-          <span className="text-muted-foreground">{t("finance.billing.recon.net")}</span>
-          <span className="font-mono font-semibold">{formatCurrency(breakdown.reconciliation.netDue)}</span>
-        </div>
-        <div className="flex items-center justify-between">
-          <span className="text-muted-foreground">{t("finance.billing.recon.cleared")}</span>
-          <span className="font-mono text-success">− {formatCurrency(breakdown.reconciliation.clearedPaid)}</span>
-        </div>
-        {breakdown.reconciliation.pendingPaid > 0 && (
-          <div className="flex items-center justify-between">
-            <span className="text-muted-foreground">{t("finance.billing.recon.pending")}</span>
-            <span className="font-mono text-warning">− {formatCurrency(breakdown.reconciliation.pendingPaid)}</span>
-          </div>
-        )}
-        <div className="flex items-center justify-between">
-          <span className="text-muted-foreground">{t("finance.billing.recon.remaining")}</span>
-          <span className="font-mono font-bold">{formatCurrency(breakdown.reconciliation.derivedRemaining)}</span>
-        </div>
-        {breakdown.reconciliation.hasBridge && (
-          <div className="flex items-center justify-between rounded border border-warning/40 bg-warning/10 px-2 py-1 text-[11px]">
-            <span className="text-warning">{t("finance.billing.recon.bridge")}</span>
-            <span className="font-mono font-bold text-warning">
-              {formatCurrency(breakdown.reconciliation.bridge)}
-            </span>
-          </div>
-        )}
-        {breakdown.reconciliation.serverOutstanding != null && (
-          <div className="flex items-center justify-between border-t border-border/40 pt-1 text-sm">
-            <span className="flex items-center gap-1 font-medium text-muted-foreground">
-              {!breakdown.reconciliation.hasBridge && <CheckCircle2 className="h-3.5 w-3.5 text-success" />}
-              {t("finance.billing.recon.server")}
-            </span>
-            <span
-              className={`font-mono font-bold ${
-                breakdown.reconciliation.serverOutstanding > 0 ? "text-destructive" : "text-success"
-              }`}
+      ) : (
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+          {breakdown.byService.map((svc) => (
+            <div
+              key={svc.category}
+              className="rounded-xl border border-border/40 bg-muted/10 p-5 space-y-3"
             >
-              {formatCurrency(breakdown.reconciliation.serverOutstanding)}
-            </span>
+              <div className="flex items-center justify-between gap-2">
+                <div className="min-w-0">
+                  <p className="font-semibold text-base">{svc.label}</p>
+                  <p className="text-[11px] text-muted-foreground">
+                    {svc.count} éléments
+                  </p>
+                </div>
+                <div className="text-right shrink-0">
+                  <span className="block font-mono font-bold text-lg text-primary">
+                    {formatCurrency(svc.amount)}
+                  </span>
+                  <span className="text-[11px] font-medium text-muted-foreground">
+                    {svc.sharePct} % {t("finance.billing.share")}
+                  </span>
+                </div>
+              </div>
+              <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
+                <div
+                  className="h-full rounded-full bg-primary"
+                  style={{ width: `${Math.min(100, svc.sharePct)}%` }}
+                />
+              </div>
+              <div className="flex flex-col gap-1.5 pt-1">
+                {svc.childAttribution.map((a) => (
+                  <div
+                    key={`${svc.category}-${a.studentId ?? "famille"}`}
+                    className="flex justify-between items-center text-xs text-muted-foreground bg-background rounded border border-border/40 px-2 py-1"
+                  >
+                    <span>{a.studentName}</span>
+                    <strong className="font-mono text-foreground">
+                      {formatCurrency(a.amount)}
+                    </strong>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Reconciliation Footer (Spans full width on desktop) */}
+      <div className="mt-6 rounded-xl border border-border/40 bg-card shadow-sm overflow-hidden">
+        <div className="bg-muted/50 px-5 py-3 border-b border-border/40">
+          <p className="text-xs font-bold uppercase tracking-wide text-foreground">
+            {t("finance.billing.recon")}
+          </p>
+        </div>
+        <div className="p-5 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-4 text-sm">
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-muted-foreground">
+                {t("finance.billing.recon.gross")}
+              </span>
+              <span className="font-mono font-semibold">
+                {formatCurrency(breakdown.reconciliation.grossBilled)}
+              </span>
+            </div>
+            {breakdown.reconciliation.adjustmentsCredit > 0 && (
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground">
+                  {t("finance.billing.recon.credit")}
+                </span>
+                <span className="font-mono text-success">
+                  − {formatCurrency(breakdown.reconciliation.adjustmentsCredit)}
+                </span>
+              </div>
+            )}
+            {breakdown.reconciliation.adjustmentsDebit > 0 && (
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground">
+                  {t("finance.billing.recon.debit")}
+                </span>
+                <span className="font-mono text-destructive">
+                  + {formatCurrency(breakdown.reconciliation.adjustmentsDebit)}
+                </span>
+              </div>
+            )}
+            <div className="flex items-center justify-between pt-2 border-t border-border/40 font-medium">
+              <span className="text-foreground">
+                {t("finance.billing.recon.net")}
+              </span>
+              <span className="font-mono">
+                {formatCurrency(breakdown.reconciliation.netDue)}
+              </span>
+            </div>
           </div>
-        )}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-muted-foreground">
+                {t("finance.billing.recon.cleared")}
+              </span>
+              <span className="font-mono text-success">
+                − {formatCurrency(breakdown.reconciliation.clearedPaid)}
+              </span>
+            </div>
+            {breakdown.reconciliation.pendingPaid > 0 && (
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground">
+                  {t("finance.billing.recon.pending")}
+                </span>
+                <span className="font-mono text-warning">
+                  − {formatCurrency(breakdown.reconciliation.pendingPaid)}
+                </span>
+              </div>
+            )}
+            <div className="flex items-center justify-between pt-2 border-t border-border/40 font-bold">
+              <span className="text-foreground">
+                {t("finance.billing.recon.remaining")}
+              </span>
+              <span className="font-mono text-lg">
+                {formatCurrency(breakdown.reconciliation.derivedRemaining)}
+              </span>
+            </div>
+          </div>
+          <div className="space-y-2 flex flex-col justify-end">
+            {breakdown.reconciliation.hasBridge && (
+              <div className="flex items-center justify-between rounded bg-warning/10 px-3 py-2 text-xs mb-2">
+                <span className="text-warning font-medium">
+                  {t("finance.billing.recon.bridge")}
+                </span>
+                <span className="font-mono font-bold text-warning">
+                  {formatCurrency(breakdown.reconciliation.bridge)}
+                </span>
+              </div>
+            )}
+            {breakdown.reconciliation.serverOutstanding != null && (
+              <div className="flex items-center justify-between bg-primary/5 rounded-lg px-4 py-3 border border-primary/20">
+                <span className="flex items-center gap-2 font-medium text-primary">
+                  {!breakdown.reconciliation.hasBridge && (
+                    <CheckCircle2 className="h-4 w-4 text-success" />
+                  )}
+                  {t("finance.billing.recon.server")}
+                </span>
+                <span
+                  className={cn(
+                    "font-mono font-bold text-lg",
+                    breakdown.reconciliation.serverOutstanding > 0
+                      ? "text-destructive"
+                      : "text-success",
+                  )}
+                >
+                  {formatCurrency(breakdown.reconciliation.serverOutstanding)}
+                </span>
+              </div>
+            )}
+          </div>
+        </div>
       </div>
     </div>
   );
 }
 
-/* -------------------------------------------------------------------------- */
-
-/** Category badge shared by tranches and payments. */
 function CategoryBadge({ category }: { category: string | null | undefined }) {
   const { t } = useT();
   const map: Record<string, typeof BookOpenText> = {
@@ -720,85 +801,195 @@ function CategoryBadge({ category }: { category: string | null | undefined }) {
   };
   const Icon = map[category ?? ""] ?? MoreHorizontal;
   const label = t(`finance.category.${category ?? "other"}`);
-  const display = label.startsWith("finance.category.") ? (category ?? "—") : label;
+  const display = label.startsWith("finance.category.")
+    ? (category ?? "—")
+    : label;
   return (
-    <span className="inline-flex items-center gap-1 rounded-full bg-info/10 px-2 py-0.5 text-[10px] font-medium text-info">
+    <span className="inline-flex items-center gap-1 rounded-full bg-info/10 px-2 py-0.5 text-[10px] font-medium text-info border border-info/20">
       <Icon className="h-3 w-3" />
       {display}
     </span>
   );
 }
 
-function InstallmentRowView({ inst, kidName }: { inst: InstallmentRow; kidName?: string }) {
+function InstallmentRowView({
+  inst,
+  kidName,
+}: {
+  inst: InstallmentRow;
+  kidName?: string;
+}) {
   const { t } = useT();
-  // Canonical remaining (Invariant 4): due − paid − pending. Uncleared
-  // check/transfer funds reduce what the parent owes without marking the
-  // tranche paid — identical to the backend waterfall + Android engine.
   const remaining = installmentRemainingAmount(inst);
   const pending = Number(inst.amount_pending ?? 0);
   const days = daysUntil(inst.due_date);
   const tone = paymentStatusTone(inst.status);
-  // Cleared progress; pending funds render as an in-progress overlay hint.
   const progress =
     inst.amount_due > 0
-      ? Math.min(100, ((Number(inst.amount_paid) + pending) / Number(inst.amount_due)) * 100)
+      ? Math.min(
+          100,
+          ((Number(inst.amount_paid) + pending) / Number(inst.amount_due)) *
+            100,
+        )
       : 0;
-  // Real DB label (migration 0032): "Tranche 1"… with the tranche number as
-  // fallback for legacy rows imported before labels existed.
-  const title = inst.label?.trim() || `${t("finance.installment.tranche")} ${inst.tranche_number}`;
+  const title =
+    inst.label?.trim() ||
+    `${t("finance.installment.tranche")} ${inst.tranche_number}`;
 
   return (
-    <div className="rounded-lg border border-border/50 bg-card p-4">
-      <div className="flex items-start justify-between gap-3">
+    <div className="rounded-xl border border-border/60 bg-card p-5 shadow-sm hover:border-border transition-colors">
+      <div className="flex items-start justify-between gap-4">
         <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <p className="font-medium">{title}</p>
+          <div className="flex flex-wrap items-center gap-2 mb-1">
+            <p className="font-semibold text-base text-foreground">{title}</p>
             <StatusPill tone={tone.tone}>{t(tone.key)}</StatusPill>
             <CategoryBadge category={inst.category} />
           </div>
-          <p className="mt-1 text-xs text-muted-foreground">
-            {kidName ? `${kidName} • ` : ""}
+          <p className="text-sm text-muted-foreground">
+            {kidName ? (
+              <span className="font-medium text-foreground">{kidName} • </span>
+            ) : (
+              ""
+            )}
             {t("finance.installment.due")} {formatDate(inst.due_date)}
             {inst.status !== "paid" && days >= 0 && days <= 7 && (
-              <span className="ml-1 text-warning">• J-{days}</span>
+              <span className="ml-1 font-medium text-warning">• J-{days}</span>
             )}
             {inst.status !== "paid" && days < 0 && (
-              <span className="ml-1 text-destructive">
+              <span className="ml-1 font-medium text-destructive">
                 • {Math.abs(days)}j {t("finance.status.overdue").toLowerCase()}
               </span>
             )}
             {inst.payment_plan === "full_annual" && (
-              <span className="ml-1 text-info">• {t("finance.installment.fullAnnual")}</span>
+              <span className="ml-1 font-medium text-info">
+                • {t("finance.installment.fullAnnual")}
+              </span>
             )}
           </p>
         </div>
-        <div className="text-right">
-          <p className="font-mono font-semibold">{formatCurrency(remaining)}</p>
-          <p className="text-xs text-muted-foreground">{t("finance.installment.remaining")}</p>
+        <div className="text-right shrink-0">
+          <p className="font-mono text-lg font-bold text-foreground">
+            {formatCurrency(remaining)}
+          </p>
+          <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+            {t("finance.installment.remaining")}
+          </p>
         </div>
       </div>
-
-      {/* Progress bar */}
-      <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-muted">
+      <div className="mt-4 h-2 w-full overflow-hidden rounded-full bg-muted">
         <div
-          className="h-full rounded-full bg-primary transition-all"
+          className="h-full rounded-full bg-primary transition-all duration-500"
           style={{ width: `${progress}%` }}
         />
       </div>
-      <div className="mt-1.5 flex justify-between text-[10px] text-muted-foreground">
+      <div className="mt-2 flex justify-between text-xs font-medium text-muted-foreground">
         <span>
-          {formatCurrency(inst.amount_paid)} {t("finance.installment.paid").toLowerCase()}
+          <span className="text-success">
+            {formatCurrency(inst.amount_paid)}{" "}
+            {t("finance.installment.paid").toLowerCase()}
+          </span>
           {pending > 0 && (
-            <span className="text-warning"> • {formatCurrency(pending)} {t("finance.installment.pending").toLowerCase()}</span>
+            <span className="text-warning ml-1">
+              {" "}
+              • {formatCurrency(pending)}{" "}
+              {t("finance.installment.pending").toLowerCase()}
+            </span>
           )}
         </span>
-        <span>{formatCurrency(inst.amount_due)}</span>
+        <span className="text-foreground">
+          {formatCurrency(inst.amount_due)}
+        </span>
       </div>
     </div>
   );
 }
 
-/* -------------------------------------------------------------------------- */
+// Sub-component to show exactly how a payment was allocated
+function PaymentCoverageDetails({
+  paymentId,
+  expectedAmount,
+  excessAmount,
+}: {
+  paymentId: string;
+  expectedAmount: number | null;
+  excessAmount: number | null;
+}) {
+  const { t } = useT();
+  const allocations = usePaymentAllocations(paymentId);
+
+  if (allocations.isLoading)
+    return (
+      <div className="p-4 flex justify-center">
+        <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+      </div>
+    );
+  if (allocations.isError)
+    return (
+      <div className="p-4 text-xs text-destructive">
+        Impossible de charger les détails.
+      </div>
+    );
+
+  const hasExcess = (excessAmount ?? 0) > 0;
+  const showExpected = (expectedAmount ?? 0) > 0;
+
+  return (
+    <div className="bg-muted/20 border-t border-border/40 p-4 space-y-3 rounded-b-xl">
+      <h4 className="text-xs font-bold uppercase tracking-wide text-muted-foreground flex items-center gap-2">
+        <PieChart className="h-3.5 w-3.5" />
+        Détails de la couverture
+      </h4>
+
+      {allocations.data && allocations.data.length > 0 ? (
+        <ul className="space-y-2">
+          {allocations.data.map((alloc) => (
+            <li
+              key={alloc.id}
+              className="flex justify-between items-center text-sm border-b border-border/40 pb-2 last:border-0 last:pb-0"
+            >
+              <div className="flex flex-col">
+                <span className="font-medium text-foreground">
+                  {alloc.label ?? t(`finance.category.${alloc.category}`)}
+                </span>
+                <span className="text-[10px] text-muted-foreground uppercase">
+                  {alloc.category}
+                </span>
+              </div>
+              <span className="font-mono font-medium">
+                {formatCurrency(alloc.allocated_amount)}
+              </span>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="text-xs text-muted-foreground italic">
+          Aucune allocation détaillée trouvée (paiement ancien ou global).
+        </p>
+      )}
+
+      {(hasExcess || showExpected) && (
+        <div className="pt-2 mt-2 border-t border-dashed border-border/60 space-y-1 text-sm">
+          {showExpected && (
+            <div className="flex justify-between text-muted-foreground">
+              <span>Montant attendu (Facturé)</span>
+              <span className="font-mono">
+                {formatCurrency(expectedAmount!)}
+              </span>
+            </div>
+          )}
+          {hasExcess && (
+            <div className="flex justify-between font-medium text-info bg-info/10 p-1.5 rounded">
+              <span>Trop-perçu (Crédit parent)</span>
+              <span className="font-mono">
+                +{formatCurrency(excessAmount!)}
+              </span>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
 
 function PaymentRowItem({
   payment,
@@ -811,16 +1002,11 @@ function PaymentRowItem({
 }) {
   const { t } = useT();
   const [showProof, setShowProof] = useState(false);
+  const [showCoverage, setShowCoverage] = useState(false);
   const [receiptBusy, setReceiptBusy] = useState(false);
-  // Real payment status (was hardcoded "paid" — payments can be pending,
-  // pending_clearance, refunded…).
   const tone = paymentStatusTone(payment.status);
-  // payment_number IS the receipt number (kept in sync by trigger —
-  // payments.receipt_number is the alias column).
   const receiptNo = payment.receipt_number ?? payment.payment_number;
 
-  // T-194 (CROSS-101 / ADR-014): client-side PDF receipt — deterministic
-  // from the canonical payments row; identical layout to the staff copy.
   const downloadReceipt = async () => {
     setReceiptBusy(true);
     try {
@@ -845,91 +1031,158 @@ function PaymentRowItem({
   };
 
   return (
-    <div className="rounded-lg border border-border/50 bg-card p-3">
-      <div className="flex items-center gap-3">
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-success/10 text-success">
-          <Receipt className="h-4 w-4" />
-        </div>
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-            <p className="font-mono font-semibold">{formatCurrency(payment.amount)}</p>
-            <CategoryBadge category={payment.category} />
+    <div className="rounded-xl border border-border/50 bg-card shadow-sm transition-all overflow-hidden">
+      <div className="p-4 sm:p-5">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+          <div className="flex items-start gap-4 flex-1 min-w-0">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-success/15 text-success">
+              <Receipt className="h-5 w-5" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mb-1">
+                <p className="font-mono text-lg font-bold text-foreground">
+                  {formatCurrency(payment.amount)}
+                </p>
+                <StatusPill tone={tone.tone}>{t(tone.key)}</StatusPill>
+                {payment.category && (
+                  <CategoryBadge category={payment.category} />
+                )}
+              </div>
+              <p className="text-sm text-muted-foreground">
+                {t(`finance.payment.method.${payment.method}`)} •{" "}
+                {formatDate(payment.collected_at)}
+                {kidName && (
+                  <span className="font-medium text-foreground">
+                    {" "}
+                    • {kidName}
+                  </span>
+                )}
+                {receiptNo && (
+                  <span>
+                    {" "}
+                    • {t("finance.payment.receipt")}{" "}
+                    <span className="font-mono text-foreground">
+                      {receiptNo}
+                    </span>
+                  </span>
+                )}
+              </p>
+            </div>
           </div>
-          <p className="mt-0.5 truncate text-xs text-muted-foreground">
-            {t(`finance.payment.method.${payment.method}`)} • {formatDate(payment.collected_at)}
-            {kidName ? ` • ${kidName}` : ""}
-            {receiptNo ? ` • ${t("finance.payment.receipt")} ${receiptNo}` : ""}
-          </p>
-        </div>
-        <div className="flex shrink-0 flex-col items-end gap-1">
-          <StatusPill tone={tone.tone}>{t(tone.key)}</StatusPill>
+
+          <div className="flex flex-wrap sm:flex-col items-center sm:items-end gap-2 shrink-0 border-t sm:border-t-0 border-border/40 pt-3 sm:pt-0 mt-3 sm:mt-0">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowCoverage(!showCoverage)}
+              className="w-full sm:w-auto h-8 text-xs font-medium"
+            >
+              {showCoverage ? (
+                <ChevronUp className="mr-1.5 h-3.5 w-3.5" />
+              ) : (
+                <ChevronDown className="mr-1.5 h-3.5 w-3.5" />
+              )}
+              {showCoverage
+                ? "Masquer la couverture"
+                : "Détails de la couverture"}
+            </Button>
+            <div className="flex gap-2 w-full sm:w-auto">
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => void downloadReceipt()}
+                disabled={receiptBusy}
+                className="flex-1 sm:flex-auto h-8 text-xs"
+              >
+                <Download className="mr-1.5 h-3.5 w-3.5" />{" "}
+                {t("finance.receipt.download")}
+              </Button>
+              {payment.proof_path && (
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => setShowProof(true)}
+                  className="flex-1 sm:flex-auto h-8 text-xs"
+                >
+                  <FileText className="mr-1.5 h-3.5 w-3.5" />{" "}
+                  {t("finance.payment.proof")}
+                </Button>
+              )}
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* Action row — the PDF receipt is ALWAYS available (client-side,
-          T-194); proof appears only when the backend attached one */}
-      {(payment.proof_path || payment.status === "pending_clearance" || payment.method !== "cash" || true) && (
-        <div className="mt-2 flex flex-wrap items-center justify-end gap-2 border-t border-border/40 pt-2">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => void downloadReceipt()}
-            disabled={receiptBusy}
-          >
-            <Download className="mr-1 h-3.5 w-3.5" />
-            {t("finance.receipt.download")}
-          </Button>
-          {payment.proof_path && (
-            <Button variant="ghost" size="sm" onClick={() => setShowProof(true)}>
-              <FileText className="mr-1 h-3.5 w-3.5" />
-              {t("finance.payment.proof")}
-            </Button>
-          )}
-        </div>
+      {showCoverage && (
+        <PaymentCoverageDetails
+          paymentId={payment.id}
+          expectedAmount={payment.expected_amount}
+          excessAmount={payment.excess_amount}
+        />
       )}
 
-      {/* Payment detail dialog — check/transfer metadata from the DB row */}
       <Dialog open={showProof} onOpenChange={setShowProof}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{t("finance.payment.proofTitle")}</DialogTitle>
             <DialogDescription>
-              {formatCurrency(payment.amount)} • {formatDate(payment.collected_at)}
+              {formatCurrency(payment.amount)} •{" "}
+              {formatDate(payment.collected_at)}
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-3">
+          <div className="space-y-4">
             {payment.method === "check" && (
-              <div className="rounded-lg border border-border/60 p-3 text-sm">
-                <p>
-                  <span className="text-muted-foreground">{t("finance.payment.checkNumber")}:</span>{" "}
-                  {payment.check_number ?? "—"}
+              <div className="rounded-lg border border-border/60 bg-muted/20 p-4 text-sm space-y-2">
+                <p className="flex justify-between">
+                  <span className="text-muted-foreground">
+                    {t("finance.payment.checkNumber")}:
+                  </span>{" "}
+                  <span className="font-mono font-medium">
+                    {payment.check_number ?? "—"}
+                  </span>
                 </p>
-                <p>
-                  <span className="text-muted-foreground">{t("finance.payment.checkBank")}:</span>{" "}
-                  {payment.check_bank_name ?? "—"}
+                <p className="flex justify-between">
+                  <span className="text-muted-foreground">
+                    {t("finance.payment.checkBank")}:
+                  </span>{" "}
+                  <span className="font-medium">
+                    {payment.check_bank_name ?? "—"}
+                  </span>
                 </p>
                 {payment.check_clearance_date && (
-                  <p>
-                    <span className="text-muted-foreground">{t("finance.payment.clearance")}:</span>{" "}
-                    {formatDate(payment.check_clearance_date)}
+                  <p className="flex justify-between">
+                    <span className="text-muted-foreground">
+                      {t("finance.payment.clearance")}:
+                    </span>{" "}
+                    <span className="font-medium">
+                      {formatDate(payment.check_clearance_date)}
+                    </span>
                   </p>
                 )}
               </div>
             )}
             {payment.method === "transfer" && (
-              <div className="rounded-lg border border-border/60 p-3 text-sm">
-                <p>
-                  <span className="text-muted-foreground">{t("finance.payment.transferRef")}:</span>{" "}
-                  {payment.transfer_reference ?? "—"}
+              <div className="rounded-lg border border-border/60 bg-muted/20 p-4 text-sm space-y-2">
+                <p className="flex justify-between">
+                  <span className="text-muted-foreground">
+                    {t("finance.payment.transferRef")}:
+                  </span>{" "}
+                  <span className="font-mono font-medium">
+                    {payment.transfer_reference ?? "—"}
+                  </span>
                 </p>
-                <p>
-                  <span className="text-muted-foreground">{t("finance.payment.transferBank")}:</span>{" "}
-                  {payment.transfer_source_bank ?? "—"}
+                <p className="flex justify-between">
+                  <span className="text-muted-foreground">
+                    {t("finance.payment.transferBank")}:
+                  </span>{" "}
+                  <span className="font-medium">
+                    {payment.transfer_source_bank ?? "—"}
+                  </span>
                 </p>
               </div>
             )}
-            <Button onClick={viewProof} className="w-full">
-              <Download className="mr-2 h-4 w-4" />
+            <Button onClick={viewProof} className="w-full" size="lg">
+              <Download className="mr-2 h-4 w-4" />{" "}
               {t("finance.payment.openProof")}
             </Button>
           </div>
@@ -939,8 +1192,6 @@ function PaymentRowItem({
   );
 }
 
-/* -------------------------------------------------------------------------- */
-
 function AdjustmentsTab({
   adjustments,
   isLoading,
@@ -949,11 +1200,8 @@ function AdjustmentsTab({
   isLoading: boolean;
 }) {
   const { t } = useT();
-
-  if (isLoading) {
-    return <ListSkeleton count={4} />;
-  }
-  if (adjustments.length === 0) {
+  if (isLoading) return <ListSkeleton count={4} />;
+  if (adjustments.length === 0)
     return (
       <EmptyState
         title={t("finance.adjustment.empty")}
@@ -961,16 +1209,10 @@ function AdjustmentsTab({
         icon={<Scale className="h-6 w-6" />}
       />
     );
-  }
 
   return (
-    <div className="space-y-2">
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
       {(() => {
-        // T-168: badge + reason + PROVENANCE derived by the canonical
-        // derivation — same wording and the same pairing algorithm as the
-        // desktop drawer and the Android terminal: Documenté = actual
-        // content · Contrepassation = net-zero reversal pair · Non documenté
-        // = legacy import to audit.
         const classified = classifyAdjustmentRows(adjustments);
         return classified.map((c) => {
           const isCredit = c.kind === "credit";
@@ -978,44 +1220,72 @@ function AdjustmentsTab({
             ? classified.find((x) => x.id === c.pairedWithId)
             : null;
           return (
-            <CardListItem
+            <div
               key={c.id}
-              leading={
+              className="rounded-xl border border-border/50 bg-card p-4 flex flex-col justify-between"
+            >
+              <div className="flex items-start gap-3 mb-3">
                 <div
-                  className={`flex h-10 w-10 items-center justify-center rounded-lg ${
-                    isCredit ? "bg-success/10 text-success" : "bg-warning/10 text-warning"
-                  }`}
-                >
-                  <Scale className="h-4 w-4" />
-                </div>
-              }
-              title={`${isCredit ? "−" : "+"}${formatCurrency(Math.abs(c.amount))}`}
-              subtitle={
-                <>
-                  <div className="flex flex-wrap items-center gap-1.5">
-                    {formatDate(c.at)}
-                    <ProvenancePill provenance={c.provenance} label={c.provenanceLabel} />
-                    {c.receiptRef ? <span className="text-[10px] text-muted-foreground">{c.receiptRef}</span> : null}
-                  </div>
-                  <p className={c.isDiagnosticFallback ? "italic text-muted-foreground" : ""}>
-                    {c.reasonLabel}
-                  </p>
-                  {/* T-168 — explicit meaning: what this entry IS and what it
-                      does to the balance (content vs trap vs mistake). */}
-                  <p className="mt-0.5 text-[11px] text-muted-foreground">{c.meaningLabel}</p>
-                  {pair && (
-                    <p className="mt-0.5 text-[10px] font-medium text-warning">
-                      ↔ {formatDate(pair.at)} — {formatCurrency(Math.abs(pair.amount))}
-                    </p>
+                  className={cn(
+                    "flex h-10 w-10 shrink-0 items-center justify-center rounded-lg",
+                    isCredit
+                      ? "bg-success/15 text-success"
+                      : "bg-warning/15 text-warning",
                   )}
-                </>
-              }
-              trailing={
-                <StatusPill tone={isCredit ? "success" : "warning"}>
-                  {c.badgeLabel}
-                </StatusPill>
-              }
-            />
+                >
+                  <Scale className="h-5 w-5" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center justify-between gap-2">
+                    <p
+                      className={cn(
+                        "font-mono text-lg font-bold",
+                        isCredit ? "text-success" : "text-warning",
+                      )}
+                    >
+                      {isCredit ? "−" : "+"}
+                      {formatCurrency(Math.abs(c.amount))}
+                    </p>
+                    <StatusPill tone={isCredit ? "success" : "warning"}>
+                      {c.badgeLabel}
+                    </StatusPill>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2 mt-1">
+                    <span className="text-xs font-medium text-muted-foreground">
+                      {formatDate(c.at)}
+                    </span>
+                    <ProvenancePill
+                      provenance={c.provenance}
+                      label={c.provenanceLabel}
+                    />
+                    {c.receiptRef && (
+                      <span className="text-[10px] text-muted-foreground font-mono bg-muted px-1.5 py-0.5 rounded">
+                        {c.receiptRef}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+              <div className="bg-muted/30 rounded-lg p-3 border border-border/40">
+                <p
+                  className={cn(
+                    "text-sm font-medium",
+                    c.isDiagnosticFallback && "italic text-muted-foreground",
+                  )}
+                >
+                  {c.reasonLabel}
+                </p>
+                <p className="mt-1.5 text-xs text-muted-foreground leading-relaxed">
+                  {c.meaningLabel}
+                </p>
+                {pair && (
+                  <p className="mt-2 text-xs font-semibold text-warning bg-warning/10 px-2 py-1 rounded inline-block">
+                    ↔ Paire annulée : {formatDate(pair.at)} —{" "}
+                    {formatCurrency(Math.abs(pair.amount))}
+                  </p>
+                )}
+              </div>
+            </div>
           );
         });
       })()}
@@ -1023,7 +1293,6 @@ function AdjustmentsTab({
   );
 }
 
-/** T-168 — provenance pill (documented / reversal pair / undocumented). */
 function ProvenancePill({
   provenance,
   label,
@@ -1038,6 +1307,13 @@ function ProvenancePill({
         ? "bg-warning/10 text-warning border-warning/40"
         : "bg-destructive/10 text-destructive border-destructive/30";
   return (
-    <span className={`rounded border px-1.5 py-0.5 text-[9px] font-medium ${tone}`}>{label}</span>
+    <span
+      className={cn(
+        "rounded border px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider",
+        tone,
+      )}
+    >
+      {label}
+    </span>
   );
 }

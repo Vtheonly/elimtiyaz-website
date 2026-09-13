@@ -75,7 +75,9 @@ export function useAcademicLevels(): UseQueryResult<AcademicLevelRow[]> {
   });
 }
 
-export function useClass(classId: string | null | undefined): UseQueryResult<ClassRow | null> {
+export function useClass(
+  classId: string | null | undefined,
+): UseQueryResult<ClassRow | null> {
   return useQuery({
     queryKey: ["class", classId],
     queryFn: async () => {
@@ -108,12 +110,17 @@ export function useClass(classId: string | null | undefined): UseQueryResult<Cla
 export type PortalAssessmentRow = AssessmentRow & {
   subject?: Pick<
     SubjectRow,
-    "id" | "name_fr" | "name_en" | "default_coefficient" | "is_extracurricular" | "passing_grade"
+    | "id"
+    | "name_fr"
+    | "name_en"
+    | "default_coefficient"
+    | "is_extracurricular"
+    | "passing_grade"
   > | null;
 };
 
 export function useGradesForStudent(
-  studentId: string | null | undefined
+  studentId: string | null | undefined,
 ): UseQueryResult<PortalAssessmentRow[]> {
   return useQuery({
     queryKey: ["grades", studentId],
@@ -125,7 +132,7 @@ export function useGradesForStudent(
           `*,
             subject:subjects(
               id, name_fr, name_en, default_coefficient, is_extracurricular, passing_grade
-            )`
+            )`,
         )
         .eq("student_id", studentId)
         .order("entered_at", { ascending: false });
@@ -142,7 +149,7 @@ export function useGradesForStudent(
 
 export function useAttendanceForStudent(
   studentId: string | null | undefined,
-  options: { limit?: number } = {}
+  options: { limit?: number } = {},
 ): UseQueryResult<AttendanceRecordRow[]> {
   return useQuery({
     queryKey: ["attendance", studentId, options.limit],
@@ -168,7 +175,7 @@ export function useAttendanceForStudent(
 
 export function useHomeworkForClass(
   classId: string | null | undefined,
-  options: { limit?: number } = {}
+  options: { limit?: number } = {},
 ): UseQueryResult<HomeworkRow[]> {
   return useQuery({
     queryKey: ["homework", classId, options.limit],
@@ -196,7 +203,7 @@ export function useHomeworkForClass(
 
 export function useInstallments(
   parentId: string | null | undefined,
-  options: { studentId?: string | null; limit?: number } = {}
+  options: { studentId?: string | null; limit?: number } = {},
 ): UseQueryResult<InstallmentRow[]> {
   return useQuery({
     queryKey: ["installments", parentId, options.studentId, options.limit],
@@ -219,7 +226,7 @@ export function useInstallments(
 
 export function usePayments(
   parentId: string | null | undefined,
-  options: { studentId?: string | null; limit?: number } = {}
+  options: { studentId?: string | null; limit?: number } = {},
 ): UseQueryResult<PaymentRow[]> {
   return useQuery({
     queryKey: ["payments", parentId, options.studentId, options.limit],
@@ -242,7 +249,7 @@ export function usePayments(
 
 export function useInvoices(
   parentId: string | null | undefined,
-  options: { limit?: number } = {}
+  options: { limit?: number } = {},
 ): UseQueryResult<InvoiceRow[]> {
   return useQuery({
     queryKey: ["invoices", parentId, options.limit],
@@ -274,7 +281,7 @@ export function useInvoices(
  */
 
 export function useServiceEnrollments(
-  studentId: string | null | undefined
+  studentId: string | null | undefined,
 ): UseQueryResult<ServiceEnrollmentRow[]> {
   return useQuery({
     queryKey: ["service-enrollments", studentId],
@@ -295,7 +302,7 @@ export function useServiceEnrollments(
 
 export function useAccountAdjustments(
   parentId: string | null | undefined,
-  options: { limit?: number } = {}
+  options: { limit?: number } = {},
 ): UseQueryResult<AccountAdjustmentRow[]> {
   return useQuery({
     queryKey: ["adjustments", parentId, options.limit],
@@ -366,7 +373,7 @@ export async function fetchAllLedgerEntries(
 
 export function useLedgerEntries(
   parentId: string | null | undefined,
-  options: { limit?: number } = {}
+  options: { limit?: number } = {},
 ): UseQueryResult<LedgerEntryRow[]> {
   return useQuery({
     queryKey: ["ledger-entries", parentId, options.limit],
@@ -384,10 +391,15 @@ export function useLedgerEntries(
 
 export function useNotifications(
   targetUserId: string | null | undefined,
-  options: { limit?: number; unreadOnly?: boolean } = {}
+  options: { limit?: number; unreadOnly?: boolean } = {},
 ): UseQueryResult<NotificationRow[]> {
   return useQuery({
-    queryKey: ["notifications", targetUserId, options.limit, options.unreadOnly],
+    queryKey: [
+      "notifications",
+      targetUserId,
+      options.limit,
+      options.unreadOnly,
+    ],
     queryFn: async () => {
       if (!targetUserId || !supabase) return [];
       // Two delivery paths exist in the backend schema:
@@ -402,7 +414,7 @@ export function useNotifications(
         .from("notifications")
         .select("*")
         .or(
-          `target_user_id.eq.${targetUserId},and(target_user_id.is.null,target_role.eq.parent)`
+          `target_user_id.eq.${targetUserId},and(target_user_id.is.null,target_role.eq.parent)`,
         )
         .order("triggered_at", { ascending: false });
       if (options.unreadOnly) q = q.eq("is_read", false);
@@ -422,7 +434,7 @@ export function useNotifications(
  * Same delivery paths as useNotifications (direct + parent role broadcast).
  */
 export function useUnreadNotificationCount(
-  targetUserId: string | null | undefined
+  targetUserId: string | null | undefined,
 ): UseQueryResult<number> {
   return useQuery({
     queryKey: ["notifications-unread-count", targetUserId],
@@ -432,7 +444,7 @@ export function useUnreadNotificationCount(
         .from("notifications")
         .select("id", { count: "exact", head: true })
         .or(
-          `target_user_id.eq.${targetUserId},and(target_user_id.is.null,target_role.eq.parent)`
+          `target_user_id.eq.${targetUserId},and(target_user_id.is.null,target_role.eq.parent)`,
         )
         .eq("is_read", false);
       if (error) throw error;
@@ -443,7 +455,7 @@ export function useUnreadNotificationCount(
 }
 
 export function useUpcomingEvents(
-  options: { limit?: number; from?: string } = {}
+  options: { limit?: number; from?: string } = {},
 ): UseQueryResult<CalendarEventRow[]> {
   return useQuery({
     queryKey: ["calendar-events", options.limit, options.from],
@@ -467,7 +479,7 @@ export function useUpcomingEvents(
 /** Fetch calendar events in a specific month range (for the month grid view). */
 export function useEventsInRange(
   rangeStart: string | null,
-  rangeEnd: string | null
+  rangeEnd: string | null,
 ): UseQueryResult<CalendarEventRow[]> {
   return useQuery({
     queryKey: ["calendar-events-range", rangeStart, rangeEnd],
@@ -497,7 +509,7 @@ export function useEventsInRange(
  * RLS also enforces this server-side, so even a buggy filter can't leak data.
  */
 export function useChatChannels(
-  userProfileId: string | null | undefined
+  userProfileId: string | null | undefined,
 ): UseQueryResult<ChatChannelRow[]> {
   return useQuery({
     queryKey: ["chat-channels", userProfileId],
@@ -521,7 +533,7 @@ export function useChatChannels(
 
 export function useChatMessages(
   channelId: string | null | undefined,
-  options: { limit?: number } = {}
+  options: { limit?: number } = {},
 ): UseQueryResult<ChatMessageRow[]> {
   return useQuery({
     queryKey: ["chat-messages", channelId, options.limit],
@@ -563,7 +575,7 @@ export function useChatMessages(
  * from the `notifications` table.
  */
 export function useUnreadChatCount(
-  userProfileId: string | null | undefined
+  userProfileId: string | null | undefined,
 ): UseQueryResult<number> {
   return useQuery({
     queryKey: ["chat-unread-count", userProfileId],
@@ -622,7 +634,7 @@ export const NOTIFICATION_CATEGORIES: NotificationCategory[] = [
  * to handle missing rows themselves.
  */
 export function useNotificationPreferences(
-  userProfileId: string | null | undefined
+  userProfileId: string | null | undefined,
 ): UseQueryResult<Map<NotificationCategory, NotificationPreferenceRow>> {
   return useQuery({
     queryKey: ["notification-preferences", userProfileId],
@@ -652,7 +664,7 @@ export function useNotificationPreferences(
  * RLS limits this to the parent's own children (migration 0027).
  */
 export function useStudentDocuments(
-  studentId: string | null | undefined
+  studentId: string | null | undefined,
 ): UseQueryResult<StudentDocumentRow[]> {
   return useQuery({
     queryKey: ["student-documents", studentId],
@@ -675,7 +687,7 @@ export function useStudentDocuments(
  * Useful for a "family documents" overview.
  */
 export function useAllStudentDocuments(
-  studentIds: string[]
+  studentIds: string[],
 ): UseQueryResult<StudentDocumentRow[]> {
   return useQuery({
     queryKey: ["student-documents-all", studentIds],
@@ -715,10 +727,14 @@ export function useAllStudentDocuments(
  */
 export function useInstallmentsForStudent(
   studentId: string | null | undefined,
-  options: { activeOnly?: boolean } = {}
+  options: { activeOnly?: boolean } = {},
 ): UseQueryResult<InstallmentRow[]> {
   return useQuery({
-    queryKey: ["installments-for-student", studentId, options.activeOnly ?? false],
+    queryKey: [
+      "installments-for-student",
+      studentId,
+      options.activeOnly ?? false,
+    ],
     queryFn: async () => {
       if (!studentId || !supabase) return [];
       // The full installment schedule for the child — every tranche the
@@ -765,7 +781,7 @@ export function useCurrentAcademicYear(): UseQueryResult<AcademicYearRow | null>
  * RLS: tenant-scoped via pricing_configs (0019).
  */
 export function useTransportDestination(
-  destinationId: string | null | undefined
+  destinationId: string | null | undefined,
 ): UseQueryResult<TransportDestinationRow | null> {
   return useQuery({
     queryKey: ["transport-destination", destinationId],
@@ -773,12 +789,66 @@ export function useTransportDestination(
       if (!destinationId || !supabase) return null;
       const { data, error } = await supabase
         .from("transport_destinations")
-        .select("id, code, label_fr, label_ar, annual_amount, tranche_1_amount, tranche_2_amount, tranche_3_amount, tranche_1_month, tranche_2_month, tranche_3_month")
+        .select(
+          "id, code, label_fr, label_ar, annual_amount, tranche_1_amount, tranche_2_amount, tranche_3_amount, tranche_1_month, tranche_2_month, tranche_3_month",
+        )
         .eq("id", destinationId)
         .maybeSingle();
       if (error) throw error;
       return (data as TransportDestinationRow) ?? null;
     },
     enabled: Boolean(destinationId),
+  });
+
+
+  
+
+}
+
+
+
+/* -------------------------------------------------------------------------- */
+/* Payment Coverage Allocations                                               */
+/* -------------------------------------------------------------------------- */
+
+export function usePaymentAllocations(
+  paymentId: string | null | undefined
+): UseQueryResult<PaymentAllocationRow[]> {
+  return useQuery({
+    queryKey: ["payment-allocations", paymentId],
+    queryFn: async () => {
+      if (!paymentId || !supabase) return [];
+      const { data, error } = await supabase
+        .from("payment_allocations")
+        .select("*")
+        .eq("payment_id", paymentId)
+        .order("created_at", { ascending: true });
+      if (error) throw error;
+      return (data ?? []) as PaymentAllocationRow[];
+    },
+    enabled: Boolean(paymentId),
+  });
+}
+
+/* -------------------------------------------------------------------------- */
+/* Student Academic History                                                   */
+/* -------------------------------------------------------------------------- */
+
+export function useStudentAcademicHistories(
+  studentId: string | null | undefined
+): UseQueryResult<StudentAcademicHistoryRow[]> {
+  return useQuery({
+    queryKey: ["student-academic-histories", studentId],
+    queryFn: async () => {
+      if (!studentId || !supabase) return [];
+      const { data, error } = await supabase
+        .from("student_academic_histories")
+        .select("*")
+        .eq("student_id", studentId)
+        .order("academic_year", { ascending: false });
+      if (error) throw error;
+      return (data ?? []) as StudentAcademicHistoryRow[];
+    },
+    enabled: Boolean(studentId),
   });
 }

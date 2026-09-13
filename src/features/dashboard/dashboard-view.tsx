@@ -1,34 +1,5 @@
 "use client";
 
-/**
- * DashboardView — the parent's home screen.
- *
- * RESTRUCTURED (session 8, 2026-08-30) around what the backend actually
- * holds. Live-data evidence that drove the change:
- *
- *   - The parent greeting used first_name + last_name, but the Excel
- *     import left first_name EMPTY on all 258 production rows → the
- *     greeting rendered a leading space. Now uses display_name first
- *     (formatParentName).
- *   - The old KPI grid devoted half its slots to attendance rate and
- *     average grade — but attendance_records/assessments are EMPTY in
- *     production, so parents saw two dead "—" tiles forever. The dashboard
- *     now leads with the four canonical financial KPIs (ledger replay,
- *     INV-1): outstanding, overdue, next installment, credit. Academic
- *     KPIs live in the Academic hub where the data lands.
- *
- * Sections (mobile-first vertical feed):
- *   1. Greeting (display_name) + financial restriction banner
- *   2. KPI grid — canonical financial health
- *   3. Children list (quick links to per-child views)
- *   4. Upcoming events (calendar_events)
- *   5. Recent announcements (notifications)
- *   6. Recent payments (payments)
- *
- * All data comes from Supabase via RLS-protected queries. If a query returns
- * empty, we render an honest EmptyState that explains WHY, never fake data.
- */
-
 import { useAuth } from "@/app/providers/auth-provider";
 import { useT } from "@/lib/i18n/use-t";
 import { useAppStore } from "@/lib/store/app-store";
@@ -98,41 +69,42 @@ export function DashboardView() {
   const setActiveView = useAppStore((s) => s.setActiveView);
   const setActiveStudentId = useAppStore((s) => s.setActiveStudentId);
 
-  const activeKid = kids.find((k) => k.id === activeStudentId) ?? kids[0] ?? null;
-  // Hoisted so the React Compiler can preserve the memoizations below.
+  const activeKid =
+    kids.find((k) => k.id === activeStudentId) ?? kids[0] ?? null;
   const parentId = parent?.id ?? null;
 
-  // Realtime: refresh notifications + financial data when the backend changes.
   useNotificationsRealtime();
   useFinancialRealtime(parentId);
 
-  // KPI data
-  const installments = useInstallments(parent?.id ?? null, { limit: 50 });
-  const payments = usePayments(parent?.id ?? null, { limit: 5 });
+  const installments = useInstallments(parentId, { limit: 50 });
+  const payments = usePayments(parentId, { limit: 5 });
   const events = useUpcomingEvents({ limit: 5 });
   const announcements = useNotifications(user?.id ?? null, { limit: 5 });
-  // Canonical balance source (INV-1) — ledger replay, identical to the
-  // desktop debt dashboard / backend compute_parent_summary RPC.
-  const ledgerEntries = useLedgerEntries(parentId) // T-035/WEAK-022: full ledger replay (paged) — a hard cap would corrupt the balance;
+  const ledgerEntries = useLedgerEntries(parentId);
 
-  // Canonical financial summary (ledger replay — never installment sums).
   const summary = useMemo(() => {
     if (!ledgerEntries.data || !parentId) return null;
     return portalFinancialSummary(ledgerEntries.data, parentId);
   }, [ledgerEntries.data, parentId]);
 
-  // Next upcoming installment (earliest unpaid)
   const nextInstallment = useMemo(() => {
     if (!installments.data) return null;
     const unpaid = installments.data
       .filter((i) => i.status !== "paid")
-      .sort((a, b) => new Date(a.due_date).getTime() - new Date(b.due_date).getTime());
+      .sort(
+        (a, b) =>
+          new Date(a.due_date).getTime() - new Date(b.due_date).getTime(),
+      );
     return unpaid[0] ?? null;
   }, [installments.data]);
 
   const hour = new Date().getHours();
   const greetingKey =
-    hour < 12 ? "dashboard.greeting.morning" : hour < 18 ? "dashboard.greeting.afternoon" : "dashboard.greeting.evening";
+    hour < 12
+      ? "dashboard.greeting.morning"
+      : hour < 18
+        ? "dashboard.greeting.afternoon"
+        : "dashboard.greeting.evening";
 
   const handleRefresh = async () => {
     await Promise.all([
@@ -146,30 +118,35 @@ export function DashboardView() {
 
   return (
     <PullToRefresh onRefresh={handleRefresh}>
-      <div className="mx-auto max-w-5xl space-y-6 px-4 py-5">
-        {/* Greeting — display_name first (first_name is empty on all
-            production rows; the old join rendered a leading space). */}
-        <div>
-          <p className="text-sm text-muted-foreground">{t(greetingKey)}</p>
-          <h1 className="mt-0.5 text-xl font-semibold">
-            {parent ? formatParentName(parent) : t("app.name")}
-          </h1>
+      <div className="mx-auto max-w-7xl space-y-8 px-4 py-6 md:py-10">
+        {/* Header Section */}
+        <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
+          <div>
+            <p className="text-sm font-medium text-primary uppercase tracking-wider">
+              {t(greetingKey)}
+            </p>
+            <h1 className="mt-1 text-3xl font-bold tracking-tight text-foreground">
+              {parent ? formatParentName(parent) : t("app.name")}
+            </h1>
+          </div>
+          {parent?.is_financially_restricted && (
+            <div className="flex items-start gap-3 rounded-lg border border-warning/50 bg-warning/10 p-3 max-w-md shadow-sm">
+              <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-warning" />
+              <div>
+                <p className="text-sm font-bold text-warning">
+                  {t("finance.restrictions.title")}
+                </p>
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  {t("finance.restrictions.body")}
+                </p>
+              </div>
+            </div>
+          )}
         </div>
 
-        {/* Financial restriction banner */}
-        {parent?.is_financially_restricted && (
-          <div className="flex items-start gap-3 rounded-lg border border-warning/40 bg-warning/10 p-3 text-sm">
-            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-warning" />
-            <div className="flex-1">
-              <p className="font-medium text-warning">{t("finance.restrictions.title")}</p>
-              <p className="mt-1 text-muted-foreground">{t("finance.restrictions.body")}</p>
-            </div>
-          </div>
-        )}
-
-        {/* KPI grid — canonical financial health (ledger replay, INV-1) */}
+        {/* Financial KPIs - Large Grid */}
         {ledgerEntries.isLoading ? (
-          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
             {Array.from({ length: 4 }).map((_, i) => (
               <KpiSkeleton key={i} />
             ))}
@@ -181,12 +158,12 @@ export function DashboardView() {
             onRetry={() => ledgerEntries.refetch()}
           />
         ) : (
-          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
             <KpiCard
               label={t("kpi.balanceDue")}
               value={formatCurrency(summary?.outstanding ?? 0)}
               tone={(summary?.outstanding ?? 0) > 0 ? "danger" : "success"}
-              icon={<Wallet className="h-5 w-5" />}
+              icon={<Wallet className="h-6 w-6" />}
               hint={
                 (summary?.outstanding ?? 0) > 0
                   ? t("finance.balance.outstandingHint")
@@ -198,7 +175,7 @@ export function DashboardView() {
               label={t("finance.balance.overdue")}
               value={formatCurrency(summary?.overdue ?? 0)}
               tone={(summary?.overdue ?? 0) > 0 ? "danger" : "success"}
-              icon={<AlertTriangle className="h-5 w-5" />}
+              icon={<AlertTriangle className="h-6 w-6" />}
               hint={
                 (summary?.overdue ?? 0) > 0
                   ? t("finance.balance.overdueHint")
@@ -220,7 +197,7 @@ export function DashboardView() {
                     : "info"
                   : "success"
               }
-              icon={<CalendarClock className="h-5 w-5" />}
+              icon={<CalendarClock className="h-6 w-6" />}
               hint={
                 nextInstallment
                   ? formatDate(nextInstallment.due_date)
@@ -232,7 +209,7 @@ export function DashboardView() {
               label={t("finance.balance.credit")}
               value={formatCurrency(Math.abs(summary?.unallocatedCredit ?? 0))}
               tone={(summary?.unallocatedCredit ?? 0) < 0 ? "info" : "default"}
-              icon={<PiggyBank className="h-5 w-5" />}
+              icon={<PiggyBank className="h-6 w-6" />}
               hint={
                 (summary?.unallocatedCredit ?? 0) < 0
                   ? t("finance.balance.creditHint")
@@ -243,184 +220,200 @@ export function DashboardView() {
           </div>
         )}
 
-        {/* Children */}
-        {kids.length > 1 && (
-          <section className="space-y-3">
-            <SectionHeader title={t("dashboard.section.children")} />
-            <StudentSwitcher />
-          </section>
-        )}
+        {/* 3-Column Desktop Layout */}
+        <div className="grid grid-cols-1 gap-8 xl:grid-cols-3">
+          {/* Column 1: Children & Activity */}
+          <div className="space-y-8 xl:col-span-1">
+            <section className="space-y-4">
+              <SectionHeader title={t("dashboard.section.children")} />
+              {kids.length > 1 ? (
+                <div className="grid gap-3">
+                  {kids.map((kid) => (
+                    <SingleChildCard key={kid.id} kid={kid} />
+                  ))}
+                </div>
+              ) : activeKid ? (
+                <SingleChildCard kid={activeKid} />
+              ) : null}
+            </section>
 
-        {/* Two-column layout on desktop. T-199/UI-300: the base `grid-cols-1`
-            is MANDATORY — without it the implicit grid track sizes to
-            max-content (the untruncated CardListItem text) and the page
-            scrolls horizontally by ~900px on mobile. grid-cols-1 =
-            repeat(1, minmax(0, 1fr)); the 0-min track is what prevents
-            the blowout. */}
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-          {/* Upcoming events */}
-          <section className="space-y-3">
-            <SectionHeader
-              title={t("dashboard.section.upcoming")}
-              action={
-                <button
-                  onClick={() => setActiveView("calendar")}
-                  className="text-xs text-primary hover:underline"
-                >
-                  {t("dashboard.viewAll")}
-                </button>
-              }
-            />
-            {events.isLoading ? (
-              <ListSkeleton count={3} />
-            ) : events.data && events.data.length > 0 ? (
-              <div className="space-y-2">
-                {events.data.map((ev) => (
-                  <CardListItem
-                    key={ev.id}
-                    leading={
-                      <div className="flex h-10 w-10 flex-col items-center justify-center rounded-lg bg-info/10 text-info">
-                        <CalendarDays className="h-4 w-4" />
-                      </div>
-                    }
-                    title={ev.title}
-                    subtitle={`${formatDate(ev.start_at, { withTime: !ev.all_day })}${ev.location ? ` • ${ev.location}` : ""}`}
-                    trailing={
-                      /* T-203/UI-304: localized label via the canonical map
-                          (was the raw English enum: {ev.kind} → "meeting").
-                          The mapping + payment→deadline label convention are
-                          shared with the calendar view (event-kind.ts). */
-                      <StatusPill tone="info">
-                        {t(eventKindLabelKey(ev.kind))}
-                      </StatusPill>
-                    }
-                  />
-                ))}
-              </div>
-            ) : (
-              <EmptyState
-                title={t("dashboard.empty.noUpcoming")}
-                description={t("dashboard.empty.noUpcomingBody")}
-                icon={<CalendarDays className="h-6 w-6" />}
+            <section className="space-y-4">
+              <SectionHeader
+                title={t("dashboard.section.recent")}
+                action={
+                  <button
+                    onClick={() => setActiveView("finance")}
+                    className="text-sm font-medium text-primary hover:underline"
+                  >
+                    {t("dashboard.viewAll")}
+                  </button>
+                }
               />
-            )}
-          </section>
-
-          {/* Announcements */}
-          <section className="space-y-3">
-            <SectionHeader
-              title={t("dashboard.section.announcements")}
-              action={
-                <button
-                  onClick={() => setActiveView("notifications")}
-                  className="text-xs text-primary hover:underline"
-                >
-                  {t("dashboard.viewAll")}
-                </button>
-              }
-            />
-            {announcements.isLoading ? (
-              <ListSkeleton count={3} />
-            ) : announcements.data && announcements.data.length > 0 ? (
-              <div className="space-y-2">
-                {announcements.data.slice(0, 4).map((n) => (
-                  <CardListItem
-                    key={n.id}
-                    leading={
-                      <div
-                        className={cn(
-                          "flex h-10 w-10 items-center justify-center rounded-lg",
-                          n.priority === "urgent"
-                            ? "bg-destructive/15 text-destructive"
-                            : n.priority === "high"
-                              ? "bg-warning/15 text-warning"
-                              : "bg-info/15 text-info"
-                        )}
-                      >
-                        {n.priority === "urgent" ? <AlertTriangle className="h-4 w-4" /> : <MessageSquare className="h-4 w-4" />}
-                      </div>
-                    }
-                    title={n.title}
-                    subtitle={n.body ?? formatRelative(n.triggered_at)}
-                    trailing={
-                      <span className="text-xs text-muted-foreground">
-                        {formatRelative(n.triggered_at)}
-                      </span>
-                    }
-                  />
-                ))}
-              </div>
-            ) : (
-              <EmptyState
-                title={t("dashboard.empty.noAnnouncements")}
-                description={t("dashboard.empty.noAnnouncementsBody")}
-                icon={<MessageSquare className="h-6 w-6" />}
-              />
-            )}
-          </section>
-        </div>
-
-        {/* Recent payments */}
-        <section className="space-y-3">
-          <SectionHeader
-            title={t("dashboard.section.recent")}
-            action={
-              <button
-                onClick={() => setActiveView("finance")}
-                className="text-xs text-primary hover:underline"
-              >
-                {t("dashboard.viewAll")}
-              </button>
-            }
-          />
-          {payments.isLoading ? (
-            <ListSkeleton count={3} />
-          ) : payments.data && payments.data.length > 0 ? (
-            <div className="space-y-2">
-              {payments.data.map((p) => (
-                <CardListItem
-                  key={p.id}
-                  leading={
-                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-success/10 text-success">
-                      <Receipt className="h-4 w-4" />
-                    </div>
-                  }
-                  title={formatCurrency(p.amount)}
-                  subtitle={`${t(`finance.payment.method.${p.method}`)} • ${formatDate(p.collected_at)}`}
-                  trailing={
-                    <StatusPill tone="success">{t("finance.status.paid")}</StatusPill>
-                  }
-                  onClick={() => setActiveView("finance")}
+              {payments.isLoading ? (
+                <ListSkeleton count={3} />
+              ) : payments.data && payments.data.length > 0 ? (
+                <div className="space-y-3">
+                  {payments.data.map((p) => (
+                    <CardListItem
+                      key={p.id}
+                      leading={
+                        <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-success/15 text-success">
+                          <Receipt className="h-5 w-5" />
+                        </div>
+                      }
+                      title={
+                        <span className="font-mono text-base font-bold">
+                          {formatCurrency(p.amount)}
+                        </span>
+                      }
+                      subtitle={`${t(`finance.payment.method.${p.method}`)} • ${formatDate(p.collected_at)}`}
+                      trailing={
+                        <StatusPill tone="success">
+                          {t("finance.status.paid")}
+                        </StatusPill>
+                      }
+                      onClick={() => setActiveView("finance")}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <EmptyState
+                  title={t("finance.empty.noPayments")}
+                  description={t("finance.empty.noPaymentsBody")}
+                  icon={<Receipt className="h-8 w-8" />}
                 />
-              ))}
-            </div>
-          ) : (
-            <EmptyState
-              title={t("finance.empty.noPayments")}
-              description={t("finance.empty.noPaymentsBody")}
-              icon={<Receipt className="h-6 w-6" />}
-            />
-          )}
-        </section>
+              )}
+            </section>
+          </div>
 
-        {/* Children cards (when only 1, show full profile card; multi handled above).
-            T-213: the card carries the child's level · class + enrollment
-            status (the dashboard was name + code only — the owner's
-            "not enough detailed information about the parents' children"
-            applied portal-wide, and this is the first screen parents see). */}
-        {kids.length === 1 && activeKid && (
-          <section className="space-y-3">
-            <SectionHeader title={t("dashboard.section.children")} />
-            <SingleChildCard kid={activeKid} />
-          </section>
-        )}
+          {/* Column 2 & 3: Events and Announcements */}
+          <div className="space-y-8 xl:col-span-2">
+            <div className="grid grid-cols-1 gap-8 md:grid-cols-2">
+              <section className="space-y-4">
+                <SectionHeader
+                  title={t("dashboard.section.upcoming")}
+                  action={
+                    <button
+                      onClick={() => setActiveView("calendar")}
+                      className="text-sm font-medium text-primary hover:underline"
+                    >
+                      {t("dashboard.viewAll")}
+                    </button>
+                  }
+                />
+                {events.isLoading ? (
+                  <ListSkeleton count={4} />
+                ) : events.data && events.data.length > 0 ? (
+                  <div className="space-y-3">
+                    {events.data.map((ev) => (
+                      <CardListItem
+                        key={ev.id}
+                        className="py-4 shadow-sm"
+                        leading={
+                          <div className="flex h-12 w-12 flex-col items-center justify-center rounded-xl bg-primary/10 text-primary">
+                            <CalendarDays className="h-5 w-5" />
+                          </div>
+                        }
+                        title={
+                          <span className="text-base font-semibold">
+                            {ev.title}
+                          </span>
+                        }
+                        subtitle={
+                          <span className="text-sm mt-1 block">
+                            {formatDate(ev.start_at, { withTime: !ev.all_day })}
+                            {ev.location ? ` • ${ev.location}` : ""}
+                          </span>
+                        }
+                        trailing={
+                          <StatusPill tone="info" className="text-xs">
+                            {t(eventKindLabelKey(ev.kind))}
+                          </StatusPill>
+                        }
+                      />
+                    ))}
+                  </div>
+                ) : (
+                  <EmptyState
+                    title={t("dashboard.empty.noUpcoming")}
+                    description={t("dashboard.empty.noUpcomingBody")}
+                    icon={<CalendarDays className="h-8 w-8" />}
+                  />
+                )}
+              </section>
+
+              <section className="space-y-4">
+                <SectionHeader
+                  title={t("dashboard.section.announcements")}
+                  action={
+                    <button
+                      onClick={() => setActiveView("notifications")}
+                      className="text-sm font-medium text-primary hover:underline"
+                    >
+                      {t("dashboard.viewAll")}
+                    </button>
+                  }
+                />
+                {announcements.isLoading ? (
+                  <ListSkeleton count={4} />
+                ) : announcements.data && announcements.data.length > 0 ? (
+                  <div className="space-y-3">
+                    {announcements.data.slice(0, 5).map((n) => (
+                      <CardListItem
+                        key={n.id}
+                        className="py-4 shadow-sm"
+                        leading={
+                          <div
+                            className={cn(
+                              "flex h-12 w-12 items-center justify-center rounded-xl",
+                              n.priority === "urgent"
+                                ? "bg-destructive/15 text-destructive"
+                                : n.priority === "high"
+                                  ? "bg-warning/15 text-warning"
+                                  : "bg-info/15 text-info",
+                            )}
+                          >
+                            {n.priority === "urgent" ? (
+                              <AlertTriangle className="h-5 w-5" />
+                            ) : (
+                              <MessageSquare className="h-5 w-5" />
+                            )}
+                          </div>
+                        }
+                        title={
+                          <span className="text-base font-semibold">
+                            {n.title}
+                          </span>
+                        }
+                        subtitle={
+                          <span className="text-sm mt-1 line-clamp-2">
+                            {n.body ?? formatRelative(n.triggered_at)}
+                          </span>
+                        }
+                        trailing={
+                          <span className="text-xs font-medium text-muted-foreground whitespace-nowrap ml-2">
+                            {formatRelative(n.triggered_at)}
+                          </span>
+                        }
+                      />
+                    ))}
+                  </div>
+                ) : (
+                  <EmptyState
+                    title={t("dashboard.empty.noAnnouncements")}
+                    description={t("dashboard.empty.noAnnouncementsBody")}
+                    icon={<MessageSquare className="h-8 w-8" />}
+                  />
+                )}
+              </section>
+            </div>
+          </div>
+        </div>
       </div>
     </PullToRefresh>
   );
 }
 
-/** T-213 — the single-child dashboard card: name, code, level · class and
- *  the enrollment-status pill, tapping through to the academic view. */
 function SingleChildCard({ kid }: { kid: StudentRow }) {
   const { t } = useT();
   const setActiveStudentId = useAppStore((s) => s.setActiveStudentId);
@@ -431,41 +424,45 @@ function SingleChildCard({ kid }: { kid: StudentRow }) {
 
   return (
     <Card
-      className="cursor-pointer border-border/60 card-hover"
+      className="cursor-pointer border-border/60 shadow-sm hover:border-primary/40 hover:shadow-md transition-all group"
       onClick={() => {
         setActiveStudentId(kid.id);
-        setActiveView("academic");
+        setActiveView("profile");
       }}
     >
-      <CardContent className="flex items-center gap-4 p-4">
-        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-primary/15 text-primary">
-          <GraduationCap className="h-6 w-6" />
+      <CardContent className="flex items-center gap-4 p-5">
+        <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
+          <GraduationCap className="h-7 w-7" />
         </div>
         <div className="min-w-0 flex-1">
-          <p className="truncate font-medium">{formatFullName(kid)}</p>
-          <p className="truncate text-xs text-muted-foreground">
+          <p className="truncate font-bold text-lg text-foreground">
+            {formatFullName(kid)}
+          </p>
+          <p className="truncate text-xs font-mono text-muted-foreground mt-0.5">
             {kid.student_code}
           </p>
           {levelClass && (
-            <p className="mt-0.5 truncate text-xs font-medium text-primary/90">
+            <p className="mt-1.5 truncate text-sm font-medium text-primary/90">
               {levelClass}
             </p>
           )}
         </div>
-        <div className="flex shrink-0 flex-col items-end gap-1">
+        <div className="flex shrink-0 flex-col items-end gap-2">
           {kid.enrollment_status && (
             <span
-              className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${
+              className={cn(
+                "rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider border",
                 enrollmentStatusTone[kid.enrollment_status] ??
-                "bg-muted text-muted-foreground"
-              }`}
+                  "bg-muted text-muted-foreground border-border",
+              )}
             >
               {t(
-                enrollmentStatusLabels[kid.enrollment_status] ?? "student.status.enrolled",
+                enrollmentStatusLabels[kid.enrollment_status] ??
+                  "student.status.enrolled",
               )}
             </span>
           )}
-          <ChevronRight className="h-4 w-4 text-muted-foreground" />
+          <ChevronRight className="h-5 w-5 text-muted-foreground group-hover:text-primary transition-colors" />
         </div>
       </CardContent>
     </Card>

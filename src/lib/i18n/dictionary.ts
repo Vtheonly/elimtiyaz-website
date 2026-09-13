@@ -30,7 +30,8 @@ const fr: Dict = {
 
   // Auth
   "auth.signin.title": "Bienvenue sur le portail El-Imtiyaz",
-  "auth.signin.subtitle": "Connectez-vous avec votre compte Google pour accéder à votre espace.",
+  "auth.signin.subtitle":
+    "Connectez-vous avec votre compte Google pour accéder à votre espace.",
   "auth.signin.google": "Se connecter avec Google",
   "auth.signin.secure": "Connexion sécurisée via Supabase Auth",
   "auth.signin.help": "Besoin d'aide ? Contactez l'administration de l'école.",
@@ -52,7 +53,8 @@ const fr: Dict = {
   "activation.pending.body":
     "Votre compte a été créé avec succès, mais il est en attente d'activation par l'administration de l'établissement. " +
     "Une fois activé, vous aurez automatiquement accès à vos informations et à celles de vos enfants.",
-  "activation.pending.contact": "Veuillez contacter l'administration de votre école pour finaliser l'activation.",
+  "activation.pending.contact":
+    "Veuillez contacter l'administration de votre école pour finaliser l'activation.",
   "activation.pending.signout": "Se déconnecter",
   "activation.suspended.title": "Votre compte a été suspendu",
   "activation.suspended.body":
@@ -82,11 +84,14 @@ const fr: Dict = {
   "dashboard.section.balance": "Solde du compte",
   "dashboard.section.announcements": "Annonces",
   "dashboard.viewAll": "Tout voir",
-  "dashboard.empty.noChildren": "Aucun enfant n'est encore rattaché à votre compte.",
+  "dashboard.empty.noChildren":
+    "Aucun enfant n'est encore rattaché à votre compte.",
   "dashboard.empty.noUpcoming": "Aucun événement à venir.",
-  "dashboard.empty.noUpcomingBody": "Les événements publiés par l'établissement apparaîtront ici.",
+  "dashboard.empty.noUpcomingBody":
+    "Les événements publiés par l'établissement apparaîtront ici.",
   "dashboard.empty.noAnnouncements": "Aucune annonce pour le moment.",
-  "dashboard.empty.noAnnouncementsBody": "Les annonces de l'administration destinées aux parents apparaîtront ici.",
+  "dashboard.empty.noAnnouncementsBody":
+    "Les annonces de l'administration destinées aux parents apparaîtront ici.",
 
   // KPI labels
   "kpi.balanceDue": "Solde dû",
@@ -137,7 +142,8 @@ const fr: Dict = {
   "enrollments.title": "Inscriptions et services",
   "enrollments.academicYear": "Année scolaire",
   "enrollments.services": "Services inscrits",
-  "enrollments.servicesEmpty": "Aucun service inscrit pour le moment (scolarité hors périmètre).",
+  "enrollments.servicesEmpty":
+    "Aucun service inscrit pour le moment (scolarité hors périmètre).",
   "enrollments.feeSchedule": "Échéancier des frais",
   "enrollments.feeScheduleEmpty": "Aucun échéancier pour le moment.",
   "enrollments.destination": "Destination",
@@ -145,8 +151,6 @@ const fr: Dict = {
   "enrollments.service.club": "Club",
   "enrollments.service.psychotherapy": "Psychothérapie",
   "enrollments.service.rattrapage": "Rattrapage",
-
-
 
   // Attendance
   "attendance.title": "Absences et retards",
@@ -201,7 +205,8 @@ const fr: Dict = {
   "finance.balance.outstanding": "Solde à payer",
   "finance.balance.outstandingHint": "Montant total restant à régler",
   "finance.balance.overdue": "En retard",
-  "finance.balance.overdueHint": "Échéances dépassées — contactez l'administration",
+  "finance.balance.overdueHint":
+    "Échéances dépassées — contactez l'administration",
   "finance.balance.noOverdue": "Aucun retard",
   "finance.balance.paidHint": "Total encaissé à ce jour",
   "finance.balance.pendingHint": "{amount} en attente de compensation",
@@ -238,9 +243,11 @@ const fr: Dict = {
   "finance.payment.transferBank": "Banque émettrice",
   "finance.payment.openProof": "Ouvrir le justificatif",
   "finance.empty.noPayments": "Aucun paiement enregistré pour le moment.",
-  "finance.empty.noPaymentsBody": "Les paiements encaissés au comptoir par l'établissement apparaîtront ici.",
+  "finance.empty.noPaymentsBody":
+    "Les paiements encaissés au comptoir par l'établissement apparaîtront ici.",
   "finance.empty.noInstallments": "Aucune échéance à afficher.",
-  "finance.empty.noInstallmentsBody": "L'établissement n'a pas encore publié d'échéancier pour votre famille.",
+  "finance.empty.noInstallmentsBody":
+    "L'établissement n'a pas encore publié d'échéancier pour votre famille.",
   "finance.status.paid": "Payé",
   "finance.status.partial": "Partiel",
   "finance.status.unpaid": "Non payé",
@@ -260,9 +267,11 @@ const fr: Dict = {
   "finance.adjustment.date": "Date",
   "finance.adjustment.note": "Note de l'administration",
   "finance.adjustment.empty": "Aucun ajustement enregistré.",
-  "finance.adjustment.emptyBody": "Les remises et régularisations accordées par l'administration apparaîtront ici.",
+  "finance.adjustment.emptyBody":
+    "Les remises et régularisations accordées par l'administration apparaîtront ici.",
   "finance.billing": "Facturation",
-  "finance.billing.intro": "Décomposition du prix : ce qui a été facturé pour chaque enfant, service par service, et où en sont les échéances.",
+  "finance.billing.intro":
+    "Décomposition du prix : ce qui a été facturé pour chaque enfant, service par service, et où en sont les échéances.",
   "finance.billing.perChild": "Par enfant",
   "finance.billing.perService": "Par service",
   "finance.billing.items": "Articles & prestations souscrites",
@@ -270,7 +279,8 @@ const fr: Dict = {
   "finance.billing.year": "Année scolaire",
   "finance.billing.tranches": "Échéancier",
   "finance.billing.noCharges": "Aucune facturation enregistrée.",
-  "finance.billing.noChargesBody": "Les prestations facturées par l'établissement apparaîtront ici.",
+  "finance.billing.noChargesBody":
+    "Les prestations facturées par l'établissement apparaîtront ici.",
   "finance.billing.share": "du total",
   "finance.billing.subtotal": "Sous-total",
   "finance.billing.familyItems": "Famille — éléments non rattachés à un enfant",
@@ -282,7 +292,8 @@ const fr: Dict = {
   "finance.billing.recon.cleared": "− Encaissé confirmé",
   "finance.billing.recon.pending": "− En attente (chèque / virement)",
   "finance.billing.recon.remaining": "= Reste net",
-  "finance.billing.recon.bridge": "± Pont — autres écritures (remboursements, contrepassations)",
+  "finance.billing.recon.bridge":
+    "± Pont — autres écritures (remboursements, contrepassations)",
   "finance.billing.recon.server": "Solde du compte (source : serveur)",
   "finance.adjustment.reason.sibling_discount": "Remise fratrie",
   "finance.adjustment.reason.staff_family": "Famille du personnel",
@@ -306,11 +317,13 @@ const fr: Dict = {
 
   // Ledger statement (source of truth — INV-1)
   "finance.ledger.title": "Relevé",
-  "finance.ledger.intro": "Relevé de compte complet : chaque facturation, paiement et ajustement dans l'ordre chronologique, avec le solde progressif — exactement comme le calcule l'établissement.",
+  "finance.ledger.intro":
+    "Relevé de compte complet : chaque facturation, paiement et ajustement dans l'ordre chronologique, avec le solde progressif — exactement comme le calcule l'établissement.",
   "finance.ledger.balance": "solde",
   "finance.ledger.running": "Solde",
   "finance.ledger.empty.title": "Aucune écriture au relevé",
-  "finance.ledger.empty.body": "Les écritures de votre compte (facturations, paiements, ajustements) apparaîtront ici.",
+  "finance.ledger.empty.body":
+    "Les écritures de votre compte (facturations, paiements, ajustements) apparaîtront ici.",
   "finance.ledger.type.charge": "Facturation",
   "finance.ledger.type.payment": "Paiement",
   "finance.ledger.type.adjustment": "Ajustement",
@@ -339,13 +352,17 @@ const fr: Dict = {
   "messages.placeholder": "Écrivez votre message…",
   "messages.fromSchool": "De l'école",
   "messages.convocation": "Convocation",
-  "messages.convocation.notice": "Convocation officielle de la direction — votre présence est requise. Veuillez contacter l'administration pour confirmer.",
+  "messages.convocation.notice":
+    "Convocation officielle de la direction — votre présence est requise. Veuillez contacter l'administration pour confirmer.",
   // T-149 (ADR-012) — the parent-initiated administration channel.
   "messages.contactAdmin": "Contacter l'administration",
   "messages.contactAdmin.opening": "Ouverture de la conversation…",
-  "messages.contactAdmin.body": "Posez vos questions et consultez les rapports scolaires directement avec l'administration.",
-  "messages.contactAdmin.success": "Conversation avec l'administration ouverte.",
-  "messages.contactAdmin.error": "Impossible d'ouvrir la conversation. Veuillez réessayer.",
+  "messages.contactAdmin.body":
+    "Posez vos questions et consultez les rapports scolaires directement avec l'administration.",
+  "messages.contactAdmin.success":
+    "Conversation avec l'administration ouverte.",
+  "messages.contactAdmin.error":
+    "Impossible d'ouvrir la conversation. Veuillez réessayer.",
 
   // Notifications
   "notifications.title": "Notifications",
@@ -393,7 +410,8 @@ const fr: Dict = {
   "common.search": "Rechercher",
   "common.error.title": "Une erreur est survenue",
   "common.error.network": "Problème de connexion. Vérifiez votre réseau.",
-  "common.error.unknown": "Veuillez réessayer. Si le problème persiste, contactez l'administration.",
+  "common.error.unknown":
+    "Veuillez réessayer. Si le problème persiste, contactez l'administration.",
   "common.empty.title": "Rien à afficher",
   "common.tryAgain": "Réessayer",
   "common.syncing": "Synchronisation…",
@@ -412,19 +430,25 @@ const fr: Dict = {
   "activation.code.success.body":
     "Votre compte est maintenant lié à votre dossier familial. " +
     "L'administration va finaliser l'activation. Vous pouvez rafraîchir cette page.",
-  "activation.code.error.invalid": "Code d'activation invalide ou déjà utilisé.",
-  "activation.code.error.expired": "Ce code d'activation a expiré. Veuillez en demander un nouveau à l'administration.",
+  "activation.code.error.invalid":
+    "Code d'activation invalide ou déjà utilisé.",
+  "activation.code.error.expired":
+    "Ce code d'activation a expiré. Veuillez en demander un nouveau à l'administration.",
   // T-153 (ACT-200) — precise bind-failure messages (mapped by the EF's error code).
-  "activation.code.error.suspended": "Ce compte est suspendu. Veuillez contacter l'administration de l'école.",
-  "activation.code.error.session": "Session invalide. Veuillez vous reconnecter, puis réessayer.",
-  "activation.code.error.bound": "Ce dossier familial est déjà lié à un autre compte. Veuillez contacter l'administration.",
+  "activation.code.error.suspended":
+    "Ce compte est suspendu. Veuillez contacter l'administration de l'école.",
+  "activation.code.error.session":
+    "Session invalide. Veuillez vous reconnecter, puis réessayer.",
+  "activation.code.error.bound":
+    "Ce dossier familial est déjà lié à un autre compte. Veuillez contacter l'administration.",
   // T-187 (ACT-204) — fetch-level failure (network / CORS block / offline):
   // no HTTP response exists, so mapActivationError never runs; the generic
   // key misled users during the ACT-201/ACT-203 era.
   "activation.code.error.network":
     "Impossible de joindre le serveur. Vérifiez votre connexion internet, puis réessayez. " +
     "Si le problème persiste, contactez l'administration.",
-  "activation.code.error.generic": "Impossible d'activer le compte. Veuillez réessayer.",
+  "activation.code.error.generic":
+    "Impossible d'activer le compte. Veuillez réessayer.",
   "activation.code.haveCode": "J'ai déjà un code d'activation",
   "activation.code.dontHaveCode": "Je n'ai pas de code d'activation",
   "activation.code.adminApproval": "Demander l'activation par l'administration",
@@ -512,9 +536,29 @@ const fr: Dict = {
   "common.loading": "Chargement…",
   "common.success": "Succès",
   "common.failed": "Échec",
+
+  "student.dossier.view": "Voir le dossier complet",
+  "student.history.title": "Historique Scolaire",
+  "student.history.empty": "Aucun historique scolaire.",
+  "student.notes.title": "Notes Médicales & Observations",
+  "student.notes.empty": "Aucune observation enregistrée.",
+  "finance.payment.coverage": "Détails de la couverture",
+  "finance.payment.expectedAmount": "Montant attendu (Facturé)",
+  "finance.payment.excessAmount": "Trop-perçu (Crédit parent)",
+  "finance.payment.allocationsEmpty": "Aucune allocation détaillée trouvée.",
 };
 
 const ar: Dict = {
+  "student.dossier.view": "عرض الملف الكامل",
+  "student.history.title": "المسار الدراسي السابق",
+  "student.history.empty": "لا يوجد مسار دراسي مسجل.",
+  "student.notes.title": "ملاحظات طبية وإدارية",
+  "student.notes.empty": "لا توجد ملاحظات مسجلة.",
+  "finance.payment.coverage": "تفاصيل التغطية",
+  "finance.payment.expectedAmount": "المبلغ المتوقع (مفوتر)",
+  "finance.payment.excessAmount": "فائض (رصيد الوالد)",
+  "finance.payment.allocationsEmpty": "لم يتم العثور على تفاصيل التغطية.",
+
   "app.name": "الإمتياز",
   "app.tagline": "فضاء الأولياء والتلاميذ",
   "app.loading": "جارٍ التحميل…",
@@ -543,9 +587,6 @@ const ar: Dict = {
   "nav.attendance": "الغيابات",
   "nav.homework": "الواجبات",
   "nav.calendar": "الأجندة",
-
-
-
 
   "finance.status.paid": "مدفوع",
   "finance.status.partial": "جزئي",
@@ -588,7 +629,8 @@ const ar: Dict = {
   "dashboard.empty.noUpcoming": "لا توجد أحداث قادمة.",
   "dashboard.empty.noUpcomingBody": "ستظهر هنا الأحداث التي تنشرها المؤسسة.",
   "dashboard.empty.noAnnouncements": "لا توجد إعلانات حالياً.",
-  "dashboard.empty.noAnnouncementsBody": "ستظهر هنا إعلانات الإدارة الموجهة لأولياء الأمور.",
+  "dashboard.empty.noAnnouncementsBody":
+    "ستظهر هنا إعلانات الإدارة الموجهة لأولياء الأمور.",
 
   // KPIs (complete)
   "kpi.balanceDue": "الرصيد المستحق",
@@ -648,8 +690,6 @@ const ar: Dict = {
   "enrollments.service.psychotherapy": "العلاج النفسي",
   "enrollments.service.rattrapage": "الدعم والاستدراك",
 
-
-
   // Attendance (complete)
   "attendance.title": "الغيابات والتأخيرات",
   "attendance.summary.present": "الحضور",
@@ -678,7 +718,8 @@ const ar: Dict = {
   "finance.balance.outstanding": "الرصيد المستحق",
   "finance.balance.outstandingHint": "المبلغ الإجمالي المتبقي للسداد",
   "finance.balance.overdue": "متأخر",
-  "finance.balance.overdueHint": "أقساط متجاوزة الاستحقاق — يرجى الاتصال بالإدارة",
+  "finance.balance.overdueHint":
+    "أقساط متجاوزة الاستحقاق — يرجى الاتصال بالإدارة",
   "finance.balance.noOverdue": "لا يوجد تأخير",
   "finance.balance.paidHint": "إجمالي المحصّل حتى الآن",
   "finance.balance.pendingHint": "{amount} في انتظار المقاصة",
@@ -717,7 +758,8 @@ const ar: Dict = {
   "finance.empty.noPayments": "لا توجد مدفوعات مسجلة حالياً.",
   "finance.empty.noPaymentsBody": "ستظهر هنا المدفوعات التي يحصّلها المؤسسة.",
   "finance.empty.noInstallments": "لا توجد أقساط لعرضها.",
-  "finance.empty.noInstallmentsBody": "لم تنشر المؤسسة بعد جدول أقساط لعائلتكم.",
+  "finance.empty.noInstallmentsBody":
+    "لم تنشر المؤسسة بعد جدول أقساط لعائلتكم.",
 
   // Finance additions
   "finance.status.due": "الاستحقاق",
@@ -730,9 +772,11 @@ const ar: Dict = {
   "finance.adjustment.date": "التاريخ",
   "finance.adjustment.note": "ملاحظة الإدارة",
   "finance.adjustment.empty": "لا توجد تسويات مسجلة.",
-  "finance.adjustment.emptyBody": "ستظهر هنا الخصومات والتسويات التي تمنحها الإدارة.",
+  "finance.adjustment.emptyBody":
+    "ستظهر هنا الخصومات والتسويات التي تمنحها الإدارة.",
   "finance.billing": "الفاتورة",
-  "finance.billing.intro": "تفصيل السعر: ما تمت فوترته لكل طفل، خدمة بخدمة، وحالة الأقساط.",
+  "finance.billing.intro":
+    "تفصيل السعر: ما تمت فوترته لكل طفل، خدمة بخدمة، وحالة الأقساط.",
   "finance.billing.perChild": "حسب الطفل",
   "finance.billing.perService": "حسب الخدمة",
   "finance.billing.items": "المواد والخدمات المشتركة",
@@ -752,7 +796,8 @@ const ar: Dict = {
   "finance.billing.recon.cleared": "− المدفوع المؤكد",
   "finance.billing.recon.pending": "− في الانتظار (شيك / تحويل)",
   "finance.billing.recon.remaining": "= المتبقي الصافي",
-  "finance.billing.recon.bridge": "± جسر — كتابات أخرى (استردادات، مقابل كتابات)",
+  "finance.billing.recon.bridge":
+    "± جسر — كتابات أخرى (استردادات، مقابل كتابات)",
   "finance.billing.recon.server": "رصيد الحساب (المصدر: الخادم)",
   "finance.adjustment.reason.sibling_discount": "خصم الإخوة",
   "finance.adjustment.reason.staff_family": "عائلة الموظف",
@@ -776,11 +821,13 @@ const ar: Dict = {
 
   // Ledger statement (source of truth — INV-1)
   "finance.ledger.title": "كشف الحساب",
-  "finance.ledger.intro": "كشف حساب كامل: كل عملية فوترة ودفع وتسوية بترتيب زمني مع الرصيد التراكمي — تماماً كما تحسبه المؤسسة.",
+  "finance.ledger.intro":
+    "كشف حساب كامل: كل عملية فوترة ودفع وتسوية بترتيب زمني مع الرصيد التراكمي — تماماً كما تحسبه المؤسسة.",
   "finance.ledger.balance": "الرصيد",
   "finance.ledger.running": "الرصيد",
   "finance.ledger.empty.title": "لا توجد عمليات في كشف الحساب",
-  "finance.ledger.empty.body": "ستظهر هنا عمليات حسابكم (الفوترة والمدفوعات والتسويات).",
+  "finance.ledger.empty.body":
+    "ستظهر هنا عمليات حسابكم (الفوترة والمدفوعات والتسويات).",
   "finance.ledger.type.charge": "فوترة",
   "finance.ledger.type.payment": "دفع",
   "finance.ledger.type.adjustment": "تسوية",
@@ -809,11 +856,13 @@ const ar: Dict = {
   "messages.placeholder": "اكتبوا رسالتكم…",
   "messages.fromSchool": "من المدرسة",
   "messages.convocation": "استدعاء",
-  "messages.convocation.notice": "استدعاء رسمي من الإدارة — حضوركم مطلوب. يرجى التواصل مع الإدارة للتأكيد.",
+  "messages.convocation.notice":
+    "استدعاء رسمي من الإدارة — حضوركم مطلوب. يرجى التواصل مع الإدارة للتأكيد.",
   // T-149 (ADR-012) — the parent-initiated administration channel.
   "messages.contactAdmin": "التواصل مع الإدارة",
   "messages.contactAdmin.opening": "جارٍ فتح المحادثة…",
-  "messages.contactAdmin.body": "اطرحوا أسئلتكم وتابعوا التقارير المدرسية مباشرة مع الإدارة.",
+  "messages.contactAdmin.body":
+    "اطرحوا أسئلتكم وتابعوا التقارير المدرسية مباشرة مع الإدارة.",
   "messages.contactAdmin.success": "تم فتح المحادثة مع الإدارة.",
   "messages.contactAdmin.error": "تعذر فتح المحادثة. يرجى إعادة المحاولة.",
 
@@ -863,7 +912,8 @@ const ar: Dict = {
   "common.search": "بحث",
   "common.error.title": "حدث خطأ",
   "common.error.network": "مشكلة في الاتصال. تحققوا من شبكتكم.",
-  "common.error.unknown": "يرجى إعادة المحاولة. إذا استمرت المشكلة، اتصلوا بالإدارة.",
+  "common.error.unknown":
+    "يرجى إعادة المحاولة. إذا استمرت المشكلة، اتصلوا بالإدارة.",
   "common.empty.title": "لا شيء لعرضه",
   "common.tryAgain": "إعادة المحاولة",
   "common.syncing": "جارٍ المزامنة…",
@@ -908,11 +958,15 @@ const ar: Dict = {
     "تم ربط حسابكم بملف عائلتكم. " +
     "ستقوم الإدارة بإنهاء التفعيل. يمكنكم تحديث هذه الصفحة.",
   "activation.code.error.invalid": "رمز التفعيل غير صالح أو مستخدم بالفعل.",
-  "activation.code.error.expired": "انتهت صلاحية رمز التفعيل. يرجى طلب رمز جديد من الإدارة.",
+  "activation.code.error.expired":
+    "انتهت صلاحية رمز التفعيل. يرجى طلب رمز جديد من الإدارة.",
   // T-153 (ACT-200) — precise bind-failure messages (mapped by the EF's error code).
-  "activation.code.error.suspended": "هذا الحساب معلّق. يرجى التواصل مع إدارة المدرسة.",
-  "activation.code.error.session": "الجلسة غير صالحة. يرجى تسجيل الدخول مجددًا ثم إعادة المحاولة.",
-  "activation.code.error.bound": "ملف هذه العائلة مرتبط بحساب آخر. يرجى التواصل مع الإدارة.",
+  "activation.code.error.suspended":
+    "هذا الحساب معلّق. يرجى التواصل مع إدارة المدرسة.",
+  "activation.code.error.session":
+    "الجلسة غير صالحة. يرجى تسجيل الدخول مجددًا ثم إعادة المحاولة.",
+  "activation.code.error.bound":
+    "ملف هذه العائلة مرتبط بحساب آخر. يرجى التواصل مع الإدارة.",
   "activation.code.error.generic": "تعذر تفعيل الحساب. يرجى إعادة المحاولة.",
   "activation.code.haveCode": "لديّ رمز تفعيل بالفعل",
   "activation.code.dontHaveCode": "ليس لديّ رمز تفعيل",
@@ -1003,12 +1057,23 @@ const ar: Dict = {
 };
 
 const en: Dict = {
+  "student.dossier.view": "View complete file",
+  "student.history.title": "Academic History",
+  "student.history.empty": "No academic history.",
+  "student.notes.title": "Medical Notes & Observations",
+  "student.notes.empty": "No observations recorded.",
+  "finance.payment.coverage": "Coverage details",
+  "finance.payment.expectedAmount": "Expected amount (Billed)",
+  "finance.payment.excessAmount": "Overpayment (Family credit)",
+  "finance.payment.allocationsEmpty": "No detailed allocation found.",
+
   "app.name": "El-Imtiyaz",
   "app.tagline": "Parent & Student Portal",
   "app.loading": "Loading…",
 
   "auth.signin.title": "Welcome to the El-Imtiyaz Portal",
-  "auth.signin.subtitle": "Sign in with your Google account to access your space.",
+  "auth.signin.subtitle":
+    "Sign in with your Google account to access your space.",
   "auth.signin.google": "Sign in with Google",
   "auth.signin.secure": "Secure sign-in via Supabase Auth",
   "auth.signin.help": "Need help? Contact your school's administration.",
@@ -1019,7 +1084,8 @@ const en: Dict = {
   "activation.pending.body":
     "Your account was created successfully, but it is pending activation by the school administration. " +
     "Once activated, you will automatically have access to your information and your children's.",
-  "activation.pending.contact": "Please contact your school's administration to finalize activation.",
+  "activation.pending.contact":
+    "Please contact your school's administration to finalize activation.",
   "activation.pending.signout": "Sign out",
 
   "nav.home": "Home",
@@ -1102,9 +1168,11 @@ const en: Dict = {
   // Dashboard (complete)
   "dashboard.empty.noChildren": "No children are linked to your account yet.",
   "dashboard.empty.noUpcoming": "No upcoming events.",
-  "dashboard.empty.noUpcomingBody": "Events published by the school will appear here.",
+  "dashboard.empty.noUpcomingBody":
+    "Events published by the school will appear here.",
   "dashboard.empty.noAnnouncements": "No announcements at this time.",
-  "dashboard.empty.noAnnouncementsBody": "Announcements from the administration for parents will appear here.",
+  "dashboard.empty.noAnnouncementsBody":
+    "Announcements from the administration for parents will appear here.",
 
   // Student (complete)
   "student.select": "Select a child",
@@ -1156,8 +1224,6 @@ const en: Dict = {
   "enrollments.service.psychotherapy": "Psychotherapy",
   "enrollments.service.rattrapage": "Catch-up tutoring",
 
-
-
   // Attendance (complete)
   "attendance.title": "Absences and tardiness",
   "attendance.summary.present": "Present",
@@ -1186,7 +1252,8 @@ const en: Dict = {
   "finance.balance.outstanding": "Balance due",
   "finance.balance.outstandingHint": "Total amount still to settle",
   "finance.balance.overdue": "Overdue",
-  "finance.balance.overdueHint": "Past-due installments — please contact the administration",
+  "finance.balance.overdueHint":
+    "Past-due installments — please contact the administration",
   "finance.balance.noOverdue": "Nothing overdue",
   "finance.balance.paidHint": "Total collected to date",
   "finance.balance.pendingHint": "{amount} awaiting clearance",
@@ -1223,9 +1290,11 @@ const en: Dict = {
   "finance.payment.transferBank": "Issuing bank",
   "finance.payment.openProof": "Open proof of payment",
   "finance.empty.noPayments": "No payments recorded yet.",
-  "finance.empty.noPaymentsBody": "Payments collected by the school will appear here.",
+  "finance.empty.noPaymentsBody":
+    "Payments collected by the school will appear here.",
   "finance.empty.noInstallments": "No installments to display.",
-  "finance.empty.noInstallmentsBody": "The school has not published an installment plan for your family yet.",
+  "finance.empty.noInstallmentsBody":
+    "The school has not published an installment plan for your family yet.",
 
   // Messages (complete)
   "messages.title": "Messages",
@@ -1235,13 +1304,17 @@ const en: Dict = {
   "messages.placeholder": "Write your message…",
   "messages.fromSchool": "From school",
   "messages.convocation": "Summons",
-  "messages.convocation.notice": "Official summons from the administration — your attendance is required. Please contact the school office to confirm.",
+  "messages.convocation.notice":
+    "Official summons from the administration — your attendance is required. Please contact the school office to confirm.",
   // T-149 (ADR-012) — the parent-initiated administration channel.
   "messages.contactAdmin": "Contact the administration",
   "messages.contactAdmin.opening": "Opening the conversation…",
-  "messages.contactAdmin.body": "Ask your questions and review school reports directly with the administration.",
-  "messages.contactAdmin.success": "Conversation with the administration opened.",
-  "messages.contactAdmin.error": "Could not open the conversation. Please try again.",
+  "messages.contactAdmin.body":
+    "Ask your questions and review school reports directly with the administration.",
+  "messages.contactAdmin.success":
+    "Conversation with the administration opened.",
+  "messages.contactAdmin.error":
+    "Could not open the conversation. Please try again.",
 
   // Notifications (complete)
   "notifications.title": "Notifications",
@@ -1289,7 +1362,8 @@ const en: Dict = {
   "common.search": "Search",
   "common.error.title": "An error occurred",
   "common.error.network": "Connection problem. Check your network.",
-  "common.error.unknown": "Please try again. If the problem persists, contact the administration.",
+  "common.error.unknown":
+    "Please try again. If the problem persists, contact the administration.",
   "common.empty.title": "Nothing to display",
   "common.tryAgain": "Try again",
   "common.syncing": "Syncing…",
@@ -1307,9 +1381,11 @@ const en: Dict = {
   "finance.adjustment.date": "Date",
   "finance.adjustment.note": "Admin note",
   "finance.adjustment.empty": "No adjustments recorded.",
-  "finance.adjustment.emptyBody": "Discounts and regularizations granted by the administration will appear here.",
+  "finance.adjustment.emptyBody":
+    "Discounts and regularizations granted by the administration will appear here.",
   "finance.billing": "Billing",
-  "finance.billing.intro": "Price breakdown: what was billed per child, service by service, and where the installments stand.",
+  "finance.billing.intro":
+    "Price breakdown: what was billed per child, service by service, and where the installments stand.",
   "finance.billing.perChild": "Per child",
   "finance.billing.perService": "Per service",
   "finance.billing.items": "Items & subscribed services",
@@ -1317,7 +1393,8 @@ const en: Dict = {
   "finance.billing.year": "School year",
   "finance.billing.tranches": "Installment schedule",
   "finance.billing.noCharges": "No billing recorded.",
-  "finance.billing.noChargesBody": "Services billed by the school will appear here.",
+  "finance.billing.noChargesBody":
+    "Services billed by the school will appear here.",
   "finance.billing.share": "of total",
   "finance.billing.subtotal": "Subtotal",
   "finance.billing.familyItems": "Family — items not tied to a child",
@@ -1329,7 +1406,8 @@ const en: Dict = {
   "finance.billing.recon.cleared": "− Cleared payments",
   "finance.billing.recon.pending": "− Pending (cheque / transfer)",
   "finance.billing.recon.remaining": "= Net remaining",
-  "finance.billing.recon.bridge": "± Bridge — other entries (refunds, counter-passes)",
+  "finance.billing.recon.bridge":
+    "± Bridge — other entries (refunds, counter-passes)",
   "finance.billing.recon.server": "Account balance (source: server)",
   "finance.adjustment.reason.sibling_discount": "Sibling discount",
   "finance.adjustment.reason.staff_family": "Staff family",
@@ -1338,7 +1416,8 @@ const en: Dict = {
   "finance.adjustment.reason.seniority_5y": "5-year seniority",
   "finance.adjustment.reason.highest_average": "Highest average",
   "finance.adjustment.reason.full_annual": "Full annual payment",
-  "finance.adjustment.reason.scholarship_replacement": "Scholarship replacement",
+  "finance.adjustment.reason.scholarship_replacement":
+    "Scholarship replacement",
   "finance.adjustment.reason.hardship": "Hardship",
   "finance.adjustment.reason.correction": "Correction",
   "finance.adjustment.reason.late_fee_waiver": "Late fee waiver",
@@ -1353,11 +1432,13 @@ const en: Dict = {
 
   // Ledger statement (source of truth — INV-1)
   "finance.ledger.title": "Statement",
-  "finance.ledger.intro": "Complete account statement: every charge, payment and adjustment in chronological order with a running balance — exactly as the school computes it.",
+  "finance.ledger.intro":
+    "Complete account statement: every charge, payment and adjustment in chronological order with a running balance — exactly as the school computes it.",
   "finance.ledger.balance": "balance",
   "finance.ledger.running": "Balance",
   "finance.ledger.empty.title": "No statement entries",
-  "finance.ledger.empty.body": "Your account activity (charges, payments, adjustments) will appear here.",
+  "finance.ledger.empty.body":
+    "Your account activity (charges, payments, adjustments) will appear here.",
   "finance.ledger.type.charge": "Charge",
   "finance.ledger.type.payment": "Payment",
   "finance.ledger.type.adjustment": "Adjustment",
@@ -1392,12 +1473,17 @@ const en: Dict = {
     "Your account is now linked to your family record. " +
     "The administration will finalize the activation. You can refresh this page.",
   "activation.code.error.invalid": "Invalid or already-used activation code.",
-  "activation.code.error.expired": "This activation code has expired. Please request a new one from the administration.",
+  "activation.code.error.expired":
+    "This activation code has expired. Please request a new one from the administration.",
   // T-153 (ACT-200) — precise bind-failure messages (mapped by the EF's error code).
-  "activation.code.error.suspended": "This account is suspended. Please contact the school administration.",
-  "activation.code.error.session": "Invalid session. Please sign in again and retry.",
-  "activation.code.error.bound": "This family profile is already linked to another account. Please contact the school administration.",
-  "activation.code.error.generic": "Could not activate the account. Please try again.",
+  "activation.code.error.suspended":
+    "This account is suspended. Please contact the school administration.",
+  "activation.code.error.session":
+    "Invalid session. Please sign in again and retry.",
+  "activation.code.error.bound":
+    "This family profile is already linked to another account. Please contact the school administration.",
+  "activation.code.error.generic":
+    "Could not activate the account. Please try again.",
   "activation.code.haveCode": "I already have an activation code",
   "activation.code.dontHaveCode": "I don't have an activation code",
   "activation.code.adminApproval": "Request activation by the administration",
@@ -1489,7 +1575,11 @@ const en: Dict = {
 export const dictionaries: Record<Locale, Dict> = { fr, ar, en };
 
 /** Translate a key. Falls back to French, then to the key itself. */
-export function translate(locale: Locale, key: string, params?: Record<string, string | number>): string {
+export function translate(
+  locale: Locale,
+  key: string,
+  params?: Record<string, string | number>,
+): string {
   let s = dictionaries[locale]?.[key] ?? dictionaries.fr[key] ?? key;
   if (params) {
     for (const [k, v] of Object.entries(params)) {
