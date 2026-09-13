@@ -354,9 +354,52 @@ describe("servicePricingProfiles — the exhaustive tuition profile (LIVE ALIOUA
     expect(c.catalogAnnual).toBe(340000);
     expect(c.billedGross).toBe(350000);
     expect(c.discountsTotal).toBe(20000);
+    expect(c.adjustmentsDebit).toBe(0);
     expect(c.billedNet).toBe(330000);
     expect(c.deltaVsCatalog).toBe(-10000);
     expect(c.hasSyntheticSchedule).toBe(false);
+  });
+
+  it("nets the LIVE double-remise-cancel: devis 350 000 + cancel 20 000 − remise 20 000 = net 350 000 (delta +10 000)", () => {
+    // The LIVE 0063 reconciliation: the imported devis is already net of
+    // remise, so the imported −20 000 remise is cancelled by a +20 000
+    // debit — the construction must be ledger-honest (§15.18).
+    const p = servicePricingProfiles({
+      ledgerRows: [
+        ledgerRow({}),
+        ledgerRow({
+          entry_number: "led-test-remise",
+          entry_type: "adjustment",
+          amount: -20000,
+          description: "Remise sur devis (import Excel run run_msp3foah_c254f9)",
+          metadata: { field: "REMISE", importRunId: "run_msp3foah_c254f9" },
+        }),
+        ledgerRow({
+          entry_number: "led-test-cancel",
+          entry_type: "adjustment",
+          amount: 20000,
+          description:
+            "Annulation double-remise (réconciliation 0063) — le devis importé est déjà net de remise",
+          metadata: {
+            reason: "double_remise_cancel",
+            original_entry: "led-test-remise",
+            reconciliation: "0063",
+            original_amount: -20000,
+          },
+        }),
+      ],
+      installmentRows: [],
+      kids: [kid({})],
+      catalog: CATALOG,
+      fallbackAcademicYear: "2025-2026",
+    })[0];
+    expect(p.construction.billedGross).toBe(350000);
+    expect(p.construction.discountsTotal).toBe(20000);
+    expect(p.construction.adjustmentsDebit).toBe(20000);
+    expect(p.construction.billedNet).toBe(350000);
+    expect(p.construction.deltaVsCatalog).toBe(10000);
+    // The cancel's provenance is the reconciliation.
+    expect(p.items.length).toBe(1); // charges only
   });
 
   it("decodes the item's provenance (Excel import + run id)", () => {

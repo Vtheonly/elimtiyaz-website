@@ -306,7 +306,13 @@ export interface PriceConstructionNode {
   /** Σ the mapped catalog references (null when any child is unmappable). */
   readonly catalogAnnual: number | null;
   readonly billedGross: number;
+  /** Σ |credit adjustments| — the remises applied to this service (≥ 0). */
   readonly discountsTotal: number;
+  /** Σ debit adjustments — remise cancellations / majorations (≥ 0).
+   *  The LIVE ledger carries these (the 0063 double-remise-cancel: an
+   *  imported devis already net of remise gets its remise re-added). */
+  readonly adjustmentsDebit: number;
+  /** billedGross + adjustmentsDebit − discountsTotal (the ledger-honest net). */
   readonly billedNet: number;
   /** billedNet − catalogAnnual (null when catalogAnnual is null). */
   readonly deltaVsCatalog: number | null;
@@ -742,9 +748,14 @@ export function servicePricingProfiles(
       });
     }
 
-    /* APPLIED DISCOUNTS — the service's credit adjustments. */
-    const appliedDiscounts: AppliedDiscountNode[] = adjustmentRows
-      .filter((r) => (r.category ?? "other") === category && Number(r.amount) < 0)
+    /* APPLIED DISCOUNTS — the service's credit adjustments (and the debit
+     * cancellations that the honest construction must net out — the LIVE
+     * 0063 double-remise-cancel class). */
+    const categoryAdjustments = adjustmentRows.filter(
+      (r) => (r.category ?? "other") === category,
+    );
+    const appliedDiscounts: AppliedDiscountNode[] = categoryAdjustments
+      .filter((r) => Number(r.amount) < 0)
       .map((r) => {
         const decoded = decodeMetadata(r);
         return {
@@ -758,6 +769,9 @@ export function servicePricingProfiles(
           provenance: decoded.provenance,
         };
       });
+    const adjustmentsDebit = categoryAdjustments
+      .filter((r) => Number(r.amount) > 0)
+      .reduce((s, r) => s + Number(r.amount), 0);
 
     /* THE TRANCHE FRAMEWORK — physical installment rows for this service. */
     const installmentPlan: InstallmentScheduleNode[] = installmentRows
@@ -785,7 +799,7 @@ export function servicePricingProfiles(
         paymentPlan: i.payment_plan ?? null,
       }));
 
-    /* CONSTRUCTION — the explicit math. */
+    /* CONSTRUCTION — the explicit math (ledger-honest: gross + debits − credits). */
     const mappedAnnuals = catalogRefs.map((c) => c.annualAmount).filter((v): v is number => v != null);
     const catalogAnnual =
       catalogRefs.length > 0 && mappedAnnuals.length === catalogRefs.length
@@ -793,7 +807,7 @@ export function servicePricingProfiles(
         : null;
     const billedGross = totalBilled;
     const discountsTotal = appliedDiscounts.reduce((s, d) => s + d.amount, 0);
-    const billedNet = billedGross - discountsTotal;
+    const billedNet = billedGross + adjustmentsDebit - discountsTotal;
     const deltaVsCatalog = catalogAnnual == null ? null : billedNet - catalogAnnual;
     const hasSyntheticSchedule = rows.length > 0 && installmentPlan.length === 0;
 
@@ -813,6 +827,7 @@ export function servicePricingProfiles(
         catalogAnnual,
         billedGross,
         discountsTotal,
+        adjustmentsDebit,
         billedNet,
         deltaVsCatalog,
         hasSyntheticSchedule,

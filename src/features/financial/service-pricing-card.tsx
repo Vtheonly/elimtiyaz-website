@@ -443,6 +443,13 @@ export function ServicePricingCard({
                 label={t("finance.svc.construction.gross")}
                 amount={profile?.construction.billedGross ?? 0}
               />
+              {(profile?.construction.adjustmentsDebit ?? 0) > 0 && (
+                <AmountRow
+                  label={t("finance.svc.construction.debit")}
+                  amount={profile?.construction.adjustmentsDebit ?? 0}
+                  tone="destructive"
+                />
+              )}
               {(profile?.construction.discountsTotal ?? 0) > 0 && (
                 <AmountRow
                   label={t("finance.svc.construction.discounts")}
