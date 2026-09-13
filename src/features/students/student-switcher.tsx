@@ -10,7 +10,6 @@
  * If only one child is enrolled, the switcher renders nothing.
  */
 
-import { useEffect } from "react";
 import { useAppStore } from "@/lib/store/app-store";
 import { useAuth } from "@/app/providers/auth-provider";
 import { formatInitials, formatFullName } from "@/lib/format";
@@ -27,12 +26,11 @@ export function StudentSwitcher({ variant = "full", className }: Props) {
   const activeStudentId = useAppStore((s) => s.activeStudentId);
   const setActiveStudentId = useAppStore((s) => s.setActiveStudentId);
 
-  // Auto-select the first child if none is selected.
-  useEffect(() => {
-    if (!activeStudentId && kids.length > 0) {
-      setActiveStudentId(kids[0].id);
-    }
-  }, [activeStudentId, kids, setActiveStudentId]);
+  // NOTE (GRADE-102 / T-336): active-student AUTO-SELECTION no longer lives
+  // here — the AppShell owns it once (single-child parents never rendered
+  // any switcher, so an effect here left their activeStudentId null and
+  // every per-child view empty). This component is display + explicit
+  // selection only.
 
   if (kids.length === 0) return null;
   if (kids.length === 1) {
@@ -113,9 +111,8 @@ export function StudentSwitcherDropdown() {
   const { t } = useT();
   const [open, setOpen] = useState(false);
 
-  useEffect(() => {
-    if (!activeStudentId && kids.length > 0) setActiveStudentId(kids[0].id);
-  }, [activeStudentId, kids, setActiveStudentId]);
+  // NOTE (GRADE-102 / T-336): auto-selection lives in the AppShell (see
+  // StudentSwitcher above) — this is display + explicit selection only.
 
   if (kids.length === 0) return null;
   const active = kids.find((k) => k.id === activeStudentId) ?? kids[0];

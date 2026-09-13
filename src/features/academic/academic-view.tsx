@@ -108,15 +108,38 @@ export function AcademicView() {
     return map;
   }, [grades.data]);
 
+  // Term filter — T-212: full "Trimestre N" labels (no T1/T2/T3
+  // abbreviations) + the t-202 mobile pattern: the row scrolls below
+  // sm (4 full labels need ~70–85px each — the bare grid clipped at
+  // 320px) and restores the equal 4-cell grid at sm+.
+  const filteredSubjects = useMemo(() => {
+    if (activeTerm === "all") return bySubject;
+    const m = new Map<string, { subjectName: string; coefficient: number; isExtracurricular: boolean; rows: PortalAssessmentRow[] }>();
+    bySubject.forEach((s, key) => {
+      const filtered = s.rows.filter((a) => String(a.term) === String(activeTerm));
+      if (filtered.length > 0) m.set(key, { ...s, rows: filtered });
+    });
+    return m;
+  }, [bySubject, activeTerm]);
+
   // Overall GPA — CANONICAL: coefficient-weighted over per-row canonical
   // subject averages ((D1 + D2 + 2×Ex)/4, all marks required), extracurricular
   // excluded — identical to desktop/Android engines and the SQL
   // fn_calculate_student_term_gpa function.
+  //
+  // T-336 (desktop-parity): the KPI follows the TERM FILTER — a
+  // "Trimestre N" tab shows that term's canonical per-term GPA (the desktop
+  // AcademicTab and SQL fn_calculate_student_term_gpa semantics; the
+  // Android termGpas map), the all-terms tab shows the all-rows yearly GPA
+  // (the Android yearlyGpa convention). Previously the KPI stayed at the
+  // all-terms value while the subject list filtered — a behavior/
+  // calculation divergence from the desktop the owner's parity mandate
+  // calls out.
   const overall = useMemo(() => {
-    if (bySubject.size === 0) return null;
+    if (filteredSubjects.size === 0) return null;
     const inputs: Array<{ devoir1: number | null; devoir2: number | null; examen: number | null; coefficient: number; isExtracurricular: boolean }> = [];
     const stored: Array<number | null> = [];
-    bySubject.forEach((s) => {
+    filteredSubjects.forEach((s) => {
       for (const row of s.rows) {
         inputs.push({
           devoir1: row.devoir1 ?? null,
@@ -129,17 +152,7 @@ export function AcademicView() {
       }
     });
     return overallGpaFor(inputs, stored);
-  }, [bySubject]);
-
-  const filteredSubjects = useMemo(() => {
-    if (activeTerm === "all") return bySubject;
-    const m = new Map<string, { subjectName: string; coefficient: number; isExtracurricular: boolean; rows: PortalAssessmentRow[] }>();
-    bySubject.forEach((s, key) => {
-      const filtered = s.rows.filter((a) => String(a.term) === String(activeTerm));
-      if (filtered.length > 0) m.set(key, { ...s, rows: filtered });
-    });
-    return m;
-  }, [bySubject, activeTerm]);
+  }, [filteredSubjects]);
 
   return (
     <div className="mx-auto max-w-5xl space-y-6 px-4 py-5">
@@ -198,7 +211,7 @@ export function AcademicView() {
           />
           <KpiCard
             label={t("student.subject")}
-            value={bySubject.size}
+            value={filteredSubjects.size}
             icon={<GraduationCap className="h-5 w-5" />}
           />
           <KpiCard
@@ -284,6 +297,19 @@ export function AcademicView() {
                           </div>
                         ))}
                       </div>
+
+                      {/* T-336 (desktop-parity): partial marks are NEVER
+                          silently hidden — the canonical average requires
+                          all three marks, and the desktop's grade tables /
+                          the Android's subject cards both explain a missing
+                          average ("Moyenne à paraître — les 3 notes doivent
+                          être saisies"). The portal showed "—" with no
+                          explanation, which read as missing data. */}
+                      {subjectAvg === null && (
+                        <p className="mt-2 text-[11px] italic text-muted-foreground">
+                          {t("student.average.pending")}
+                        </p>
+                      )}
                     </CardContent>
                   </Card>
                 );

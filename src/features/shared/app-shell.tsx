@@ -23,9 +23,11 @@
  */
 
 import dynamic from "next/dynamic";
+import { useEffect } from "react";
 import { useAppStore } from "@/lib/store/app-store";
 import { useHashRoute } from "@/lib/hooks/use-hash-route";
 import { useChatUnreadRealtime } from "@/lib/hooks/use-realtime";
+import { useAuth } from "@/app/providers/auth-provider";
 import { TopAppBar } from "@/features/shared/top-app-bar";
 import { BottomNav, DesktopRail } from "@/features/shared/bottom-nav";
 import { OfflineIndicator } from "@/features/shared/offline-indicator";
@@ -77,6 +79,29 @@ export function AppShell() {
   const activeView = useAppStore((s) => s.activeView);
   // Sync active view with the URL hash (#/finance, #/academic, …).
   useHashRoute();
+  // GRADE-102 (T-336): canonical active-student selection lives ONCE here.
+  // Every per-child view (academic / attendance / homework / financial)
+  // derives its active kid from the store's activeStudentId — but that id
+  // was only ever auto-selected INSIDE the StudentSwitcher components,
+  // which the views render ONLY when the parent has 2+ children. A
+  // single-child parent therefore kept activeStudentId = null FOREVER: the
+  // dashboard fell back locally to kids[0], but the academic view queried
+  // useGradesForStudent(undefined) → enabled: false → "Aucune note pour
+  // cette période" even with entered grades (the exact owner-reported
+  // "grades not displayed on the website" symptom). Selecting at the SHELL
+  // level fixes every per-child view for the 1-child case AND resets a
+  // stale persisted id after an account re-binding (a persisted id that no
+  // longer belongs to this parent's children now falls back to kids[0]
+  // instead of leaving every view empty).
+  const { children: kids } = useAuth();
+  const activeStudentId = useAppStore((s) => s.activeStudentId);
+  const setActiveStudentId = useAppStore((s) => s.setActiveStudentId);
+  useEffect(() => {
+    if (kids.length === 0) return;
+    if (!activeStudentId || !kids.some((k) => k.id === activeStudentId)) {
+      setActiveStudentId(kids[0].id);
+    }
+  }, [kids, activeStudentId, setActiveStudentId]);
   // REALTIME-103 (T-032): one shell-level subscription invalidates the
   // unread-count query when messages arrive in ANY channel — the badge
   // owners (BottomNav / DesktopRail / TopAppBar) all read that query, and
