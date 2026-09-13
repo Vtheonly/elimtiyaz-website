@@ -28,8 +28,11 @@
  *                         months + per-grade FI), the transport destination
  *                         schedule, or the service unit price + billing model
  *   - conditions        — every rule that can modify the price: active
- *                         discount rules, the early-payment bonus (pct +
- *                         deadline), the late penalty (per-day)
+ *                         discount rules and the early-payment bonus
+ *                         (pct + deadline). NO late penalty exists —
+ *                         CALC-001: no daily penalty exists at the school
+ *                         (owner mandate 2026-09-13: the concept is removed
+ *                         from the calculation engine entirely).
  *   - appliedDiscounts  — the reductions ACTUALLY applied to this service
  *                         (ledger adjustment rows) with provenance
  *   - installmentPlan   — the tranche framework (échéancier): every physical
@@ -97,7 +100,6 @@ export interface PricingCatalogInput {
   /** The academic year the config is attached to ("2026-2027"). */
   readonly academicYear: string | null;
   readonly registrationFee: number | null;
-  readonly latePenaltyPerDay: number | null;
   readonly earlyPaymentBonusPct: number | null;
   readonly earlyPaymentDeadline: string | null;
   readonly tuitionByGrade: readonly CatalogTuitionEntry[];
@@ -159,7 +161,6 @@ export function pricingCatalogFromRows(
     configLabel: config?.label ?? null,
     academicYear: academicYearLabel,
     registrationFee: config ? Number(config.registration_fee) : null,
-    latePenaltyPerDay: config ? Number(config.late_penalty_per_day) : null,
     earlyPaymentBonusPct: config ? Number(config.early_payment_bonus_pct) : null,
     earlyPaymentDeadline: config?.early_payment_deadline ?? null,
     tuitionByGrade,
@@ -263,7 +264,7 @@ export interface CatalogReferenceNode {
 
 /** A condition attached to the price (a rule that can modify it). */
 export interface PriceConditionNode {
-  readonly kind: "discount_rule" | "early_payment_bonus" | "late_penalty";
+  readonly kind: "discount_rule" | "early_payment_bonus";
   readonly code: string | null;
   readonly label: string;
   readonly value: number;
@@ -736,19 +737,12 @@ export function servicePricingProfiles(
         isActive: true,
       });
     }
-    if (catalog.latePenaltyPerDay != null) {
-      conditions.push({
-        kind: "late_penalty",
-        code: null,
-        label: "Pénalité de retard",
-        value: catalog.latePenaltyPerDay,
-        valueType: "fixed_dzd",
-        deadline: null,
-        isActive: true,
-      });
-    }
-
-    /* APPLIED DISCOUNTS — the service's credit adjustments (and the debit
+    /* CALC-001 (owner mandate 2026-09-13): the late-penalty condition is
+     * REMOVED from the engine — no daily penalty exists at the school and
+     * `pricing_configs.late_penalty_per_day` is inert legacy data. Never
+     * re-add it (parity with the desktop engine, same removal).
+     *
+     * APPLIED DISCOUNTS — the service's credit adjustments (and the debit
      * cancellations that the honest construction must net out — the LIVE
      * 0063 double-remise-cancel class). */
     const categoryAdjustments = adjustmentRows.filter(

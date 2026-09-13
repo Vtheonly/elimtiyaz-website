@@ -521,7 +521,9 @@ export type PricingConfigRow = {
   academic_year_id: string;
   label: string;
   registration_fee: number;
-  late_penalty_per_day: number;
+  // CALC-001 (owner mandate 2026-09-13): `late_penalty_per_day` is INTENTIONALLY
+  // absent — no daily penalty exists at the school; the column is inert legacy
+  // data in `pricing_configs` and the engine never reads it. Never re-add.
   second_apron_fee: number;
   early_payment_bonus_pct: number;
   early_payment_deadline: string | null;
@@ -601,8 +603,7 @@ export type AccountAdjustmentRow = {
     | "scholarship_replacement"
     | "hardship"
     | "correction"
-    | "late_fee_waiver"
-    | "other";
+    | "other"; // CALC-001: `late_fee_waiver` removed — penalties do not exist
   admin_note: string;
   performed_by: string;
   performed_at: string;

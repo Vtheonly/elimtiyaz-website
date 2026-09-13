@@ -123,7 +123,7 @@ const CONFIG: PricingConfigRow = {
   academic_year_id: "ay-1",
   label: "Tarification 2026-2027",
   registration_fee: 5000,
-  late_penalty_per_day: 100,
+  // CALC-001: `late_penalty_per_day` removed from PricingConfigRow — no penalty exists.
   second_apron_fee: 2000,
   early_payment_bonus_pct: 5,
   early_payment_deadline: "2026-06-30",
@@ -312,7 +312,7 @@ describe("servicePricingProfiles — the exhaustive tuition profile (LIVE ALIOUA
     ]);
   });
 
-  it("covers the CONDITIONS: active discounts + early-payment bonus + late penalty", () => {
+  it("covers the CONDITIONS: active discounts + early-payment bonus — and NEVER a late penalty (CALC-001)", () => {
     const conditions = profiles[0].conditions;
     const codes = conditions.map((c) => c.code);
     expect(codes).toContain("sibling_fixed");
@@ -321,9 +321,9 @@ describe("servicePricingProfiles — the exhaustive tuition profile (LIVE ALIOUA
     const early = conditions.find((c) => c.kind === "early_payment_bonus");
     expect(early?.value).toBe(5);
     expect(early?.deadline).toBe("2026-06-30");
-    const late = conditions.find((c) => c.kind === "late_penalty");
-    expect(late?.value).toBe(100);
-    expect(late?.valueType).toBe("fixed_dzd");
+    // CALC-001 (owner mandate 2026-09-13): no penalty exists at the school —
+    // the engine must never surface a late_penalty condition again.
+    expect(conditions.some((c) => (c.kind as string) === "late_penalty")).toBe(false);
   });
 
   it("covers the APPLIED DISCOUNT with provenance (the −20 000 remise)", () => {
@@ -510,7 +510,7 @@ describe("servicePricingProfiles — transport + registration + services", () =>
       "tidjelabine_sahel_figuier_corso",
       "tidjelabine_sahel_figuier_corso",
     ]);
-    // Transport conditions: sibling + late penalty (no tuition-only rules).
+    // Transport conditions: sibling only (no tuition-only rules, no penalty — CALC-001).
     expect(p.conditions.map((c) => c.code)).toContain("sibling_fixed");
     expect(p.conditions.some((c) => c.kind === "early_payment_bonus")).toBe(false);
   });
@@ -623,7 +623,6 @@ describe("pricingCatalogFromRows — the normalized catalog input", () => {
     expect(CATALOG.configLabel).toBe("Tarification 2026-2027");
     expect(CATALOG.academicYear).toBe("2026-2027");
     expect(CATALOG.registrationFee).toBe(5000);
-    expect(CATALOG.latePenaltyPerDay).toBe(100);
     expect(CATALOG.earlyPaymentBonusPct).toBe(5);
     expect(CATALOG.earlyPaymentDeadline).toBe("2026-06-30");
     const g4 = CATALOG.tuitionByGrade.find((t) => t.gradeCode === "4am");

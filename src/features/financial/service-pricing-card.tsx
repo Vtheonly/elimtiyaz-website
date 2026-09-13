@@ -290,11 +290,9 @@ export function ServicePricingCard({
                     )}
                   </span>
                   <span className="font-mono font-semibold">
-                    {c.kind === "late_penalty"
-                      ? t("finance.svc.cond.perday", { v: c.value })
-                      : c.valueType === "percentage"
-                        ? t("finance.svc.cond.pct", { v: c.value })
-                        : t("finance.svc.cond.fixed", { v: c.value })}
+                    {c.valueType === "percentage"
+                      ? t("finance.svc.cond.pct", { v: c.value })
+                      : t("finance.svc.cond.fixed", { v: c.value })}
                   </span>
                 </div>
               ))}
