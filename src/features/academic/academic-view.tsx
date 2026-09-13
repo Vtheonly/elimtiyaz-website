@@ -17,6 +17,7 @@ import { useAuth } from "@/app/providers/auth-provider";
 import { useT } from "@/lib/i18n/use-t";
 import { useAppStore } from "@/lib/store/app-store";
 import { useGradesForStudent, useClass, useAttendanceForStudent, useAcademicLevels, type PortalAssessmentRow } from "@/lib/hooks/portal-queries";
+import { resolveSubjectConfiguration } from "@/lib/canonical/subject-config";
 import {
   subjectAverageFor,
   overallGpaFor,
@@ -92,7 +93,21 @@ export function AcademicView() {
     const map = new Map<string, { subjectName: string; coefficient: number; isExtracurricular: boolean; rows: PortalAssessmentRow[] }>();
     for (const a of grades.data) {
       const key = a.subject_id ?? a.subject?.id ?? "unknown";
-      const coefficient = Number(a.coefficient ?? a.subject?.default_coefficient ?? 1);
+      // T-347 (ADR-018): the canonical resolution — the row SNAPSHOT first
+      // (history is never re-resolved), then the legacy directory layer.
+      // Never a bare inline `?? 1` chain again.
+      const coefficient = resolveSubjectConfiguration({
+        subject: a.subject
+          ? {
+              id: a.subject.id,
+              code: undefined,
+              coefficient: a.subject.default_coefficient,
+              isExtracurricular: a.subject.is_extracurricular,
+            }
+          : undefined,
+        configurations: [],
+        snapshot: { coefficient: a.coefficient },
+      }).coefficient;
       const existing = map.get(key);
       if (existing) {
         existing.rows.push(a);
@@ -293,6 +308,14 @@ export function AcademicView() {
                             <span className="text-muted-foreground">{fullTermLabel(t, a.term)}</span>
                             <span className="font-mono">
                               {a.devoir1 != null ? a.devoir1.toFixed(2) : "—"} · {a.devoir2 != null ? a.devoir2.toFixed(2) : "—"} · {a.examen != null ? a.examen.toFixed(2) : "—"}
+                              {(a.coefficient_cc ?? 0) > 0 && (
+                                <>
+                                  {" · "}
+                                  <span title={t("student.mark.cc")}>
+                                    {a.cc != null ? a.cc.toFixed(2) : "—"}
+                                  </span>
+                                </>
+                              )}
                             </span>
                           </div>
                         ))}

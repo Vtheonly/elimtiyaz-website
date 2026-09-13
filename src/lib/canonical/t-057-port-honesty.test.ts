@@ -37,7 +37,7 @@ describe("T-057 — the canonical port is pruned to the consumed surface", () =>
     expect(existsSync(join(CANONICAL, "index.ts"))).toBe(false);
   });
 
-  it("the kept surface is exactly the consumed set (13 source files + 4 tests)", () => {
+  it("the kept surface is exactly the consumed set (14 source files + 5 tests)", () => {
     const files = walk(CANONICAL).map((f) => f.replace(CANONICAL + "/", "")).sort();
     expect(files).toEqual([
       "billing-breakdown.test.ts", // T-166: Facturation breakdown vectors (parity with the desktop suite)
@@ -58,6 +58,8 @@ describe("T-057 — the canonical port is pruned to the consumed surface", () =>
       "portal-derive.ts",
       "service-pricing-profile.test.ts", // T-333: the exhaustive per-service pricing profile vectors (parity with the desktop suite)
       "service-pricing-profile.ts",      // T-333: DATA-016 — year/level/catalog/conditions/discounts/schedule/construction derivation
+      "subject-config.test.ts",   // T-347: the canonical subject-architecture vectors (parity with the desktop suite + the corpus)
+      "subject-config.ts",        // T-347: MATIERE-500/ADR-018 — resolveSubjectConfiguration + computeSubjectAverageFromRecipe (the ONE rule + the recipe engine)
       "t-057-port-honesty.test.ts", // this file
     ]);
   });
@@ -76,5 +78,12 @@ describe("T-057 — the canonical port is pruned to the consumed surface", () =>
     expect(text).toContain("Source: elimtiyaz-desktop/src/domain/calc/ledger/balance.ts");
     expect(text).toContain("Source sha256");
     expect(text).toContain("never re-add them");
+  });
+
+  it("the T-347 subject-config port states the verbatim source + the sha pin (ADR-002)", () => {
+    const text = readFileSync(join(CANONICAL, "subject-config.ts"), "utf8");
+    expect(text).toContain("CANONICAL ENGINE PORT (website)");
+    expect(text).toContain("Source: elimtiyaz-desktop/src/domain/calc/academics/subject-config.ts");
+    expect(text).toContain("Source sha256 (first 12): d902b8f0938c");
   });
 });

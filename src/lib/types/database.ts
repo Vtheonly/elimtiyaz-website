@@ -682,8 +682,15 @@ export type AssessmentRow = {
   devoir1: number | null;
   devoir2: number | null;
   examen: number | null;
+  /** T-345/ADR-018: the contrôle-continu mark (المراقبة المستمرة). */
+  cc: number | null;
   subject_average: number | null;
   coefficient: number;
+  /** T-345/ADR-018: the entry-time component-weight snapshots. */
+  coefficient_devoir1: number | null;
+  coefficient_devoir2: number | null;
+  coefficient_examen: number | null;
+  coefficient_cc: number | null;
   entered_by: string | null;
   entered_at: string;
   created_at: string;

@@ -27,6 +27,11 @@ import type {
 } from "@/lib/types/database";
 import type { PortalAssessmentRow } from "@/lib/hooks/portal-queries";
 import { subjectAverageFor, overallGpaFor, isPassing, attendanceRatePercent } from "@/lib/canonical/portal-derive";
+import {
+  DEFAULT_GRADING_RECIPE,
+  resolveSubjectConfiguration,
+  type GradingRecipe,
+} from "@/lib/canonical/subject-config";
 import { formatFullName, formatDate } from "@/lib/format";
 
 interface BulletinData {
@@ -93,13 +98,41 @@ export function renderBulletinHtml(data: BulletinData): string {
       subjectName: string;
       coefficient: number;
       isExtracurricular: boolean;
-      byTerm: Map<number, { d1?: number | null; d2?: number | null; exam?: number | null; average: number | null }>;
+      byTerm: Map<
+        number,
+        {
+          d1?: number | null;
+          d2?: number | null;
+          exam?: number | null;
+          cc?: number | null;
+          ccWeight: number;
+          average: number | null;
+        }
+      >;
     }
   >();
 
   for (const a of grades) {
     const key = a.subject_id ?? a.subject?.id ?? "unknown";
-    const coefficient = Number(a.coefficient ?? a.subject?.default_coefficient ?? 1);
+    // T-347 (ADR-018): the canonical resolution — the row SNAPSHOT first,
+    // then the legacy directory layer (ONE rule, no inline chains).
+    const coefficient = resolveSubjectConfiguration({
+      subject: a.subject
+        ? {
+            id: a.subject.id,
+            coefficient: a.subject.default_coefficient,
+            isExtracurricular: a.subject.is_extracurricular,
+          }
+        : undefined,
+      configurations: [],
+      snapshot: {
+        coefficient: a.coefficient,
+        coefficientDevoir1: a.coefficient_devoir1,
+        coefficientDevoir2: a.coefficient_devoir2,
+        coefficientExamen: a.coefficient_examen,
+        coefficientCc: a.coefficient_cc,
+      },
+    }).coefficient;
     const isExtracurricular = Boolean(a.subject?.is_extracurricular);
     if (!bySubject.has(key)) {
       bySubject.set(key, {
@@ -115,27 +148,50 @@ export function renderBulletinHtml(data: BulletinData): string {
       d1: undefined,
       d2: undefined,
       exam: undefined,
+      cc: undefined,
+      ccWeight: 0,
       average: null,
     };
     termEntry.d1 = a.devoir1 ?? termEntry.d1 ?? null;
     termEntry.d2 = a.devoir2 ?? termEntry.d2 ?? null;
     termEntry.exam = a.examen ?? termEntry.exam ?? null;
-    // CANONICAL subject average — (D1 + D2 + 2×Ex)/4, all marks required,
-    // identical to the backend trigger + both native engines.
+    // T-347 (ADR-018): the contrôle-continu mark (rendered when its weight
+    // participates in the recipe).
+    termEntry.cc = a.cc ?? termEntry.cc ?? null;
+    termEntry.ccWeight = Math.max(termEntry.ccWeight, a.coefficient_cc ?? 0);
+    // CANONICAL subject average — the recipe-aware rule (Σ(mark×weight)/
+    // Σ(weight), positive weights required), identical to the migration-
+    // 0094 SQL trigger + both native engines; the DEFAULT recipe is exactly
+    // (D1 + D2 + 2×Ex)/4.
     termEntry.average =
       subjectAverageFor({
         devoir1: a.devoir1 ?? null,
         devoir2: a.devoir2 ?? null,
         examen: a.examen ?? null,
+        cc: a.cc ?? null,
         coefficient,
         isExtracurricular,
+        recipe: {
+          devoir1: a.coefficient_devoir1 ?? DEFAULT_GRADING_RECIPE.devoir1,
+          devoir2: a.coefficient_devoir2 ?? DEFAULT_GRADING_RECIPE.devoir2,
+          examen: a.coefficient_examen ?? DEFAULT_GRADING_RECIPE.examen,
+          cc: a.coefficient_cc ?? DEFAULT_GRADING_RECIPE.cc,
+        },
       }) ??
       (a.subject_average != null ? Number(a.subject_average) : termEntry.average);
     entry.byTerm.set(term, termEntry);
   }
 
   // Overall GPA — CANONICAL (coefficient-weighted, extracurricular excluded).
-  const gpaInputs: Array<{ devoir1: number | null; devoir2: number | null; examen: number | null; coefficient: number; isExtracurricular: boolean }> = [];
+  const gpaInputs: Array<{
+    devoir1: number | null;
+    devoir2: number | null;
+    examen: number | null;
+    cc: number | null;
+    coefficient: number;
+    isExtracurricular: boolean;
+    recipe: GradingRecipe;
+  }> = [];
   const gpaStored: Array<number | null> = [];
   bySubject.forEach((s) => {
     s.byTerm.forEach((t) => {
@@ -143,8 +199,15 @@ export function renderBulletinHtml(data: BulletinData): string {
         devoir1: t.d1 ?? null,
         devoir2: t.d2 ?? null,
         examen: t.exam ?? null,
+        cc: t.cc ?? null,
         coefficient: s.coefficient,
         isExtracurricular: s.isExtracurricular,
+        recipe: {
+          devoir1: DEFAULT_GRADING_RECIPE.devoir1,
+          devoir2: DEFAULT_GRADING_RECIPE.devoir2,
+          examen: DEFAULT_GRADING_RECIPE.examen,
+          cc: t.ccWeight,
+        },
       });
       gpaStored.push(t.average);
     });
@@ -266,6 +329,7 @@ export function renderBulletinHtml(data: BulletinData): string {
               <th>Devoir 1</th>
               <th>Devoir 2</th>
               <th>Examen</th>
+              <th>C.Contin</th>
               <th>Moyenne</th>
             </tr>
           </thead>
@@ -280,6 +344,7 @@ export function renderBulletinHtml(data: BulletinData): string {
                     <td>${t.d1 != null ? t.d1.toFixed(2) : "—"}</td>
                     <td>${t.d2 != null ? t.d2.toFixed(2) : "—"}</td>
                     <td>${t.exam != null ? t.exam.toFixed(2) : "—"}</td>
+                    <td>${t.ccWeight > 0 ? (t.cc != null ? t.cc.toFixed(2) : "—") : ""}</td>
                     <td class="gpa">${t.average !== null ? t.average.toFixed(2) : "—"}</td>
                   </tr>
                 `;

@@ -10,7 +10,7 @@
  *     replayed from ledger entries, never from installment sums).
  *   - Installment remaining/progress → remaining = max(0, due − paid − pending)
  *     (Invariant 4: uncleared funds never mark a tranche paid).
- *   - Subject average + overall GPA → computeSubjectAverage / computeOverallGpa
+ *   - Subject average + overall GPA → computeSubjectAverageFromRecipe / computeOverallGpa (T-347)
  *     (coefficient-weighted, extracurricular excluded, (D1+D2+2×Ex)/4 default).
  *   - Attendance rate → calculateAttendanceRate (canonical rounding).
  *
@@ -19,6 +19,12 @@
  */
 
 import type { LedgerEntryRow, InstallmentRow, AssessmentRow, AttendanceRecordRow } from "@/lib/types/database";
+import {
+  DEFAULT_GRADING_RECIPE,
+  resolveSubjectConfiguration,
+  computeSubjectAverageFromRecipe,
+  type GradingRecipe,
+} from "@/lib/canonical/subject-config";
 // T-049: PaymentStatus/PaymentCategory/PaymentMethod are declared (and
 // re-exported only via ./model/payment) — "./model/ledger" imports them
 // but does not re-export, so importing them from there is TS2459.
@@ -27,7 +33,7 @@ import type { PaymentStatus, PaymentCategory, PaymentMethod } from "./model/paym
 import type { ParentLedgerSummary } from "./model/ledger";
 import { computeParentSummary } from "./calc/ledger/balance";
 import { buildOverdueDueDateMap } from "./calc/ledger/overdue";
-import { computeSubjectAverage, computeOverallGpa, calculateAttendanceRate } from "./model/academic";
+import { computeOverallGpa, calculateAttendanceRate } from "./model/academic";
 import { clampNonNegative } from "./calc/shared/money";
 
 // ─── Ledger replay ───────────────────────────────────────────────────────────
@@ -189,18 +195,33 @@ export interface PortalAssessmentInput {
   readonly devoir1: number | null;
   readonly devoir2: number | null;
   readonly examen: number | null;
+  /** T-347 (ADR-018): the contrôle-continu mark (null = not entered). */
+  readonly cc?: number | null;
   readonly coefficient: number;
   readonly isExtracurricular: boolean;
+  /**
+   * T-347 (ADR-018): the entry-time component-weight snapshot (the recipe
+   * in force when the marks were entered). Absent → the DEFAULT recipe
+   * {1,1,2,0} — bit-identical to the historical engine.
+   */
+  readonly recipe?: GradingRecipe;
 }
 
 /**
- * Subject average for one assessment row — canonical rule: only computable
- * when ALL THREE marks are present; (D1 + D2 + 2×Ex)/4 in integer-scaled
- * cents (half-up, 2 decimals — matches SQL ROUND(numeric,2) and the Android
- * centi-scaled engine bit-for-bit).
+ * Subject average for one assessment row — the recipe-aware canonical rule
+ * (T-347 / ADR-018): Σ(mark×weight)/Σ(weight) over the positive-weight
+ * components, each REQUIRED; integer-scaled cents (half-up, 2 decimals —
+ * matches the SQL trigger of migration 0094 and the desktop/Android engines
+ * bit-for-bit). With the DEFAULT recipe this is exactly (D1 + D2 + 2×Ex)/4.
  */
 export function subjectAverageFor(assessment: PortalAssessmentInput): number | null {
-  return computeSubjectAverage(assessment.devoir1, assessment.devoir2, assessment.examen);
+  return computeSubjectAverageFromRecipe(
+    assessment.devoir1,
+    assessment.devoir2,
+    assessment.examen,
+    assessment.cc ?? null,
+    assessment.recipe ?? DEFAULT_GRADING_RECIPE,
+  );
 }
 
 /**
@@ -234,17 +255,47 @@ export function isPassing(gpa: number | null, grade: number = DEFAULT_PASSING_GR
   return gpa != null && gpa >= grade;
 }
 
-/** Map an `assessments` row (with its joined subject) to the GPA input. */
+/**
+ * Map an `assessments` row (with its joined subject) to the GPA input.
+ * T-347 (ADR-018): the cc mark + the entry-time weight snapshots travel with
+ * the row; the coefficient is the SNAPSHOT (history is never re-resolved);
+ * a missing snapshot (legacy rows) falls back through the canonical legacy
+ * layer — never a bare `?? 1` inline chain.
+ */
 export function assessmentGpaInput(
-  row: Pick<AssessmentRow, "devoir1" | "devoir2" | "examen" | "coefficient" | "subject_average">,
+  row: Pick<
+    AssessmentRow,
+    | "devoir1" | "devoir2" | "examen" | "cc"
+    | "coefficient" | "subject_average"
+    | "coefficient_devoir1" | "coefficient_devoir2"
+    | "coefficient_examen" | "coefficient_cc"
+  >,
   subjectIsExtracurricular: boolean,
 ): PortalAssessmentInput {
+  const legacy = resolveSubjectConfiguration({
+    subject: { isExtracurricular: subjectIsExtracurricular },
+    configurations: [],
+  });
+  const recipe: GradingRecipe | undefined =
+    row.coefficient_devoir1 != null ||
+    row.coefficient_devoir2 != null ||
+    row.coefficient_examen != null ||
+    row.coefficient_cc != null
+      ? {
+          devoir1: row.coefficient_devoir1 ?? DEFAULT_GRADING_RECIPE.devoir1,
+          devoir2: row.coefficient_devoir2 ?? DEFAULT_GRADING_RECIPE.devoir2,
+          examen: row.coefficient_examen ?? DEFAULT_GRADING_RECIPE.examen,
+          cc: row.coefficient_cc ?? DEFAULT_GRADING_RECIPE.cc,
+        }
+      : undefined;
   return {
     devoir1: row.devoir1 ?? null,
     devoir2: row.devoir2 ?? null,
     examen: row.examen ?? null,
-    coefficient: Number(row.coefficient ?? 1),
+    cc: row.cc ?? null,
+    coefficient: row.coefficient ?? legacy.coefficient,
     isExtracurricular: subjectIsExtracurricular,
+    recipe,
   };
 }
 

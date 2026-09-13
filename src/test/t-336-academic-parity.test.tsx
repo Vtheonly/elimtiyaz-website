@@ -85,6 +85,13 @@ const baseRow = {
   weight: 1,
   scheduled_at: null,
   class_id: null,
+  // T-347 (ADR-018): the cc mark + the entry-time weight snapshots (legacy
+  // rows: cc null, snapshots null → the DEFAULT recipe bit-identically).
+  cc: null,
+  coefficient_devoir1: null,
+  coefficient_devoir2: null,
+  coefficient_examen: null,
+  coefficient_cc: null,
   entered_by: null,
   entered_at: "2026-09-01T00:00:00Z",
   created_at: "2026-09-01T00:00:00Z",

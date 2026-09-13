@@ -119,6 +119,7 @@ const fr: Dict = {
   // T-336 (GRADE-102): the desktop/Android "Moyenne à paraître" hint — the
   // canonical subject average needs all three marks (D1 + D2 + Examen).
   "student.average.pending": "Moyenne à paraître — les 3 notes (devoir 1, devoir 2, examen) doivent être saisies",
+  "student.mark.cc": "C.Continu",
   "student.rank": "Rang",
   "student.appreciation": "Appréciation",
   "student.bulletin": "Bulletin",
@@ -731,6 +732,7 @@ const ar: Dict = {
   "student.score": "النقطة",
   "student.average": "المعدل",
   "student.average.pending": "المعدل قيد الإصدار — يجب إدخال النقاط الثلاث (الفرض 1، الفرض 2، الامتحان)",
+  "student.mark.cc": "المراقبة المستمرة",
   "student.rank": "الترتيب",
   "student.appreciation": "التقدير",
   "student.bulletin": "كشف النقاط",
@@ -1326,6 +1328,7 @@ const en: Dict = {
   "student.score": "Score",
   "student.average": "Average",
   "student.average.pending": "Average pending — all three marks (test 1, test 2, exam) must be entered",
+  "student.mark.cc": "C.Assessment",
   "student.rank": "Rank",
   "student.appreciation": "Appreciation",
   "student.bulletin": "Report card",
