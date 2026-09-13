@@ -37,7 +37,7 @@ describe("T-057 — the canonical port is pruned to the consumed surface", () =>
     expect(existsSync(join(CANONICAL, "index.ts"))).toBe(false);
   });
 
-  it("the kept surface is exactly the consumed set (11 source files + 2 tests)", () => {
+  it("the kept surface is exactly the consumed set (12 source files + 3 tests)", () => {
     const files = walk(CANONICAL).map((f) => f.replace(CANONICAL + "/", "")).sort();
     expect(files).toEqual([
       "billing-breakdown.test.ts", // T-166: Facturation breakdown vectors (parity with the desktop suite)
@@ -52,6 +52,8 @@ describe("T-057 — the canonical port is pruned to the consumed surface", () =>
       "model/parent.ts",
       "model/payment.ts",
       "model/student.ts",
+      "payment-coverage.test.ts",  // T-330: desktop-parity coverage chain (table → ledger → single line)
+      "payment-coverage.ts",       // T-330: the canonical "what this payment covers" derivation (desktop PaymentBreakdownCard parity)
       "portal-derive.test.ts",
       "portal-derive.ts",
       "t-057-port-honesty.test.ts", // this file

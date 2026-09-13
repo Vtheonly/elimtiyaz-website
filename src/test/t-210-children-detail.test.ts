@@ -68,8 +68,11 @@ describe("T-210 — children identity + enrollment detail card", () => {
   });
 
   it("reuses the existing portal query hooks (no parallel implementation)", () => {
+    // T-329 (58th session): useStudentAcademicHistories joined the SAME
+    // portal-queries import — the dossier's history tab consumes the same
+    // query module (still no parallel implementation).
     expect(CHILDREN_CARD).toMatch(
-      /import \{\s*useAcademicLevels,\s*useClass,\s*\} from "@\/lib\/hooks\/portal-queries"/,
+      /import \{\s*useAcademicLevels,\s*useClass,\s*useStudentAcademicHistories,\s*\} from "@\/lib\/hooks\/portal-queries"/,
     );
     expect(CHILDREN_CARD).toContain("useAuth()");
   });

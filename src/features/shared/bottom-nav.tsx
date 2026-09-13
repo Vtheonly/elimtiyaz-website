@@ -124,7 +124,9 @@ export function DesktopRail() {
   const unreadChat = unreadChatCount ?? 0;
 
   return (
-    <aside className="hidden w-60 shrink-0 border-r border-border/60 bg-card/50 lg:flex lg:flex-col">
+    // T-327: lg:sticky + h-screen keeps the rail visible while the (possibly
+    // long) content column scrolls — inside the shell's lg:flex-row wrapper.
+    <aside className="hidden w-60 shrink-0 border-r border-border/60 bg-card/50 lg:sticky lg:top-0 lg:flex lg:h-screen lg:flex-col">
       <div className="flex h-16 items-center gap-2 border-b border-border/60 px-5">
         <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/15 text-primary">
           <GraduationCap className="h-5 w-5" />

@@ -19,6 +19,7 @@ import {
   parentBillingBreakdown,
   classifyAdjustmentRows,
 } from "@/lib/canonical/billing-breakdown";
+import { paymentCoverageLines } from "@/lib/canonical/payment-coverage";
 import { useFinancialRealtime } from "@/lib/hooks/use-realtime";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { KpiCard } from "@/features/shared/kpi-card";
@@ -49,6 +50,7 @@ import {
   PieChart,
   ChevronDown,
   ChevronUp,
+  Loader2,
 } from "lucide-react";
 import {
   formatCurrency,
@@ -367,6 +369,7 @@ export function FinancialView() {
                   payment={p}
                   kidName={activeKid ? formatFullName(activeKid) : undefined}
                   parentInfo={parentInfo}
+                  ledgerEntries={ledgerEntries.data ?? []}
                 />
               ))}
             </div>
@@ -853,7 +856,9 @@ function InstallmentRowView({
             )}
             {t("finance.installment.due")} {formatDate(inst.due_date)}
             {inst.status !== "paid" && days >= 0 && days <= 7 && (
-              <span className="ml-1 font-medium text-warning">• J-{days}</span>
+              <span className="ml-1 font-medium text-warning">
+                • {t("finance.installment.daysLeft", { days })}
+              </span>
             )}
             {inst.status !== "paid" && days < 0 && (
               <span className="ml-1 font-medium text-destructive">
@@ -904,18 +909,20 @@ function InstallmentRowView({
   );
 }
 
-// Sub-component to show exactly how a payment was allocated
+// Sub-component to show exactly how a payment was allocated.
+// T-330: the derivation goes through the CANONICAL payment-coverage module
+// (payment_allocations table -> ledger fallback -> single line) — the exact
+// same chain the desktop's PaymentBreakdownCard applies, pinned by
+// src/lib/canonical/payment-coverage.test.ts.
 function PaymentCoverageDetails({
-  paymentId,
-  expectedAmount,
-  excessAmount,
+  payment,
+  ledgerEntries,
 }: {
-  paymentId: string;
-  expectedAmount: number | null;
-  excessAmount: number | null;
+  payment: PaymentRow;
+  ledgerEntries: readonly LedgerEntryRow[];
 }) {
   const { t } = useT();
-  const allocations = usePaymentAllocations(paymentId);
+  const allocations = usePaymentAllocations(payment.id);
 
   if (allocations.isLoading)
     return (
@@ -926,10 +933,24 @@ function PaymentCoverageDetails({
   if (allocations.isError)
     return (
       <div className="p-4 text-xs text-destructive">
-        Impossible de charger les détails.
+        {t("finance.payment.coverageLoadError")}
       </div>
     );
 
+  // T-330: THE canonical chain — table rows primary, ledger-derived fallback
+  // (receipt-number join), single-category line last. Same inputs → same
+  // lines as the desktop card.
+  const lines = paymentCoverageLines(
+    payment,
+    allocations.data ?? [],
+    ledgerEntries,
+  );
+  // The table-row branch is authoritative when rows exist; the ledger and
+  // single-line branches are the parity fallbacks.
+  const fromServerTable = (allocations.data?.length ?? 0) > 0;
+
+  const expectedAmount = payment.expected_amount;
+  const excessAmount = payment.excess_amount;
   const hasExcess = (excessAmount ?? 0) > 0;
   const showExpected = (expectedAmount ?? 0) > 0;
 
@@ -937,33 +958,33 @@ function PaymentCoverageDetails({
     <div className="bg-muted/20 border-t border-border/40 p-4 space-y-3 rounded-b-xl">
       <h4 className="text-xs font-bold uppercase tracking-wide text-muted-foreground flex items-center gap-2">
         <PieChart className="h-3.5 w-3.5" />
-        Détails de la couverture
+        {t("finance.payment.coverage")}
       </h4>
 
-      {allocations.data && allocations.data.length > 0 ? (
-        <ul className="space-y-2">
-          {allocations.data.map((alloc) => (
-            <li
-              key={alloc.id}
-              className="flex justify-between items-center text-sm border-b border-border/40 pb-2 last:border-0 last:pb-0"
-            >
-              <div className="flex flex-col">
-                <span className="font-medium text-foreground">
-                  {alloc.label ?? t(`finance.category.${alloc.category}`)}
-                </span>
-                <span className="text-[10px] text-muted-foreground uppercase">
-                  {alloc.category}
-                </span>
-              </div>
-              <span className="font-mono font-medium">
-                {formatCurrency(alloc.allocated_amount)}
+      <ul className="space-y-2">
+        {lines.map((line) => (
+          <li
+            key={line.key}
+            className="flex justify-between items-center text-sm border-b border-border/40 pb-2 last:border-0 last:pb-0"
+          >
+            <div className="flex flex-col">
+              <span className="font-medium text-foreground">
+                {line.label ?? t(`finance.category.${line.category}`)}
               </span>
-            </li>
-          ))}
-        </ul>
-      ) : (
-        <p className="text-xs text-muted-foreground italic">
-          Aucune allocation détaillée trouvée (paiement ancien ou global).
+              <span className="text-[10px] text-muted-foreground uppercase">
+                {line.category}
+              </span>
+            </div>
+            <span className="font-mono font-medium">
+              {formatCurrency(line.amount)}
+            </span>
+          </li>
+        ))}
+      </ul>
+
+      {!fromServerTable && (
+        <p className="text-[10px] text-muted-foreground italic">
+          {t("finance.payment.coverageDerivedHint")}
         </p>
       )}
 
@@ -971,7 +992,7 @@ function PaymentCoverageDetails({
         <div className="pt-2 mt-2 border-t border-dashed border-border/60 space-y-1 text-sm">
           {showExpected && (
             <div className="flex justify-between text-muted-foreground">
-              <span>Montant attendu (Facturé)</span>
+              <span>{t("finance.payment.expectedAmount")}</span>
               <span className="font-mono">
                 {formatCurrency(expectedAmount!)}
               </span>
@@ -979,7 +1000,7 @@ function PaymentCoverageDetails({
           )}
           {hasExcess && (
             <div className="flex justify-between font-medium text-info bg-info/10 p-1.5 rounded">
-              <span>Trop-perçu (Crédit parent)</span>
+              <span>{t("finance.payment.excessAmount")}</span>
               <span className="font-mono">
                 +{formatCurrency(excessAmount!)}
               </span>
@@ -995,10 +1016,12 @@ function PaymentRowItem({
   payment,
   kidName,
   parentInfo,
+  ledgerEntries,
 }: {
   payment: PaymentRow;
   kidName?: string;
   parentInfo?: ReceiptParentInfo | null;
+  ledgerEntries: readonly LedgerEntryRow[];
 }) {
   const { t } = useT();
   const [showProof, setShowProof] = useState(false);
@@ -1083,8 +1106,8 @@ function PaymentRowItem({
                 <ChevronDown className="mr-1.5 h-3.5 w-3.5" />
               )}
               {showCoverage
-                ? "Masquer la couverture"
-                : "Détails de la couverture"}
+                ? t("finance.payment.coverage.hide")
+                : t("finance.payment.coverage")}
             </Button>
             <div className="flex gap-2 w-full sm:w-auto">
               <Button
@@ -1115,9 +1138,8 @@ function PaymentRowItem({
 
       {showCoverage && (
         <PaymentCoverageDetails
-          paymentId={payment.id}
-          expectedAmount={payment.expected_amount}
-          excessAmount={payment.excess_amount}
+          payment={payment}
+          ledgerEntries={ledgerEntries}
         />
       )}
 

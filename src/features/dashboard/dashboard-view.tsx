@@ -220,7 +220,10 @@ export function DashboardView() {
           </div>
         )}
 
-        {/* 3-Column Desktop Layout */}
+        {/* Main content — T-327 intentional desktop layout: 1 column
+            (children + recent payments) spans 1/3 at xl; the events +
+            announcements pair sits side-by-side from lg (the pinned
+            UI-300-compliant two-column section). */}
         <div className="grid grid-cols-1 gap-8 xl:grid-cols-3">
           {/* Column 1: Children & Activity */}
           <div className="space-y-8 xl:col-span-1">
@@ -286,9 +289,9 @@ export function DashboardView() {
             </section>
           </div>
 
-          {/* Column 2 & 3: Events and Announcements */}
+          {/* Columns 2 & 3: Events and Announcements */}
           <div className="space-y-8 xl:col-span-2">
-            <div className="grid grid-cols-1 gap-8 md:grid-cols-2">
+            <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
               <section className="space-y-4">
                 <SectionHeader
                   title={t("dashboard.section.upcoming")}
@@ -427,7 +430,7 @@ function SingleChildCard({ kid }: { kid: StudentRow }) {
       className="cursor-pointer border-border/60 shadow-sm hover:border-primary/40 hover:shadow-md transition-all group"
       onClick={() => {
         setActiveStudentId(kid.id);
-        setActiveView("profile");
+        setActiveView("academic");
       }}
     >
       <CardContent className="flex items-center gap-4 p-5">

@@ -53,7 +53,10 @@ export function TopAppBar() {
 
   return (
     <header className="glass-bar safe-pt sticky top-0 z-30 border-b border-border/60">
-      <div className="mx-auto flex h-14 max-w-5xl items-center gap-3 px-4">
+      {/* T-327: full-width on desktop (aligns with every view container —
+          the views own their own max-w; a constrained bar misaligned with
+          the wider dashboard/financial containers). */}
+      <div className="flex h-14 items-center gap-3 px-4 lg:px-8">
         {/* Mobile brand mark (desktop uses the rail) */}
         <div className="flex items-center gap-2 lg:hidden">
           <div className="flex h-7 w-7 items-center justify-center rounded-md bg-primary/15 text-primary">

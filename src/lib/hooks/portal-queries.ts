@@ -43,6 +43,8 @@ import {
   StudentDocumentRow,
   StudentDocumentKind,
   LedgerEntryRow,
+  PaymentAllocationRow,
+  StudentAcademicHistoryRow,
 } from "@/lib/types/database";
 
 /* -------------------------------------------------------------------------- */

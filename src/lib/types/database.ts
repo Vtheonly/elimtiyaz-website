@@ -927,12 +927,7 @@ export type Database = {
         Update: Partial<ServiceEnrollmentRow>;
         Relationships: [];
       };
-      transport_destinations: {
-        Row: TransportDestinationRow;
-        Insert: Partial<TransportDestinationRow>;
-        Update: Partial<TransportDestinationRow>;
-        Relationships: [];
-      };
+      transport_destinations: { Row: TransportDestinationRow; Insert: Partial<TransportDestinationRow>; Update: Partial<TransportDestinationRow>; Relationships: [] };
       account_adjustments: {
         Row: AccountAdjustmentRow;
         Insert: Partial<AccountAdjustmentRow>;
@@ -1231,10 +1226,7 @@ export type Database = {
         Args: Record<string, never>;
         Returns: void;
       };
-      open_parent_admin_channel: {
-        Args: { p_name?: string | null };
-        Returns: ChatChannelRow;
-      };
+      open_parent_admin_channel: { Args: { p_name?: string | null }; Returns: ChatChannelRow };
     };
   };
 };

@@ -8,10 +8,14 @@
  *   - Main content area (single active view)
  *   - Bottom navigation bar (5 destinations, sticky bottom)
  *
- * Desktop (lg+):
- *   - Left sidebar rail (replaces bottom nav)
- *   - Top app bar (sticky, simplified)
- *   - Main content area (max-w-5xl)
+ * Desktop (lg+) — T-327 intentional desktop layout (58th session):
+ *   - The shell switches to flex-ROW at lg so the DesktopRail sits BESIDE
+ *     the content (it previously stacked ABOVE it: the wrapper was
+ *     flex-col and the rail's lg:flex only made it visible, not lateral —
+ *     the "stretched mobile" bug the owner reported).
+ *   - The rail is STICKY + full viewport height (stays visible on scroll).
+ *   - Each view owns its container width (max-w-5xl default, the dashboard
+ *     and financial views widen deliberately — see T-327).
  *
  * The shell uses a SPA-style view switcher instead of Next.js routes because
  * the portal is fundamentally a single-screen dashboard. This matches the
@@ -81,12 +85,12 @@ export function AppShell() {
   useChatUnreadRealtime();
 
   return (
-    <div className="flex min-h-[100dvh] flex-col bg-background">
-      {/* Desktop rail (left sidebar) */}
+    <div className="flex min-h-[100dvh] flex-col bg-background lg:flex-row">
+      {/* Desktop rail (left sidebar) — sticky, full height, lateral at lg */}
       <DesktopRail />
 
       {/* Mobile + desktop content column */}
-      <div className="flex min-h-[100dvh] flex-1 flex-col lg:pl-0">
+      <div className="flex min-h-[100dvh] min-w-0 flex-1 flex-col">
         <TopAppBar />
         <SwUpdateBanner />
         <OfflineIndicator />
