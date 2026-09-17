@@ -1,0 +1,332 @@
+[
+  {
+    "file": "src/app/global-error.tsx",
+    "line": 65,
+    "kind": "jsx-text",
+    "text": "Une erreur inattendue est survenue"
+  },
+  {
+    "file": "src/app/global-error.tsx",
+    "line": 74,
+    "kind": "jsx-fallback",
+    "text": "Le portail a rencontré un problème."
+  },
+  {
+    "file": "src/app/global-error.tsx",
+    "line": 77,
+    "kind": "jsx-text",
+    "text": "Code:"
+  },
+  {
+    "file": "src/app/global-error.tsx",
+    "line": 100,
+    "kind": "jsx-text",
+    "text": "Réessayer"
+  },
+  {
+    "file": "src/app/page.tsx",
+    "line": 35,
+    "kind": "jsx-text",
+    "text": "El-Imtiyaz Portal"
+  },
+  {
+    "file": "src/components/ui/dialog.tsx",
+    "line": 75,
+    "kind": "jsx-text",
+    "text": "Close"
+  },
+  {
+    "file": "src/features/academic/academic-view.tsx",
+    "line": 75,
+    "kind": "call:error",
+    "text": "Aucun élève sélectionné"
+  },
+  {
+    "file": "src/features/academic/academic-view.tsx",
+    "line": 86,
+    "kind": "call:success",
+    "text": "Bulletin ouvert — utilisez le dialogue d'impression pour enregistrer en PDF"
+  },
+  {
+    "file": "src/features/academic/academic-view.tsx",
+    "line": 262,
+    "kind": "attr:title",
+    "text": "Aucune note pour cette période"
+  },
+  {
+    "file": "src/features/academic/academic-view.tsx",
+    "line": 288,
+    "kind": "jsx-ternary",
+    "text": "• hors moyenne"
+  },
+  {
+    "file": "src/features/attendance/absence-justification-dialog.tsx",
+    "line": 108,
+    "kind": "call:error-template",
+    "text": "Échec de l'envoi du fichier:"
+  },
+  {
+    "file": "src/features/attendance/absence-justification-dialog.tsx",
+    "line": 136,
+    "kind": "call:success",
+    "text": "Justification envoyée. L'administration va l'examiner."
+  },
+  {
+    "file": "src/features/attendance/absence-justification-dialog.tsx",
+    "line": 153,
+    "kind": "jsx-text",
+    "text": "Justifier une absence"
+  },
+  {
+    "file": "src/features/attendance/absence-justification-dialog.tsx",
+    "line": 155,
+    "kind": "jsx-text",
+    "text": "Fournissez une note explicative et/ou un justificatif (certificat médical, convocation, etc.). L'administration examinera votre demande."
+  },
+  {
+    "file": "src/features/attendance/absence-justification-dialog.tsx",
+    "line": 163,
+    "kind": "jsx-text",
+    "text": "Note de justification"
+  },
+  {
+    "file": "src/features/attendance/absence-justification-dialog.tsx",
+    "line": 168,
+    "kind": "attr:placeholder",
+    "text": "Ex: Certificat médical fourni. Enfant malade du…"
+  },
+  {
+    "file": "src/features/attendance/absence-justification-dialog.tsx",
+    "line": 175,
+    "kind": "jsx-text",
+    "text": "Pièce jointe (PDF, image — max 10 Mo)"
+  },
+  {
+    "file": "src/features/attendance/absence-justification-dialog.tsx",
+    "line": 179,
+    "kind": "jsx-ternary",
+    "text": "Choisir un fichier"
+  },
+  {
+    "file": "src/features/attendance/absence-justification-dialog.tsx",
+    "line": 201,
+    "kind": "jsx-text",
+    "text": "Retirer"
+  },
+  {
+    "file": "src/features/attendance/absence-justification-dialog.tsx",
+    "line": 211,
+    "kind": "jsx-text",
+    "text": "Lien Google Drive (optionnel)"
+  },
+  {
+    "file": "src/features/attendance/absence-justification-dialog.tsx",
+    "line": 225,
+    "kind": "jsx-text",
+    "text": "Annuler"
+  },
+  {
+    "file": "src/features/attendance/absence-justification-dialog.tsx",
+    "line": 229,
+    "kind": "jsx-text",
+    "text": "Envoyer"
+  },
+  {
+    "file": "src/features/attendance/attendance-view.tsx",
+    "line": 183,
+    "kind": "jsx-text",
+    "text": "Justifier cette absence"
+  },
+  {
+    "file": "src/features/auth/activation-code-screen.tsx",
+    "line": 207,
+    "kind": "jsx-text",
+    "text": "— ou —"
+  },
+  {
+    "file": "src/features/financial/financial-view.tsx",
+    "line": 1312,
+    "kind": "jsx-text",
+    "text": "↔ Paire annulée :"
+  },
+  {
+    "file": "src/features/homework/homework-view.tsx",
+    "line": 188,
+    "kind": "jsx-fallback",
+    "text": "Attachment"
+  },
+  {
+    "file": "src/features/messages/messages-view.tsx",
+    "line": 90,
+    "kind": "jsx-text",
+    "text": "Conversations"
+  },
+  {
+    "file": "src/features/messages/messages-view.tsx",
+    "line": 141,
+    "kind": "jsx-text",
+    "text": "Sélectionnez une conversation"
+  },
+  {
+    "file": "src/features/notifications/notifications-view.tsx",
+    "line": 97,
+    "kind": "call:success",
+    "text": "Marqué comme lu"
+  },
+  {
+    "file": "src/features/notifications/notifications-view.tsx",
+    "line": 105,
+    "kind": "call:error",
+    "text": "Notification invalide."
+  },
+  {
+    "file": "src/features/profile/profile-view.tsx",
+    "line": 140,
+    "kind": "call:success",
+    "text": "Notifications activées"
+  },
+  {
+    "file": "src/features/profile/profile-view.tsx",
+    "line": 143,
+    "kind": "call:error",
+    "text": "Impossible d'activer les notifications"
+  },
+  {
+    "file": "src/features/profile/profile-view.tsx",
+    "line": 149,
+    "kind": "call:info",
+    "text": "Notifications désactivées"
+  },
+  {
+    "file": "src/features/profile/profile-view.tsx",
+    "line": 274,
+    "kind": "jsx-text",
+    "text": "Préférences"
+  },
+  {
+    "file": "src/features/profile/profile-view.tsx",
+    "line": 345,
+    "kind": "jsx-text",
+    "text": "Notifications push"
+  },
+  {
+    "file": "src/features/profile/profile-view.tsx",
+    "line": 348,
+    "kind": "attr:aria-label",
+    "text": "Notifications push"
+  },
+  {
+    "file": "src/features/profile/profile-view.tsx",
+    "line": 350,
+    "kind": "jsx-text",
+    "text": "Non disponible"
+  },
+  {
+    "file": "src/features/profile/student-documents-card.tsx",
+    "line": 232,
+    "kind": "call:error-template",
+    "text": "Échec de l'envoi du fichier:"
+  },
+  {
+    "file": "src/features/shared/bottom-nav.tsx",
+    "line": 67,
+    "kind": "attr:aria-label",
+    "text": "Primary"
+  },
+  {
+    "file": "src/features/shared/bottom-nav.tsx",
+    "line": 135,
+    "kind": "jsx-text",
+    "text": "El-Imtiyaz"
+  },
+  {
+    "file": "src/features/shared/bottom-nav.tsx",
+    "line": 140,
+    "kind": "attr:aria-label",
+    "text": "Primary"
+  },
+  {
+    "file": "src/features/shared/bottom-nav.tsx",
+    "line": 171,
+    "kind": "jsx-text",
+    "text": "v1.0.0 — portal"
+  },
+  {
+    "file": "src/features/shared/error-boundary.tsx",
+    "line": 48,
+    "kind": "jsx-text",
+    "text": "Une erreur est survenue"
+  },
+  {
+    "file": "src/features/shared/error-boundary.tsx",
+    "line": 50,
+    "kind": "jsx-fallback",
+    "text": "Veuillez réessayer."
+  },
+  {
+    "file": "src/features/shared/error-boundary.tsx",
+    "line": 55,
+    "kind": "jsx-text",
+    "text": "Réessayer"
+  },
+  {
+    "file": "src/features/shared/offline-indicator.tsx",
+    "line": 50,
+    "kind": "jsx-text",
+    "text": "Vous êtes hors ligne. Les données affichées peuvent être obsolètes."
+  },
+  {
+    "file": "src/features/shared/pwa-install-prompt.tsx",
+    "line": 69,
+    "kind": "jsx-text",
+    "text": "Installer le portail"
+  },
+  {
+    "file": "src/features/shared/pwa-install-prompt.tsx",
+    "line": 71,
+    "kind": "jsx-text",
+    "text": "Accédez plus rapidement depuis votre écran d'accueil"
+  },
+  {
+    "file": "src/features/shared/pwa-install-prompt.tsx",
+    "line": 76,
+    "kind": "jsx-text",
+    "text": "Installer"
+  },
+  {
+    "file": "src/features/shared/pwa-install-prompt.tsx",
+    "line": 80,
+    "kind": "attr:aria-label",
+    "text": "Plus tard"
+  },
+  {
+    "file": "src/features/shared/state-views.tsx",
+    "line": 85,
+    "kind": "jsx-text",
+    "text": "Réessayer"
+  },
+  {
+    "file": "src/features/shared/sw-update-banner.tsx",
+    "line": 26,
+    "kind": "jsx-text",
+    "text": "Une nouvelle version du portail est disponible."
+  },
+  {
+    "file": "src/features/shared/sw-update-banner.tsx",
+    "line": 33,
+    "kind": "jsx-text",
+    "text": "Mettre à jour"
+  },
+  {
+    "file": "src/features/shared/sw-update-banner.tsx",
+    "line": 37,
+    "kind": "attr:aria-label",
+    "text": "Fermer"
+  },
+  {
+    "file": "src/features/shared/top-app-bar.tsx",
+    "line": 65,
+    "kind": "jsx-text",
+    "text": "El-Imtiyaz"
+  }
+]
