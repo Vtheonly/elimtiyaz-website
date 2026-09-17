@@ -87,7 +87,7 @@ export function MessagesView() {
         >
           <div className="border-b border-border/60 p-3">
             <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-              Conversations
+              {t("chat.conversations")}
             </p>
           </div>
           {/* T-149: the parent→Administrator entry point (ADR-012). Always
@@ -138,7 +138,7 @@ export function MessagesView() {
             <Conversation channel={activeChannel} onBack={() => setActiveChannelId(null)} />
           ) : (
             <div className="flex flex-1 items-center justify-center p-6 text-center text-sm text-muted-foreground">
-              Sélectionnez une conversation
+              {t("chat.selectConversation")}
             </div>
           )}
         </div>
@@ -264,7 +264,8 @@ function Conversation({
     // Validate the message body with Zod (5000-char ceiling, non-empty).
     const parsed = chatMessageSchema.safeParse({ body, channelId: channel.id });
     if (!parsed.success) {
-      toast.error(parsed.error.issues[0]?.message ?? "Message invalide.");
+      // T-385: the schema emits dictionary keys — translate at the seam.
+      toast.error(t(parsed.error.issues[0]?.message ?? "validation.message.empty"));
       return;
     }
     setSending(true);

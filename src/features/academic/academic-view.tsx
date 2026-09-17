@@ -72,7 +72,7 @@ export function AcademicView() {
 
   const handleDownloadBulletin = () => {
     if (!activeKid) {
-      toast.error("Aucun élève sélectionné");
+      toast.error(t("academic.noStudent"));
       return;
     }
     const level = levels.data?.find((l) => l.id === activeKid.grade_level_id) ?? null;
@@ -83,7 +83,7 @@ export function AcademicView() {
       grades: (grades.data ?? []) as never,
       attendance: attendance.data ?? [],
     });
-    toast.success("Bulletin ouvert — utilisez le dialogue d'impression pour enregistrer en PDF");
+    toast.success(t("academic.bulletin.opened"));
   };
 
   // Group assessments by subject (canonical 0029 shape: one row per
@@ -259,7 +259,7 @@ export function AcademicView() {
           ) : grades.isError ? (
             <ErrorState title={t("common.error.title")} onRetry={() => grades.refetch()} />
           ) : filteredSubjects.size === 0 ? (
-            <EmptyState title="Aucune note pour cette période" icon={<GraduationCap className="h-6 w-6" />} />
+            <EmptyState title={t("academic.grades.empty")} icon={<GraduationCap className="h-6 w-6" />} />
           ) : (
             <div className="space-y-2">
               {Array.from(filteredSubjects.entries()).map(([subjectId, s]) => {
@@ -285,7 +285,7 @@ export function AcademicView() {
                           <p className="font-medium">{s.subjectName}</p>
                           <p className="mt-0.5 text-xs text-muted-foreground">
                             {t("student.coefficient")}: {s.coefficient}
-                            {s.isExtracurricular ? " • hors moyenne" : ""}
+                            {s.isExtracurricular ? ` ${t("academic.cc.horsMoyenne")}` : ""}
                           </p>
                         </div>
                         {subjectAvg !== null && (

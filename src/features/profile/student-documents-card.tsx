@@ -213,7 +213,8 @@ function UploadDocumentDialog({
     // Validate the file with the same Zod schema used for absence justifications.
     const fileParsed = fileUploadSchema.safeParse(file);
     if (!fileParsed.success) {
-      toast.error(fileParsed.error.issues[0]?.message ?? "Fichier invalide.");
+      // T-385: the schema emits dictionary keys — translate at the seam.
+      toast.error(t(fileParsed.error.issues[0]?.message ?? "documents.fileInvalid"));
       return;
     }
 
@@ -229,7 +230,7 @@ function UploadDocumentDialog({
         .from("student-documents")
         .upload(objectPath, file, { upsert: false });
       if (upErr) {
-        toast.error(`Échec de l'envoi du fichier: ${upErr.message}`);
+        toast.error(t("documents.uploadFailed", { message: upErr.message }));
         setSaving(false);
         return;
       }

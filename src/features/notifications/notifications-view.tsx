@@ -94,7 +94,7 @@ export function NotificationsView() {
       return;
     }
     notifications.refetch();
-    toast.success("Marqué comme lu");
+    toast.success(t("notifications.markedRead"));
   };
 
   const markRead = async (n: NotificationRow) => {
@@ -102,7 +102,7 @@ export function NotificationsView() {
     // Validate the notification id (defensive — RLS also rejects bad UUIDs).
     const parsed = markNotificationReadSchema.safeParse({ notificationId: n.id });
     if (!parsed.success) {
-      toast.error("Notification invalide.");
+      toast.error(t("notifications.invalid"));
       return;
     }
     const { error } = await supabase

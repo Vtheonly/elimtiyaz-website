@@ -137,16 +137,16 @@ export function ProfileView() {
       const ok = await registerDeviceToken(user.id);
       if (ok) {
         setPushEnabled(true);
-        toast.success("Notifications activées");
+        toast.success(t("profile.push.enabled"));
       } else {
         setPushEnabled(false);
-        toast.error("Impossible d'activer les notifications");
+        toast.error(t("profile.push.enableFailed"));
       }
     } else {
       // Soft-delete the device token so the backend stops sending pushes.
       await unregisterDeviceToken(user.id);
       setPushEnabled(false);
-      toast.info("Notifications désactivées");
+      toast.info(t("profile.push.disabled"));
     }
   };
 
@@ -271,7 +271,7 @@ export function ProfileView() {
       <Card className="border-border/60">
         <CardHeader className="pb-3">
           <CardTitle className="text-sm font-medium uppercase tracking-wide text-muted-foreground">
-            Préférences
+            {t("profile.preferences")}
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -342,12 +342,12 @@ export function ProfileView() {
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-2 text-sm font-medium">
               <Bell className="h-4 w-4" />
-              Notifications push
+              {t("profile.push.title")}
             </div>
             {pushSupported ? (
-              <Switch checked={pushEnabled} onCheckedChange={togglePush} aria-label="Notifications push" />
+              <Switch checked={pushEnabled} onCheckedChange={togglePush} aria-label={t("profile.push.title")} />
             ) : (
-              <span className="text-xs text-muted-foreground">Non disponible</span>
+              <span className="text-xs text-muted-foreground">{t("profile.push.unavailable")}</span>
             )}
           </div>
         </CardContent>

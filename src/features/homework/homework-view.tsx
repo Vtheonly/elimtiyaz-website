@@ -185,7 +185,7 @@ function HomeworkItem({ hw }: { hw: HomeworkRow }) {
                     onClick={() => openAttachment(path)}
                   >
                     <Paperclip className="mr-2 h-3.5 w-3.5" />
-                    {path.split("/").pop() ?? "Attachment"}
+                    {path.split("/").pop() ?? t("homework.attachmentFallback")}
                   </Button>
                 ))}
               </div>

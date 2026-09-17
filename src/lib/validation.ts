@@ -7,6 +7,17 @@
  *
  * Why Zod: it's already a dependency (used by react-hook-form), provides
  * TypeScript type inference, and produces human-readable error messages.
+ *
+ * T-385 (I18N-500): every user-facing message is a DICTIONARY KEY
+ * (`validation.*` in src/lib/i18n/dictionary.ts, fr/ar/en). The schemas
+ * validate; the toast seams translate (`t(message)`). A raw key rendered
+ * untranslated means a consumer forgot the seam — the t-385 guard's
+ * scanner keeps the toast seams honest.
+ *
+ * NOTE: `validation.file.tooBig` states the 10 MB limit statically in the
+ * dictionary (MAX_JUSTIFICATION_FILE_SIZE is a compile-time constant);
+ * the dialog's pre-check interpolates the constant dynamically — if the
+ * constant ever changes, update both.
  */
 
 import { z } from "zod";
@@ -20,16 +31,16 @@ export const absenceJustificationSchema = z
     note: z
       .string()
       .trim()
-      .max(2000, "La note ne peut pas dépasser 2000 caractères.")
+      .max(2000, "validation.note.tooLong")
       .optional()
       .or(z.literal("")),
     driveLink: z
       .string()
       .trim()
-      .url("Le lien Google Drive n'est pas valide.")
+      .url("validation.driveLink.invalid")
       .refine(
         (v) => !v || v.includes("drive.google.com") || v.includes("docs.google.com"),
-        "Le lien doit pointer vers Google Drive."
+        "validation.driveLink.notDrive"
       )
       .optional()
       .or(z.literal("")),
@@ -38,8 +49,7 @@ export const absenceJustificationSchema = z
   .refine(
     (data) => data.note || data.driveLink || data.hasFile,
     {
-      message:
-        "Veuillez fournir une note, un fichier ou un lien Google Drive.",
+      message: "validation.absence.required",
       path: ["note"],
     }
   );
@@ -54,9 +64,9 @@ export const chatMessageSchema = z.object({
   body: z
     .string()
     .trim()
-    .min(1, "Le message ne peut pas être vide.")
-    .max(5000, "Le message ne peut pas dépasser 5000 caractères."),
-  channelId: z.string().uuid("Identifiant de canal invalide."),
+    .min(1, "validation.message.empty")
+    .max(5000, "validation.message.tooLong"),
+  channelId: z.string().uuid("validation.channelId.invalid"),
 });
 
 export type ChatMessageInput = z.infer<typeof chatMessageSchema>;
@@ -75,7 +85,7 @@ export type ThemePref = z.infer<typeof themeSchema>;
 /* Student / Parent ID params                                                */
 /* -------------------------------------------------------------------------- */
 
-export const uuidSchema = z.string().uuid("Identifiant invalide.");
+export const uuidSchema = z.string().uuid("validation.uuid.invalid");
 
 /* -------------------------------------------------------------------------- */
 /* Notification mark-read                                                    */
@@ -102,9 +112,9 @@ export const fileUploadSchema = z
   .instanceof(File)
   .refine(
     (f) => f.size <= MAX_JUSTIFICATION_FILE_SIZE,
-    `Le fichier ne peut pas dépasser ${MAX_JUSTIFICATION_FILE_SIZE / 1024 / 1024} Mo.`
+    "validation.file.tooBig"
   )
   .refine(
     (f) => ALLOWED_JUSTIFICATION_FILE_TYPES.includes(f.type as (typeof ALLOWED_JUSTIFICATION_FILE_TYPES)[number]),
-    "Type de fichier non autorisé. Formats acceptés: PDF, PNG, JPEG, WebP."
+    "validation.file.type"
   );

@@ -109,45 +109,12 @@ interface Finding {
  * The suite reaches its end state when this list is empty — then every
  * finding of the scanner is a failure.
  *
- * Progress: iteration 3 complete (shared components + app chrome migrated:
- * global-error, page splash, dialog Close, error-boundary, state-views,
- * offline-indicator, sw-update-banner, pwa-install-prompt, bottom-nav,
- * top-app-bar — 21 pairs migrated, 32 remain).
+ * Progress: COMPLETE (2026-09-17) — iterations 3+4 migrated all 53 pairs
+ * (shared components, feature views, validation messages, the financial
+ * canonical-label render mappings). The list is EMPTY: any new hardcoded
+ * user-visible string fails this suite.
  */
-const ALLOWLIST: ReadonlyArray<readonly [string, string]> = [
-    ["src/features/academic/academic-view.tsx", "Aucun élève sélectionné"],
-    ["src/features/academic/academic-view.tsx", "Aucune note pour cette période"],
-    ["src/features/academic/academic-view.tsx", "Bulletin ouvert — utilisez le dialogue d'impression pour enregistrer en PDF"],
-    ["src/features/academic/academic-view.tsx", "• hors moyenne"],
-    ["src/features/attendance/absence-justification-dialog.tsx", "Annuler"],
-    ["src/features/attendance/absence-justification-dialog.tsx", "Choisir un fichier"],
-    ["src/features/attendance/absence-justification-dialog.tsx", "Envoyer"],
-    ["src/features/attendance/absence-justification-dialog.tsx", "Ex: Certificat médical fourni. Enfant malade du…"],
-    ["src/features/attendance/absence-justification-dialog.tsx", "Fournissez une note explicative et/ou un justificatif (certificat médical, convocation, etc.). L'administration examinera votre demande."],
-    ["src/features/attendance/absence-justification-dialog.tsx", "Justification envoyée. L'administration va l'examiner."],
-    ["src/features/attendance/absence-justification-dialog.tsx", "Justifier une absence"],
-    ["src/features/attendance/absence-justification-dialog.tsx", "Lien Google Drive (optionnel)"],
-    ["src/features/attendance/absence-justification-dialog.tsx", "Note de justification"],
-    ["src/features/attendance/absence-justification-dialog.tsx", "Pièce jointe (PDF, image — max 10 Mo)"],
-    ["src/features/attendance/absence-justification-dialog.tsx", "Retirer"],
-    ["src/features/attendance/absence-justification-dialog.tsx", "Échec de l'envoi du fichier:"],
-    ["src/features/attendance/absence-justification-dialog.tsx", "Validation error."],
-    ["src/features/attendance/attendance-view.tsx", "Justifier cette absence"],
-    ["src/features/auth/activation-code-screen.tsx", "— ou —"],
-    ["src/features/financial/financial-view.tsx", "↔ Paire annulée :"],
-    ["src/features/homework/homework-view.tsx", "Attachment"],
-    ["src/features/messages/messages-view.tsx", "Conversations"],
-    ["src/features/messages/messages-view.tsx", "Sélectionnez une conversation"],
-    ["src/features/notifications/notifications-view.tsx", "Marqué comme lu"],
-    ["src/features/notifications/notifications-view.tsx", "Notification invalide."],
-    ["src/features/profile/profile-view.tsx", "Impossible d'activer les notifications"],
-    ["src/features/profile/profile-view.tsx", "Non disponible"],
-    ["src/features/profile/profile-view.tsx", "Notifications activées"],
-    ["src/features/profile/profile-view.tsx", "Notifications désactivées"],
-    ["src/features/profile/profile-view.tsx", "Notifications push"],
-    ["src/features/profile/profile-view.tsx", "Préférences"],
-    ["src/features/profile/student-documents-card.tsx", "Échec de l'envoi du fichier:"],
-];
+const ALLOWLIST: ReadonlyArray<readonly [string, string]> = [];
 
 function runScanner(): Finding[] {
   const script = join(ROOT, "scripts", "i18n", "scan-hardcoded-strings.mjs");
@@ -171,6 +138,12 @@ describe("T-385 — no hardcoded user-visible strings outside the burn-down list
     expect(
       unregistered.map((f) => `${f.file}:${f.line} [${f.kind}] ${f.text}`),
     ).toEqual([]);
+  });
+
+  it("the burn-down is complete — zero hardcoded user-visible strings", () => {
+    // The end state: the allowlist is empty AND the scanner reports nothing.
+    expect(ALLOWLIST).toEqual([]);
+    expect(findings).toEqual([]);
   });
 
   it("scanner and dictionary parse cleanly (report is an array)", () => {

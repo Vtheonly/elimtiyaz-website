@@ -180,7 +180,7 @@ export function AttendanceView() {
                     className="ml-13 flex items-center gap-1 px-2 py-1 text-xs text-primary hover:underline"
                   >
                     <FileText className="h-3 w-3" />
-                    Justifier cette absence
+                    {t("attendance.justifier")}
                   </button>
                 )}
               </div>

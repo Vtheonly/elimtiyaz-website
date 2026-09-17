@@ -38,6 +38,7 @@ import { Label } from "@/components/ui/label";
 import { Upload, Link as LinkIcon, Loader2 } from "lucide-react";
 import { supabase } from "@/lib/supabase/client";
 import { toast } from "sonner";
+import { useT } from "@/lib/i18n/use-t";
 import {
   absenceJustificationSchema,
   fileUploadSchema,
@@ -63,6 +64,7 @@ export function AbsenceJustificationDialog({
   const [driveLink, setDriveLink] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [saving, setSaving] = useState(false);
+  const { t } = useT();
 
   const reset = () => {
     setNote("");
@@ -80,7 +82,8 @@ export function AbsenceJustificationDialog({
       hasFile: Boolean(file),
     });
     if (!parsed.success) {
-      toast.error(parsed.error.issues[0]?.message ?? "Validation error.");
+      // T-385: the schema emits dictionary keys — translate at the seam.
+      toast.error(t(parsed.error.issues[0]?.message ?? "validation.absence.required"));
       return;
     }
 
@@ -88,7 +91,7 @@ export function AbsenceJustificationDialog({
     if (file) {
       const fileParsed = fileUploadSchema.safeParse(file);
       if (!fileParsed.success) {
-        toast.error(fileParsed.error.issues[0]?.message ?? "Fichier invalide.");
+        toast.error(t(fileParsed.error.issues[0]?.message ?? "documents.fileInvalid"));
         return;
       }
     }
@@ -105,7 +108,7 @@ export function AbsenceJustificationDialog({
         .from("attendance-justifications")
         .upload(objectPath, file, { upsert: true });
       if (upErr) {
-        toast.error(`Échec de l'envoi du fichier: ${upErr.message}`);
+        toast.error(t("attendance.justification.uploadFailed", { message: upErr.message }));
         setSaving(false);
         return;
       }
@@ -133,7 +136,7 @@ export function AbsenceJustificationDialog({
       return;
     }
 
-    toast.success("Justification envoyée. L'administration va l'examiner.");
+    toast.success(t("attendance.justification.sent"));
     reset();
     onOpenChange(false);
     onSubmitted?.();
@@ -150,33 +153,32 @@ export function AbsenceJustificationDialog({
     >
       <DialogContent className="max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Justifier une absence</DialogTitle>
+          <DialogTitle>{t("attendance.justification.dialogTitle")}</DialogTitle>
           <DialogDescription>
-            Fournissez une note explicative et/ou un justificatif (certificat
-            médical, convocation, etc.). L'administration examinera votre demande.
+            {t("attendance.justification.dialogSubtitle")}
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
           {/* Note */}
           <div className="space-y-2">
-            <Label htmlFor="just-note">Note de justification</Label>
+            <Label htmlFor="just-note">{t("attendance.justification.note")}</Label>
             <Textarea
               id="just-note"
               value={note}
               onChange={(e) => setNote(e.target.value)}
-              placeholder="Ex: Certificat médical fourni. Enfant malade du…"
+              placeholder={t("attendance.justification.notePlaceholder")}
               rows={4}
             />
           </div>
 
           {/* File upload */}
           <div className="space-y-2">
-            <Label htmlFor="just-file">Pièce jointe (PDF, image — max 10 Mo)</Label>
+            <Label htmlFor="just-file">{t("attendance.justification.attachmentLabel")}</Label>
             <div className="flex items-center gap-2">
               <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-border/60 bg-card px-3 py-2 text-sm hover:bg-muted/40">
                 <Upload className="h-4 w-4" />
-                <span>{file ? file.name : "Choisir un fichier"}</span>
+                <span>{file ? file.name : t("attendance.justification.chooseFile")}</span>
                 <input
                   id="just-file"
                   type="file"
@@ -185,7 +187,11 @@ export function AbsenceJustificationDialog({
                   onChange={(e) => {
                     const f = e.target.files?.[0] ?? null;
                     if (f && f.size > MAX_JUSTIFICATION_FILE_SIZE) {
-                      toast.error(`Le fichier dépasse la taille maximale de ${MAX_JUSTIFICATION_FILE_SIZE / 1024 / 1024} Mo.`);
+                      toast.error(
+                        t("validation.file.tooBig", {
+                          max: MAX_JUSTIFICATION_FILE_SIZE / 1024 / 1024,
+                        })
+                      );
                       return;
                     }
                     setFile(f);
@@ -198,7 +204,7 @@ export function AbsenceJustificationDialog({
                   onClick={() => setFile(null)}
                   className="text-xs text-muted-foreground hover:text-destructive"
                 >
-                  Retirer
+                  {t("attendance.justification.remove")}
                 </button>
               )}
             </div>
@@ -208,7 +214,7 @@ export function AbsenceJustificationDialog({
           <div className="space-y-2">
             <Label htmlFor="just-link" className="flex items-center gap-1">
               <LinkIcon className="h-3 w-3" />
-              Lien Google Drive (optionnel)
+              {t("attendance.justification.driveLink")}
             </Label>
             <Input
               id="just-link"
@@ -222,11 +228,11 @@ export function AbsenceJustificationDialog({
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
-            Annuler
+            {t("common.cancel")}
           </Button>
           <Button onClick={handleSubmit} disabled={saving}>
             {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Envoyer
+            {t("common.send")}
           </Button>
         </DialogFooter>
       </DialogContent>

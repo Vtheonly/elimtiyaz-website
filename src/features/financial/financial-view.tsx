@@ -20,6 +20,7 @@ import {
 import {
   parentBillingBreakdown,
   classifyAdjustmentRows,
+  serviceLabelOf,
 } from "@/lib/canonical/billing-breakdown";
 import { paymentCoverageLines } from "@/lib/canonical/payment-coverage";
 import {
@@ -546,7 +547,11 @@ function BillingTab({
                         className="flex items-center justify-between gap-2 px-3 py-2"
                       >
                         <span className="min-w-0 flex-1 truncate font-medium">
-                          {item.label}
+                          {/* T-385: server descriptions render as-is; the
+                           * canonical FR service-label fallback maps by code. */}
+                          {item.label === serviceLabelOf(item.category)
+                            ? t(`finance.svc.category.${item.category ?? "other"}`)
+                            : item.label}
                         </span>
                         <span className="font-mono text-muted-foreground">
                           {formatCurrency(item.amount)}
@@ -662,7 +667,11 @@ function BillingTab({
                     className="flex items-center justify-between gap-2 py-2"
                   >
                     <span className="min-w-0 flex-1 truncate font-medium">
-                      {item.label}
+                      {/* T-385: same canonical-fallback mapping as the
+                       * per-child line items above. */}
+                      {item.label === serviceLabelOf(item.category)
+                        ? t(`finance.svc.category.${item.category ?? "other"}`)
+                        : item.label}
                     </span>
                     <span className="font-mono text-muted-foreground">
                       {formatCurrency(item.amount)}
@@ -1276,7 +1285,12 @@ function AdjustmentsTab({
                       {formatCurrency(Math.abs(c.amount))}
                     </p>
                     <StatusPill tone={isCredit ? "success" : "warning"}>
-                      {c.badgeLabel}
+                      {/* T-385: the badge maps the kind code → key. */}
+                      {t(
+                        isCredit
+                          ? "finance.adjust.badge.credit"
+                          : "finance.adjust.badge.debit",
+                      )}
                     </StatusPill>
                   </div>
                   <div className="flex flex-wrap items-center gap-2 mt-1">
@@ -1285,7 +1299,7 @@ function AdjustmentsTab({
                     </span>
                     <ProvenancePill
                       provenance={c.provenance}
-                      label={c.provenanceLabel}
+                      label={t(`finance.adjust.provenance.${c.provenance}`)}
                     />
                     {c.receiptRef && (
                       <span className="text-[10px] text-muted-foreground font-mono bg-muted px-1.5 py-0.5 rounded">
@@ -1302,14 +1316,28 @@ function AdjustmentsTab({
                     c.isDiagnosticFallback && "italic text-muted-foreground",
                   )}
                 >
-                  {c.reasonLabel}
+                  {/* T-385: stored reasons are server data (rendered as-is);
+                   * the diagnostic fallbacks localize via the kind code. */}
+                  {c.isDiagnosticFallback
+                    ? t(
+                        c.kind === "credit"
+                          ? "finance.adjust.fallback.credit"
+                          : "finance.adjust.fallback.debit",
+                      )
+                    : c.reasonLabel}
                 </p>
                 <p className="mt-1.5 text-xs text-muted-foreground leading-relaxed">
-                  {c.meaningLabel}
+                  {/* T-385: the meaning sentence maps provenance+kind → key
+                   * (the canonical layer stays the verbatim FR port — ADR-002). */}
+                  {t(
+                    c.provenance === "reversal_pair"
+                      ? "finance.adjust.meaning.reversal_pair"
+                      : `finance.adjust.meaning.${c.provenance}.${c.kind}`,
+                  )}
                 </p>
                 {pair && (
                   <p className="mt-2 text-xs font-semibold text-warning bg-warning/10 px-2 py-1 rounded inline-block">
-                    ↔ Paire annulée : {formatDate(pair.at)} —{" "}
+                    {t("finance.adjust.pairLink")} {formatDate(pair.at)} —{" "}
                     {formatCurrency(Math.abs(pair.amount))}
                   </p>
                 )}

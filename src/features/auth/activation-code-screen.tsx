@@ -204,7 +204,7 @@ export function ActivationCodeScreen({ onDismiss }: Props) {
                     <div className="w-full border-t border-border/60" />
                   </div>
                   <div className="relative flex justify-center">
-                    <span className="bg-card px-2 text-xs text-muted-foreground">— ou —</span>
+                    <span className="bg-card px-2 text-xs text-muted-foreground">{t("auth.or")}</span>
                   </div>
                 </div>
                 <Button

@@ -112,12 +112,24 @@ export function ServicePricingCard({
   const { t, locale } = useT();
   const [open, setOpen] = useState(false);
 
+  // T-385: the service title maps the CATEGORY code → dictionary key (the
+  // canonical layer keeps emitting its verbatim FR labels — ADR-002 — the
+  // mapping happens here at the display layer, the UI-304 precedent).
+  // "Inscription" is the refinedLabel special case for registration fees
+  // under the "other" category (service-pricing-profile.ts refinedLabel).
+  const serviceTitle =
+    profile?.label === "Inscription"
+      ? t("finance.svc.category.registration")
+      : t(`finance.svc.category.${svc.category}`) !== `finance.svc.category.${svc.category}`
+        ? t(`finance.svc.category.${svc.category}`)
+        : (profile?.label ?? svc.label);
+
   return (
     <div className="rounded-xl border border-border/40 bg-muted/10 p-5 space-y-3">
       {/* Header — aggregate (unchanged look) + the year chip */}
       <div className="flex items-center justify-between gap-2">
         <div className="min-w-0">
-          <p className="font-semibold text-base">{profile?.label ?? svc.label}</p>
+          <p className="font-semibold text-base">{serviceTitle}</p>
           <p className="text-[11px] text-muted-foreground">
             {svc.count} {t("finance.billing.elements")} · {t("finance.svc.year")}{" "}
             {profile?.academicYear ?? "—"}
@@ -281,7 +293,11 @@ export function ServicePricingCard({
                   className="flex flex-wrap items-center justify-between gap-2 rounded border border-border/40 bg-muted/20 px-2.5 py-1.5 text-xs"
                 >
                   <span className="min-w-0 flex-1">
-                    {c.label}
+                    {/* T-385: engine-defined conditions map code → key;
+                     * catalog discount rules carry server-side labels. */}
+                    {c.kind === "early_payment_bonus"
+                      ? t("finance.svc.cond.fullAnnual")
+                      : c.label}
                     {c.deadline && (
                       <span className="text-muted-foreground">
                         {" "}
@@ -390,7 +406,12 @@ export function ServicePricingCard({
                     >
                       <div className="flex items-center justify-between gap-2">
                         <span className="font-semibold">
-                          {tr.studentName} · {tr.label}
+                          {/* T-385: the canonical "Tranche N" fallback maps
+                           * to the dictionary; server labels render as-is. */}
+                          {tr.studentName} ·{" "}
+                          {tr.label === `Tranche ${tr.trancheNumber}`
+                            ? `${t("finance.installment.tranche")} ${tr.trancheNumber}`
+                            : tr.label}
                         </span>
                         {settled ? (
                           <span className="font-mono text-[11px] text-success">
