@@ -70,6 +70,7 @@ supabase/
 - Keep `NEXT_PUBLIC_*` flags truthful; feature flags gate UI **and** behaviour (the mock-auth flag violated this — SEC-007).
 - **Mobile-first layout rules (T-199..T-203, 2026-09-06 — all source-scan-guarded):** (a) every responsive grid MUST declare a base `grid-cols-*` (a bare `grid gap-*` that only gains columns at a breakpoint blows out ~900px on mobile — UI-300, guarded by `t-199`); (b) Intl currency output is UNBREAKABLE text (U+202F/U+00A0 separators) — width-constrained money surfaces need `break-words` + a mobile size step at the DISPLAY layer, and the FORMATTER is parity-pinned (guarded by `t-200`); (c) header rows with action clusters must `flex-wrap` + `gap-y` (guarded by `t-201`); (d) multi-label tab bars scroll below sm (`overflow-x-auto scrollbar-none`, the established chip-row idiom — guarded by `t-202`); (e) the calendar kind→label mapping lives ONCE in `src/features/calendar/event-kind.ts` (guarded by `t-203`). Live verification recipe: `AgentGithubUplaod/docs/testing/strategy.md` §6.
 - **NEVER read `process.env.NEXT_PUBLIC_*` directly in a client component** (T-184/ACT-201, 2026-09-05): Next.js inlines those values at BUILD time — a deployment host that hasn't set them yields `undefined` in the bundle (the production 404 `/undefined/functions/v1/bind-activation-code` that broke EVERY activation attempt). Always resolve through `@/lib/env`, which falls back to the committed `PUBLIC_CONFIG_DEFAULTS` (T-096). A whole-src regression test enforces this (`src/test/t-184-activation-ef-url.test.ts`).
+- **Every user-visible string routes through the dictionary (T-385/I18N-500, 2026-09-17 — machine-enforced):** the portal is a 3-locale application (fr/ar/en). New UI text goes into `src/lib/i18n/dictionary.ts` in ALL THREE locales in the same change (a key landing in one locale only is the T-187 failure mode — the `t-385` guard fails the suite on any fr/ar/en key drift, any duplicate key, and any hardcoded user-visible literal the AST scanner finds). Zod validation messages are DICTIONARY KEYS (`validation.*`) — the toast seams translate (`t(message)`), never toast a raw message. The canonical layer (billing-breakdown / service-pricing-profile) keeps its verbatim French labels (ADR-002 parity) — localize at the DISPLAY layer via stable code→key mappings (the UI-304 precedent: `finance.adjust.provenance.*`, `finance.svc.category.*`). Document `lang`/`dir` come from the LocaleProvider — never hardcode `dir` on a layout. Scope decisions that stand: PDFs, app metadata and the PWA manifest stay French (WinAnsi + static-export constraints — see I18N-500); `format.ts` formatters are parity-pinned (t-200).
 
 ## 6. Before finishing
 
@@ -87,7 +88,7 @@ Every commit body must answer five questions (hub `AGENTS.md` §14, full templat
 
 ```bash
 npm run lint          # eslint
-npm run test          # vitest (41 files / 565 tests, session 58)
+npm run test          # vitest (49 files / 629 tests, session 75)
 npm run build         # next build (strict after T-049)
 ```
 
