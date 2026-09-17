@@ -11,6 +11,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { AlertCircle, Inbox } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { useT } from "@/lib/i18n/use-t";
 
 /* -------------------------------------------------------------------------- */
 
@@ -71,6 +72,7 @@ export function ErrorState({
   description?: string;
   onRetry?: () => void;
 }) {
+  const { t } = useT();
   return (
     <div className="flex flex-col items-center justify-center gap-3 px-6 py-10 text-center">
       <div className="rounded-full bg-destructive/15 p-3 text-destructive">
@@ -82,7 +84,7 @@ export function ErrorState({
       </div>
       {onRetry && (
         <Button variant="outline" size="sm" onClick={onRetry}>
-          Réessayer
+          {t("common.retry")}
         </Button>
       )}
     </div>

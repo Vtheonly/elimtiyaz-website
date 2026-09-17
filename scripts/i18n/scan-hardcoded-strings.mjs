@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * scan-hardcoded-strings.js — whole-codebase user-visible string scanner.
+ * scan-hardcoded-strings.mjs — whole-codebase user-visible string scanner.
  *
  * Parses every .ts/.tsx file under src/ (excluding tests and the dictionary
  * itself) with the TypeScript compiler API and reports string literals that
@@ -10,23 +10,26 @@
  *   2. JSX attributes (visible props)      placeholder="Nom" / title= / aria-label=
  *   3. String literals inside JSX {expr}   {`Aucune note`} {"Chargement"}
  *   4. Toast / sonner calls                toast.success("Enregistré")
- *   5. Error messages shown to users       new Error("...") (flagged, may be internal)
+ *   5. Logical fallbacks in JSX            {value || "fallback"}
  *
  * Exclusions: className/key/id/test-*, data-*, href/src/for/type/variant,
- * imports/exports, comments, console.*, import paths, numbers, pure symbols.
+ * imports/exports, comments, console.*, import paths, numbers, pure symbols,
+ * `new Error(...)` developer invariants.
  *
  * Output: JSON report (scripts/i18n/hardcoded-strings-report.json) + a
  * human-readable summary. Exit code 1 if any finding remains (CI-able).
  *
- * Usage: node scripts/i18n/scan-hardcoded-strings.js [--min-chars N]
+ * Usage: node scripts/i18n/scan-hardcoded-strings.mjs
  */
-const fs = require("fs");
-const path = require("path");
-const ts = require("typescript");
+import { readFileSync, readdirSync, writeFileSync } from "node:fs";
+import { join, relative, resolve, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
+import ts from "typescript";
 
-const ROOT = path.resolve(__dirname, "..", ".."); // elimtiyaz-website
-const SRC = path.join(ROOT, "src");
-const OUT_REPORT = path.join(__dirname, "hardcoded-strings-report.json");
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const ROOT = resolve(__dirname, "..", ".."); // elimtiyaz-website
+const SRC = join(ROOT, "src");
+const OUT_REPORT = join(__dirname, "hardcoded-strings-report.json");
 
 const minChars = 2; // strings shorter than this are not worth translating
 
@@ -138,7 +141,7 @@ const EXCLUDE_FILES = [
 ];
 
 function shouldExcludeFile(fp) {
-  const rel = path.relative(ROOT, fp).split(path.sep).join("/");
+  const rel = relative(ROOT, fp).split("/").join("/");
   if (EXCLUDE_FILES.includes(rel)) return true;
   if (/\.test\.[jt]sx?$/.test(rel)) return true;
   if (rel.startsWith("src/test/")) return true;
@@ -148,8 +151,8 @@ function shouldExcludeFile(fp) {
 
 function listSourceFiles(dir) {
   const out = [];
-  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
-    const fp = path.join(dir, entry.name);
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    const fp = join(dir, entry.name);
     if (entry.isDirectory()) out.push(...listSourceFiles(fp));
     else if (/\.[jt]sx?$/.test(entry.name)) out.push(fp);
   }
@@ -192,7 +195,7 @@ const findings = [];
 
 function addFinding(file, node, text, kind) {
   const { line } = node.getSourceFile().getLineAndCharacterOfPosition(node.getStart());
-  const rel = path.relative(ROOT, file).split(path.sep).join("/");
+  const rel = relative(ROOT, file).split("/").join("/");
   findings.push({
     file: rel,
     line: line + 1,
@@ -362,7 +365,7 @@ function visit(node, file) {
 
 const files = listSourceFiles(SRC).filter((f) => !shouldExcludeFile(f));
 for (const file of files) {
-  const source = fs.readFileSync(file, "utf8");
+  const source = readFileSync(file, "utf8");
   const sf = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
   sf.forEachChild((node) => visit(node, file));
 }
@@ -378,7 +381,7 @@ const unique = findings.filter((f) => {
 
 unique.sort((a, b) => a.file.localeCompare(b.file) || a.line - b.line);
 
-fs.writeFileSync(OUT_REPORT, JSON.stringify(unique, null, 2));
+writeFileSync(OUT_REPORT, JSON.stringify(unique, null, 2));
 
 // summary
 const byFile = {};

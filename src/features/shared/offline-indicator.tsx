@@ -14,10 +14,12 @@
 import { useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { WifiOff, RefreshCw } from "lucide-react";
+import { useT } from "@/lib/i18n/use-t";
 
 export function OfflineIndicator() {
   const [online, setOnline] = useState(true);
   const qc = useQueryClient();
+  const { t } = useT();
 
   useEffect(() => {
     const update = () => {
@@ -47,7 +49,7 @@ export function OfflineIndicator() {
       className="sticky top-14 z-30 flex items-center justify-center gap-2 border-b border-warning/30 bg-warning/15 px-4 py-2 text-xs font-medium text-warning backdrop-blur"
     >
       <WifiOff className="h-3.5 w-3.5" />
-      Vous êtes hors ligne. Les données affichées peuvent être obsolètes.
+      {t("offline.banner")}
       <RefreshCw className="h-3 w-3 animate-pulse" />
     </div>
   );

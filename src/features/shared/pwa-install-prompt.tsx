@@ -14,6 +14,7 @@
 import { useEffect, useState } from "react";
 import { Download, X, Smartphone } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useT } from "@/lib/i18n/use-t";
 
 const DISMISS_KEY = "el-imtiyaz-pwa-install-dismissed";
 const DISMISS_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
@@ -26,6 +27,7 @@ interface BeforeInstallPromptEvent extends Event {
 export function PwaInstallPrompt() {
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [visible, setVisible] = useState(false);
+  const { t } = useT();
 
   useEffect(() => {
     // Don't show if already installed or recently dismissed.
@@ -66,18 +68,18 @@ export function PwaInstallPrompt() {
           <Smartphone className="h-5 w-5" />
         </div>
         <div className="min-w-0 flex-1">
-          <p className="text-sm font-medium">Installer le portail</p>
+          <p className="text-sm font-medium">{t("pwa.install.title")}</p>
           <p className="truncate text-xs text-muted-foreground">
-            Accédez plus rapidement depuis votre écran d'accueil
+            {t("pwa.install.body")}
           </p>
         </div>
         <Button size="sm" onClick={handleInstall} className="shrink-0">
           <Download className="mr-1 h-3.5 w-3.5" />
-          Installer
+          {t("pwa.install.action")}
         </Button>
         <button
           onClick={handleDismiss}
-          aria-label="Plus tard"
+          aria-label={t("pwa.install.later")}
           className="touch-target flex shrink-0 items-center justify-center rounded-md p-1 text-muted-foreground hover:bg-muted/40"
         >
           <X className="h-4 w-4" />

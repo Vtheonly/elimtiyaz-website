@@ -22,9 +22,11 @@ import { LoginScreen } from "@/features/auth/login-screen";
 import { PendingActivationScreen } from "@/features/auth/pending-activation-screen";
 import { AppShell } from "@/features/shared/app-shell";
 import { GraduationCap } from "lucide-react";
+import { useT } from "@/lib/i18n/use-t";
 
 export default function Home() {
   const { state } = useAuth();
+  const { t } = useT();
 
   if (state === "loading") {
     return (
@@ -32,7 +34,7 @@ export default function Home() {
         <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/15 text-primary ring-1 ring-primary/30">
           <GraduationCap className="h-9 w-9" />
         </div>
-        <p className="font-mono text-sm text-muted-foreground">El-Imtiyaz Portal</p>
+        <p className="font-mono text-sm text-muted-foreground">{t("app.portal")}</p>
         <div className="h-1 w-24 overflow-hidden rounded-full bg-muted">
           <div className="h-full w-1/2 animate-pulse rounded-full bg-primary" />
         </div>

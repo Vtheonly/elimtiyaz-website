@@ -64,7 +64,7 @@ export function BottomNav() {
 
   return (
     <nav
-      aria-label="Primary"
+      aria-label={t("nav.primary")}
       className="glass-bar safe-pb fixed inset-x-0 bottom-0 z-40 border-t border-border/60 lg:hidden"
     >
       <ul className="mx-auto grid max-w-2xl grid-cols-5">
@@ -132,12 +132,12 @@ export function DesktopRail() {
           <GraduationCap className="h-5 w-5" />
         </div>
         <div className="min-w-0">
-          <p className="font-mono text-sm font-bold leading-none">El-Imtiyaz</p>
+          <p className="font-mono text-sm font-bold leading-none">{t("app.name")}</p>
           <p className="mt-0.5 truncate text-[10px] text-muted-foreground">{t("app.tagline")}</p>
         </div>
       </div>
 
-      <nav className="flex-1 space-y-1 p-3" aria-label="Primary">
+      <nav className="flex-1 space-y-1 p-3" aria-label={t("nav.primary")}>
         {desktopItems.map((item) => {
           const Icon = item.icon;
           const isActive = activeView === item.view;
@@ -168,7 +168,7 @@ export function DesktopRail() {
       </nav>
 
       <div className="border-t border-border/60 p-3 text-[10px] text-muted-foreground">
-        <p className="font-mono">v1.0.0 — portal</p>
+        <p className="font-mono">{t("app.version")}</p>
       </div>
     </aside>
   );

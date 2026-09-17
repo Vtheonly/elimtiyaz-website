@@ -62,7 +62,7 @@ export function TopAppBar() {
           <div className="flex h-7 w-7 items-center justify-center rounded-md bg-primary/15 text-primary">
             <GraduationCap className="h-4 w-4" />
           </div>
-          <span className="font-mono text-sm font-bold">El-Imtiyaz</span>
+          <span className="font-mono text-sm font-bold">{t("app.name")}</span>
         </div>
 
         {/* Active page title (desktop) */}

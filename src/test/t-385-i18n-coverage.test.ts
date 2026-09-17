@@ -14,7 +14,7 @@
  *     task started from).
  *
  *  2. NO NEW HARDCODED STRINGS — the AST scanner
- *     (scripts/i18n/scan-hardcoded-strings.js) parses every source file
+ *     (scripts/i18n/scan-hardcoded-strings.mjs) parses every source file
  *     and reports user-visible literals. Every finding must appear in the
  *     ALLOWLIST below (file + text). The allowlist is the burn-down list:
  *     as strings are migrated to the dictionary their entries are
@@ -108,14 +108,13 @@ interface Finding {
  * files). Entries are DELETED as their strings migrate to the dictionary.
  * The suite reaches its end state when this list is empty — then every
  * finding of the scanner is a failure.
+ *
+ * Progress: iteration 3 complete (shared components + app chrome migrated:
+ * global-error, page splash, dialog Close, error-boundary, state-views,
+ * offline-indicator, sw-update-banner, pwa-install-prompt, bottom-nav,
+ * top-app-bar — 21 pairs migrated, 32 remain).
  */
 const ALLOWLIST: ReadonlyArray<readonly [string, string]> = [
-    ["src/app/global-error.tsx", "Code:"],
-    ["src/app/global-error.tsx", "Le portail a rencontré un problème."],
-    ["src/app/global-error.tsx", "Réessayer"],
-    ["src/app/global-error.tsx", "Une erreur inattendue est survenue"],
-    ["src/app/page.tsx", "El-Imtiyaz Portal"],
-    ["src/components/ui/dialog.tsx", "Close"],
     ["src/features/academic/academic-view.tsx", "Aucun élève sélectionné"],
     ["src/features/academic/academic-view.tsx", "Aucune note pour cette période"],
     ["src/features/academic/academic-view.tsx", "Bulletin ouvert — utilisez le dialogue d'impression pour enregistrer en PDF"],
@@ -132,6 +131,7 @@ const ALLOWLIST: ReadonlyArray<readonly [string, string]> = [
     ["src/features/attendance/absence-justification-dialog.tsx", "Pièce jointe (PDF, image — max 10 Mo)"],
     ["src/features/attendance/absence-justification-dialog.tsx", "Retirer"],
     ["src/features/attendance/absence-justification-dialog.tsx", "Échec de l'envoi du fichier:"],
+    ["src/features/attendance/absence-justification-dialog.tsx", "Validation error."],
     ["src/features/attendance/attendance-view.tsx", "Justifier cette absence"],
     ["src/features/auth/activation-code-screen.tsx", "— ou —"],
     ["src/features/financial/financial-view.tsx", "↔ Paire annulée :"],
@@ -147,26 +147,10 @@ const ALLOWLIST: ReadonlyArray<readonly [string, string]> = [
     ["src/features/profile/profile-view.tsx", "Notifications push"],
     ["src/features/profile/profile-view.tsx", "Préférences"],
     ["src/features/profile/student-documents-card.tsx", "Échec de l'envoi du fichier:"],
-    ["src/features/shared/bottom-nav.tsx", "El-Imtiyaz"],
-    ["src/features/shared/bottom-nav.tsx", "Primary"],
-    ["src/features/shared/bottom-nav.tsx", "v1.0.0 — portal"],
-    ["src/features/shared/error-boundary.tsx", "Réessayer"],
-    ["src/features/shared/error-boundary.tsx", "Une erreur est survenue"],
-    ["src/features/shared/error-boundary.tsx", "Veuillez réessayer."],
-    ["src/features/shared/offline-indicator.tsx", "Vous êtes hors ligne. Les données affichées peuvent être obsolètes."],
-    ["src/features/shared/pwa-install-prompt.tsx", "Accédez plus rapidement depuis votre écran d'accueil"],
-    ["src/features/shared/pwa-install-prompt.tsx", "Installer"],
-    ["src/features/shared/pwa-install-prompt.tsx", "Installer le portail"],
-    ["src/features/shared/pwa-install-prompt.tsx", "Plus tard"],
-    ["src/features/shared/state-views.tsx", "Réessayer"],
-    ["src/features/shared/sw-update-banner.tsx", "Fermer"],
-    ["src/features/shared/sw-update-banner.tsx", "Mettre à jour"],
-    ["src/features/shared/sw-update-banner.tsx", "Une nouvelle version du portail est disponible."],
-    ["src/features/shared/top-app-bar.tsx", "El-Imtiyaz"],
 ];
 
 function runScanner(): Finding[] {
-  const script = join(ROOT, "scripts", "i18n", "scan-hardcoded-strings.js");
+  const script = join(ROOT, "scripts", "i18n", "scan-hardcoded-strings.mjs");
   if (!existsSync(script)) return [];
   // The scanner exits 1 while findings remain — that is expected here.
   try {

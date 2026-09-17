@@ -11,6 +11,7 @@
  */
 
 import { AlertTriangle, RefreshCw } from "lucide-react";
+import { useT } from "@/lib/i18n/use-t";
 
 export default function GlobalError({
   error,
@@ -19,8 +20,12 @@ export default function GlobalError({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
+  // T-385: the global error page renders outside every provider, but the
+  // locale store is a plain zustand store (module-level, provider-free) —
+  // useT works here and falls back to the default locale (fr) safely.
+  const { t, locale, dir } = useT();
   return (
-    <html lang="fr">
+    <html lang={locale} dir={dir}>
       <body
         style={{
           margin: 0,
@@ -62,7 +67,7 @@ export default function GlobalError({
           </div>
           <div>
             <h1 style={{ fontSize: "1.25rem", fontWeight: 600, margin: 0 }}>
-              Une erreur inattendue est survenue
+              {t("error.generic.title")}
             </h1>
             <p
               style={{
@@ -71,10 +76,10 @@ export default function GlobalError({
                 color: "#9CA3AF",
               }}
             >
-              {error.message || "Le portail a rencontré un problème."}
+              {error.message || t("error.generic.message")}
               {error.digest && (
                 <span style={{ display: "block", marginTop: "0.25rem", fontSize: "0.75rem" }}>
-                  Code: {error.digest}
+                  {t("error.code")} {error.digest}
                 </span>
               )}
             </p>
@@ -97,7 +102,7 @@ export default function GlobalError({
             }}
           >
             <RefreshCw size={16} />
-            Réessayer
+            {t("common.retry")}
           </button>
         </div>
       </body>

@@ -1,15 +1,17 @@
 #!/usr/bin/env node
 /**
  * i18n coverage analyzer — checks dictionary key parity across fr/ar/en.
- * Usage: node scripts/i18n/check-parity.js
+ * Usage: node scripts/i18n/check-parity.mjs
  */
-const fs = require("fs");
-const path = require("path");
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 
-const ROOT = path.resolve(__dirname, "..", ".."); // elimtiyaz-website root
-const DICT = path.join(ROOT, "src/lib/i18n/dictionary.ts");
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const ROOT = join(__dirname, "..", ".."); // elimtiyaz-website root
+const DICT = join(ROOT, "src/lib/i18n/dictionary.ts");
 
-const src = fs.readFileSync(DICT, "utf8");
+const src = readFileSync(DICT, "utf8");
 
 function extractBlock(startIdx) {
   let depth = 0,
