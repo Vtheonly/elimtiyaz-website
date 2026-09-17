@@ -6,6 +6,59 @@
   <title>Hors ligne — El-Imtiyaz Portal</title>
   <meta name="theme-color" content="#242526">
   <link rel="icon" href="/icon.svg">
+  <!--
+    T-385 (I18N-500): the service-worker offline fallback is a STATIC page —
+    it cannot read the app's zustand locale store and it must render with
+    ZERO network access. The three language variants are embedded inline;
+    a tiny script picks the closest match to the browser language BEFORE
+    first paint (script is synchronous, placed in <head> to avoid a flash
+    of French for Arabic/English users). The localStorage key matches the
+    app store's persisted locale when available (el-imtiyaz-portal-prefs).
+  -->
+  <script>
+    (function () {
+      var I18N = {
+        fr: {
+          title: "Hors ligne — El-Imtiyaz Portal",
+          h1: "Vous êtes hors ligne",
+          p: "Le portail El-Imtiyaz ne peut pas se connecter à internet. Vérifiez votre connexion réseau puis réessayez. Les données déjà consultées restent disponibles ci-dessous.",
+          retry: "Réessayer"
+        },
+        ar: {
+          title: "غير متصل — بوابة الإمتياذ",
+          h1: "أنت غير متصل بالإنترنت",
+          p: "لا تستطيع بوابة الإمتياذ الاتصال بالإنترنت. تحقق من اتصالك بالشبكة ثم أعد المحاولة. تبقى البيانات التي استعرضتها سابقًا متاحة أدناه.",
+          retry: "إعادة المحاولة"
+        },
+        en: {
+          title: "Offline — El-Imtiyaz Portal",
+          h1: "You are offline",
+          p: "The El-Imtiyaz portal cannot connect to the internet. Check your network connection and try again. Data you have already viewed remains available below.",
+          retry: "Try again"
+        }
+      };
+      var locale = "fr";
+      try {
+        var saved = localStorage.getItem("el-imtiyaz-portal-prefs");
+        if (saved) {
+          var parsed = JSON.parse(saved);
+          if (parsed && parsed.state && parsed.state.locale && I18N[parsed.state.locale]) {
+            locale = parsed.state.locale;
+          }
+        }
+      } catch (e) { /* fall through to navigator language */ }
+      if (locale === "fr") {
+        var nav = (navigator.language || "fr").toLowerCase();
+        if (nav.indexOf("ar") === 0) locale = "ar";
+        else if (nav.indexOf("en") === 0) locale = "en";
+      }
+      var s = I18N[locale];
+      document.documentElement.lang = locale;
+      document.documentElement.dir = locale === "ar" ? "rtl" : "ltr";
+      document.title = s.title;
+      window.__OFFLINE_I18N__ = s;
+    })();
+  </script>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
@@ -80,8 +133,8 @@
       <line x1="12" y1="20" x2="12.01" y2="20"></line>
     </svg>
   </div>
-  <h1>Vous êtes hors ligne</h1>
-  <p>
+  <h1 data-i18n="h1">Vous êtes hors ligne</h1>
+  <p data-i18n="p">
     Le portail El-Imtiyaz ne peut pas se connecter à internet. Vérifiez votre
     connexion réseau puis réessayez. Les données déjà consultées restent
     disponibles ci-dessous.
@@ -91,8 +144,21 @@
       <polyline points="23 4 23 10 17 10"></polyline>
       <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
     </svg>
-    Réessayer
+    <span data-i18n="retry">Réessayer</span>
   </button>
   <div class="brand">El-Imtiyaz Portal</div>
+  <script>
+    // Apply the locale picked in <head> to the labeled nodes (keeps the
+    // French markup as the no-JS / crawler fallback).
+    (function () {
+      var s = window.__OFFLINE_I18N__;
+      if (!s) return;
+      var nodes = document.querySelectorAll("[data-i18n]");
+      for (var i = 0; i < nodes.length; i++) {
+        var key = nodes[i].getAttribute("data-i18n");
+        if (s[key]) nodes[i].textContent = s[key];
+      }
+    })();
+  </script>
 </body>
 </html>

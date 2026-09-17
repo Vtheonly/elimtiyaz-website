@@ -5,8 +5,9 @@
  *
  * Order matters:
  *   1. ThemeProvider  — applies dark/light class to <html>
- *   2. AuthProvider   — subscribes to Supabase auth state
- *   3. QueryProvider  — TanStack Query for server-state caching
+ *   2. LocaleProvider — applies lang + dir to <html> (T-385)
+ *   3. AuthProvider   — subscribes to Supabase auth state
+ *   4. QueryProvider  — TanStack Query for server-state caching
  *
  * Children are whatever Next.js renders for the current route.
  */
@@ -14,6 +15,7 @@
 import { useState, type ReactNode } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ThemeProvider } from "./theme-provider";
+import { LocaleProvider } from "./locale-provider";
 import { AuthProvider } from "./auth-provider";
 
 /**
@@ -48,9 +50,11 @@ export function AppProviders({ children }: { children: ReactNode }) {
 
   return (
     <ThemeProvider>
-      <QueryClientProvider client={queryClient}>
-        <AuthProvider>{children}</AuthProvider>
-      </QueryClientProvider>
+      <LocaleProvider>
+        <QueryClientProvider client={queryClient}>
+          <AuthProvider>{children}</AuthProvider>
+        </QueryClientProvider>
+      </LocaleProvider>
     </ThemeProvider>
   );
 }

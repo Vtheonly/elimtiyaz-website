@@ -150,3 +150,38 @@ describe("T-385 — no hardcoded user-visible strings outside the burn-down list
     expect(Array.isArray(findings)).toBe(true);
   });
 });
+
+/* ─── Guard 4: RTL direction wiring + the offline fallback ────────────────── */
+
+describe("T-385 — RTL direction + tri-lingual offline fallback", () => {
+  const PROVIDERS = readFileSync(
+    join(ROOT, "src/app/providers/index.tsx"),
+    "utf8",
+  );
+  const LOCALE_PROVIDER = readFileSync(
+    join(ROOT, "src/app/providers/locale-provider.tsx"),
+    "utf8",
+  );
+  const OFFLINE = readFileSync(join(ROOT, "public/offline.html"), "utf8");
+
+  it("the LocaleProvider is wired into AppProviders", () => {
+    expect(PROVIDERS).toMatch(/LocaleProvider/);
+  });
+
+  it("the LocaleProvider sets lang AND dir on the document element", () => {
+    expect(LOCALE_PROVIDER).toMatch(/root\.lang\s*=\s*locale/);
+    expect(LOCALE_PROVIDER).toMatch(/root\.dir\s*=\s*isRtl/);
+    // post-hydration only — no hydration mismatch on first paint
+    expect(LOCALE_PROVIDER).toMatch(/if\s*\(!hydrated\)\s*return/);
+  });
+
+  it("the offline fallback carries all three locales + RTL", () => {
+    expect(OFFLINE).toMatch(/fr:\s*\{/);
+    expect(OFFLINE).toMatch(/ar:\s*\{/);
+    expect(OFFLINE).toMatch(/en:\s*\{/);
+    expect(OFFLINE).toMatch(/"rtl"/);
+    // prefers the persisted app locale, falls back to navigator language
+    expect(OFFLINE).toMatch(/el-imtiyaz-portal-prefs/);
+    expect(OFFLINE).toMatch(/navigator\.language/);
+  });
+});
