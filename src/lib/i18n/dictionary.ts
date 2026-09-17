@@ -610,6 +610,125 @@ const fr: Dict = {
   "finance.payment.excessAmount": "Trop-perçu (Crédit parent)",
   "finance.payment.allocationsEmpty": "Aucune allocation détaillée trouvée.",
   "finance.installment.daysLeft": "J-{days}",
+  // ─── T-385 (I18N-500): full-coverage additions ───────────────────────────
+
+  // App / nav chrome
+  "app.portal": "El-Imtiyaz Portal",
+  "app.version": "v1.0.0 — portal",
+  "nav.primary": "Navigation principale",
+
+  // Error surfaces (global-error + error boundary)
+  "error.generic.title": "Une erreur inattendue est survenue",
+  "error.generic.message": "Le portail a rencontré un problème.",
+  "error.code": "Code :",
+  "error.boundary.title": "Une erreur est survenue",
+  "error.boundary.retryHint": "Veuillez réessayer.",
+
+  // Offline / PWA / service-worker banners
+  "offline.banner": "Vous êtes hors ligne. Les données affichées peuvent être obsolètes.",
+  "pwa.install.title": "Installer le portail",
+  "pwa.install.body": "Accédez plus rapidement depuis votre écran d'accueil",
+  "pwa.install.action": "Installer",
+  "pwa.install.later": "Plus tard",
+  "sw.update.available": "Une nouvelle version du portail est disponible.",
+  "sw.update.action": "Mettre à jour",
+
+  // Absence justification dialog
+  "attendance.justification.dialogTitle": "Justifier une absence",
+  "attendance.justification.dialogSubtitle":
+    "Fournissez une note explicative et/ou un justificatif (certificat médical, convocation, etc.). L'administration examinera votre demande.",
+  "attendance.justification.notePlaceholder": "Ex : Certificat médical fourni. Enfant malade du…",
+  "attendance.justification.attachmentLabel": "Pièce jointe (PDF, image — max 10 Mo)",
+  "attendance.justification.chooseFile": "Choisir un fichier",
+  "attendance.justification.remove": "Retirer",
+  "attendance.justification.driveLink": "Lien Google Drive (optionnel)",
+  "attendance.justification.sent": "Justification envoyée. L'administration va l'examiner.",
+  "attendance.justification.uploadFailed": "Échec de l'envoi du fichier : {message}",
+  "attendance.justifier": "Justifier cette absence",
+
+  // Academic view
+  "academic.noStudent": "Aucun élève sélectionné",
+  "academic.grades.empty": "Aucune note pour cette période",
+  "academic.bulletin.opened": "Bulletin ouvert — utilisez le dialogue d'impression pour enregistrer en PDF",
+  "academic.cc.horsMoyenne": "• hors moyenne",
+
+  // Auth
+  "auth.or": "— ou —",
+
+  // Financial — adjustments tab (render-layer mapping of the canonical FR output)
+  "finance.adjust.pairLink": "↔ Paire annulée :",
+  "finance.adjust.badge.credit": "Crédit / Déduction",
+  "finance.adjust.badge.debit": "Débit / Majoration",
+  "finance.adjust.provenance.documented": "Documenté",
+  "finance.adjust.provenance.reversal_pair": "Contrepassation",
+  "finance.adjust.provenance.undocumented": "Non documenté",
+  "finance.adjust.meaning.reversal_pair":
+    "Écriture annulée par une écriture inverse du même montant (probable ré-import ou correction d'erreur). Effet net sur le solde : nul.",
+  "finance.adjust.meaning.undocumented.credit":
+    "Entrée héritée sans motif (import système antérieur à la contrainte 0069) : déduction au motif inconnu — à auditer.",
+  "finance.adjust.meaning.undocumented.debit":
+    "Entrée héritée sans motif (import système antérieur à la contrainte 0069) : rétablissement de dette au motif inconnu — à auditer.",
+  "finance.adjust.meaning.documented.credit":
+    "Contenu réel : remise ou déduction appliquée par un opérateur, motif documenté — réduit le solde dû.",
+  "finance.adjust.meaning.documented.debit":
+    "Contenu réel : majoration ou annulation de remise appliquée par un opérateur, motif documenté — augmente le solde dû.",
+  "finance.adjust.fallback.credit":
+    "Déduction / remise enregistrée automatiquement par le système (motif non documenté)",
+  "finance.adjust.fallback.debit":
+    "Régularisation / rétablissement de dette (contrepassation automatique, motif non documenté)",
+
+  // Financial — service categories (render-layer mapping of serviceLabelOf)
+  "finance.svc.category.tuition": "Scolarité",
+  "finance.svc.category.transport": "Transport",
+  "finance.svc.category.canteen": "Cantine",
+  "finance.svc.category.uniform": "Tenue / Uniforme",
+  "finance.svc.category.books": "Fournitures & Livres",
+  "finance.svc.category.extracurricular": "Activités parascolaires",
+  "finance.svc.category.therapy_psychology": "Accompagnement psychologique",
+  "finance.svc.category.therapy_speech": "Orthophonie",
+  "finance.svc.category.second_apron": "Deuxième tablier",
+  "finance.svc.category.parent_credit": "Crédit parent",
+  "finance.svc.category.other": "Autres prestations",
+  "finance.svc.category.registration": "Inscription",
+  "finance.svc.cond.fullAnnual": "Paiement annuel avant le 30 juin",
+
+  // Homework
+  "homework.attachmentFallback": "Pièce jointe",
+
+  // Messages
+  "chat.conversations": "Conversations",
+  "chat.selectConversation": "Sélectionnez une conversation",
+
+  // Notifications
+  "notifications.markedRead": "Marqué comme lu",
+  "notifications.invalid": "Notification invalide.",
+
+  // Profile — push notification preferences
+  "profile.preferences": "Préférences",
+  "profile.push.title": "Notifications push",
+  "profile.push.unavailable": "Non disponible",
+  "profile.push.enabled": "Notifications activées",
+  "profile.push.disabled": "Notifications désactivées",
+  "profile.push.enableFailed": "Impossible d'activer les notifications",
+
+  // Documents
+  "documents.uploadFailed": "Échec de l'envoi du fichier : {message}",
+  "documents.fileInvalid": "Fichier invalide.",
+
+  // Validation messages (zod schemas emit dictionary keys; the toast seam translates)
+  "validation.note.tooLong": "La note ne peut pas dépasser 2000 caractères.",
+  "validation.driveLink.invalid": "Le lien Google Drive n'est pas valide.",
+  "validation.driveLink.notDrive": "Le lien doit pointer vers Google Drive.",
+  "validation.absence.required": "Veuillez fournir une note, un fichier ou un lien Google Drive.",
+  "validation.message.empty": "Le message ne peut pas être vide.",
+  "validation.message.tooLong": "Le message ne peut pas dépasser 5000 caractères.",
+  "validation.channelId.invalid": "Identifiant de canal invalide.",
+  "validation.uuid.invalid": "Identifiant invalide.",
+  "validation.file.tooBig": "Le fichier ne peut pas dépasser {max} Mo.",
+  "validation.file.type": "Type de fichier non autorisé. Formats acceptés : PDF, PNG, JPEG, WebP.",
+
+  // Common
+  "common.send": "Envoyer",
 };
 
 const ar: Dict = {
@@ -1180,6 +1299,128 @@ const ar: Dict = {
   "common.loading": "جارٍ التحميل…",
   "common.success": "نجاح",
   "common.failed": "فشل",
+  // ─── T-385 (I18N-500): full-coverage additions ───────────────────────────
+
+  // App / nav chrome
+  "app.portal": "بوابة الإمتياذ",
+  "app.version": "v1.0.0 — portal",
+  "nav.primary": "التنقل الرئيسي",
+
+  // Error surfaces (global-error + error boundary)
+  "error.generic.title": "حدث خطأ غير متوقع",
+  "error.generic.message": "واجهت البوابة مشكلة.",
+  "error.code": "الرمز:",
+  "error.boundary.title": "حدث خطأ",
+  "error.boundary.retryHint": "يرجى إعادة المحاولة.",
+
+  // Offline / PWA / service-worker banners
+  "offline.banner": "أنت غير متصل بالإنترنت. قد تكون البيانات المعروضة قديمة.",
+  "pwa.install.title": "تثبيت البوابة",
+  "pwa.install.body": "ادخل بشكل أسرع من شاشتك الرئيسية",
+  "pwa.install.action": "تثبيت",
+  "pwa.install.later": "لاحقًا",
+  "sw.update.available": "يتوفر إصدار جديد من البوابة.",
+  "sw.update.action": "تحديث",
+
+  // Absence justification dialog
+  "attendance.justification.dialogTitle": "تبرير غياب",
+  "attendance.justification.dialogSubtitle":
+    "قدّم ملاحظة توضيحية و/أو مبررًا (شهادة طبية، استدعاء، إلخ). ستقوم الإدارة بدراسة طلبك.",
+  "attendance.justification.notePlaceholder": "مثال: تم تقديم شهادة طبية. الطفل مريض منذ…",
+  "attendance.justification.attachmentLabel": "مرفق (PDF، صورة — بحد أقصى 10 ميغابايت)",
+  "attendance.justification.chooseFile": "اختيار ملف",
+  "attendance.justification.remove": "إزالة",
+  "attendance.justification.driveLink": "رابط Google Drive (اختياري)",
+  "attendance.justification.sent": "تم إرسال التبرير. ستقوم الإدارة بفحصه.",
+  "attendance.justification.uploadFailed": "فشل إرسال الملف: {message}",
+  "attendance.justifier": "تبرير هذا الغياب",
+
+  // Academic view
+  "academic.noStudent": "لم يتم اختيار أي تلميذ",
+  "academic.grades.empty": "لا توجد درجات لهذه الفترة",
+  "academic.bulletin.opened": "تم فتح كشف النقاط — استخدم نافذة الطباعة لحفظه بصيغة PDF",
+  "academic.cc.horsMoyenne": "• خارج المعدل",
+
+  // Auth
+  "auth.or": "— أو —",
+
+  // Financial — adjustments tab (render-layer mapping of the canonical FR output)
+  "finance.adjust.pairLink": "↔ زوج ملغى:",
+  "finance.adjust.badge.credit": "ائتمان / خصم",
+  "finance.adjust.badge.debit": "مديونية / زيادة",
+  "finance.adjust.provenance.documented": "موثّق",
+  "finance.adjust.provenance.reversal_pair": "قيد عكسي",
+  "finance.adjust.provenance.undocumented": "غير موثّق",
+  "finance.adjust.meaning.reversal_pair":
+    "قيد أُلغي بقيد عكسي بنفس المبلغ (إعادة استيراد محتملة أو تصحيح خطأ). الأثر الصافي على الرصيد: معدوم.",
+  "finance.adjust.meaning.undocumented.credit":
+    "قيد قديم بدون سبب (استيراد نظامي سابق للقيد 0069): خصم بسبب غير معروف — يجب تدقيقه.",
+  "finance.adjust.meaning.undocumented.debit":
+    "قيد قديم بدون سبب (استيراد نظامي سابق للقيد 0069): استعادة دين بسبب غير معروف — يجب تدقيقه.",
+  "finance.adjust.meaning.documented.credit":
+    "محتوى حقيقي: خصم أو تنزيل طبّقه موظف، بسبب موثّق — يخفّض الرصيد المستحق.",
+  "finance.adjust.meaning.documented.debit":
+    "محتوى حقيقي: زيادة أو إلغاء خصم طبّقه موظف، بسبب موثّق — يرفع الرصيد المستحق.",
+  "finance.adjust.fallback.credit": "خصم / تنزيل سجّله النظام تلقائيًا (سبب غير موثّق)",
+  "finance.adjust.fallback.debit": "تسوية / استعادة دين (قيد عكسي تلقائي، سبب غير موثّق)",
+
+  // Financial — service categories (render-layer mapping of serviceLabelOf)
+  "finance.svc.category.tuition": "الدراسة",
+  "finance.svc.category.transport": "النقل",
+  "finance.svc.category.canteen": "المطعم",
+  "finance.svc.category.uniform": "الزي / اللباس الموحد",
+  "finance.svc.category.books": "اللوازم والكتب",
+  "finance.svc.category.extracurricular": "الأنشطة اللاصفية",
+  "finance.svc.category.therapy_psychology": "المتابعة النفسية",
+  "finance.svc.category.therapy_speech": "علاج النطق",
+  "finance.svc.category.second_apron": "مريول ثانٍ",
+  "finance.svc.category.parent_credit": "ائتمان ولي الأمر",
+  "finance.svc.category.other": "خدمات أخرى",
+  "finance.svc.category.registration": "التسجيل",
+  "finance.svc.cond.fullAnnual": "الدفع السنوي قبل 30 جوان",
+
+  // Homework
+  "homework.attachmentFallback": "مرفق",
+
+  // Messages
+  "chat.conversations": "المحادثات",
+  "chat.selectConversation": "اختر محادثة",
+
+  // Notifications
+  "notifications.markedRead": "تم وسم الإشعار كمقروء",
+  "notifications.invalid": "إشعار غير صالح.",
+
+  // Profile — push notification preferences
+  "profile.preferences": "التفضيلات",
+  "profile.push.title": "الإشعارات الفورية",
+  "profile.push.unavailable": "غير متوفر",
+  "profile.push.enabled": "تم تفعيل الإشعارات",
+  "profile.push.disabled": "تم تعطيل الإشعارات",
+  "profile.push.enableFailed": "تعذّر تفعيل الإشعارات",
+
+  // Documents
+  "documents.uploadFailed": "فشل إرسال الملف: {message}",
+  "documents.fileInvalid": "ملف غير صالح.",
+
+  // Validation messages (zod schemas emit dictionary keys; the toast seam translates)
+  "validation.note.tooLong": "لا يمكن أن تتجاوز الملاحظة 2000 حرف.",
+  "validation.driveLink.invalid": "رابط Google Drive غير صالح.",
+  "validation.driveLink.notDrive": "يجب أن يشير الرابط إلى Google Drive.",
+  "validation.absence.required": "يرجى تقديم ملاحظة أو ملف أو رابط Google Drive.",
+  "validation.message.empty": "لا يمكن أن تكون الرسالة فارغة.",
+  "validation.message.tooLong": "لا يمكن أن تتجاوز الرسالة 5000 حرف.",
+  "validation.channelId.invalid": "معرّف القناة غير صالح.",
+  "validation.uuid.invalid": "معرّف غير صالح.",
+  "validation.file.tooBig": "لا يمكن أن يتجاوز الملف {max} ميغابايت.",
+  "validation.file.type": "نوع ملف غير مسموح. الصيغ المقبولة: PDF، PNG، JPEG، WebP.",
+
+  // Common
+  "common.send": "إرسال",
+
+  // T-187 network-error key (fr existed, ar was missing — parity gap fixed)
+  "activation.code.error.network":
+    "تعذّر الاتصال بالخادم. تحقق من اتصالك بالإنترنت ثم أعد المحاولة. " +
+    "إذا استمرت المشكلة، اتصل بالإدارة.",
 };
 
 const en: Dict = {
@@ -1758,6 +1999,128 @@ const en: Dict = {
   "common.loading": "Loading…",
   "common.success": "Success",
   "common.failed": "Failed",
+  // ─── T-385 (I18N-500): full-coverage additions ───────────────────────────
+
+  // App / nav chrome
+  "app.portal": "El-Imtiyaz Portal",
+  "app.version": "v1.0.0 — portal",
+  "nav.primary": "Primary navigation",
+
+  // Error surfaces (global-error + error boundary)
+  "error.generic.title": "An unexpected error occurred",
+  "error.generic.message": "The portal encountered a problem.",
+  "error.code": "Code:",
+  "error.boundary.title": "Something went wrong",
+  "error.boundary.retryHint": "Please try again.",
+
+  // Offline / PWA / service-worker banners
+  "offline.banner": "You are offline. Displayed data may be outdated.",
+  "pwa.install.title": "Install the portal",
+  "pwa.install.body": "Access faster from your home screen",
+  "pwa.install.action": "Install",
+  "pwa.install.later": "Later",
+  "sw.update.available": "A new version of the portal is available.",
+  "sw.update.action": "Update",
+
+  // Absence justification dialog
+  "attendance.justification.dialogTitle": "Justify an absence",
+  "attendance.justification.dialogSubtitle":
+    "Provide an explanatory note and/or a supporting document (medical certificate, summons, etc.). The administration will review your request.",
+  "attendance.justification.notePlaceholder": "E.g.: Medical certificate provided. Child sick since…",
+  "attendance.justification.attachmentLabel": "Attachment (PDF, image — max 10 MB)",
+  "attendance.justification.chooseFile": "Choose a file",
+  "attendance.justification.remove": "Remove",
+  "attendance.justification.driveLink": "Google Drive link (optional)",
+  "attendance.justification.sent": "Justification sent. The administration will review it.",
+  "attendance.justification.uploadFailed": "File upload failed: {message}",
+  "attendance.justifier": "Justify this absence",
+
+  // Academic view
+  "academic.noStudent": "No student selected",
+  "academic.grades.empty": "No grades for this period",
+  "academic.bulletin.opened": "Report card opened — use the print dialog to save it as PDF",
+  "academic.cc.horsMoyenne": "• not counted in the average",
+
+  // Auth
+  "auth.or": "— or —",
+
+  // Financial — adjustments tab (render-layer mapping of the canonical FR output)
+  "finance.adjust.pairLink": "↔ Cancelled pair:",
+  "finance.adjust.badge.credit": "Credit / Deduction",
+  "finance.adjust.badge.debit": "Debit / Surcharge",
+  "finance.adjust.provenance.documented": "Documented",
+  "finance.adjust.provenance.reversal_pair": "Reversal pair",
+  "finance.adjust.provenance.undocumented": "Undocumented",
+  "finance.adjust.meaning.reversal_pair":
+    "Entry cancelled by an opposite entry of the same amount (probable re-import or error correction). Net effect on the balance: none.",
+  "finance.adjust.meaning.undocumented.credit":
+    "Legacy entry without a reason (system import predating constraint 0069): deduction of unknown cause — to be audited.",
+  "finance.adjust.meaning.undocumented.debit":
+    "Legacy entry without a reason (system import predating constraint 0069): debt restoration of unknown cause — to be audited.",
+  "finance.adjust.meaning.documented.credit":
+    "Real content: discount or deduction applied by an operator, documented reason — reduces the balance due.",
+  "finance.adjust.meaning.documented.debit":
+    "Real content: surcharge or discount cancellation applied by an operator, documented reason — increases the balance due.",
+  "finance.adjust.fallback.credit": "Deduction / discount recorded automatically by the system (undocumented reason)",
+  "finance.adjust.fallback.debit": "Regularization / debt restoration (automatic reversal, undocumented reason)",
+
+  // Financial — service categories (render-layer mapping of serviceLabelOf)
+  "finance.svc.category.tuition": "Tuition",
+  "finance.svc.category.transport": "Transport",
+  "finance.svc.category.canteen": "Canteen",
+  "finance.svc.category.uniform": "Uniform",
+  "finance.svc.category.books": "Supplies & Books",
+  "finance.svc.category.extracurricular": "Extracurricular activities",
+  "finance.svc.category.therapy_psychology": "Psychological support",
+  "finance.svc.category.therapy_speech": "Speech therapy",
+  "finance.svc.category.second_apron": "Second apron",
+  "finance.svc.category.parent_credit": "Parent credit",
+  "finance.svc.category.other": "Other services",
+  "finance.svc.category.registration": "Registration",
+  "finance.svc.cond.fullAnnual": "Annual payment before June 30",
+
+  // Homework
+  "homework.attachmentFallback": "Attachment",
+
+  // Messages
+  "chat.conversations": "Conversations",
+  "chat.selectConversation": "Select a conversation",
+
+  // Notifications
+  "notifications.markedRead": "Marked as read",
+  "notifications.invalid": "Invalid notification.",
+
+  // Profile — push notification preferences
+  "profile.preferences": "Preferences",
+  "profile.push.title": "Push notifications",
+  "profile.push.unavailable": "Not available",
+  "profile.push.enabled": "Notifications enabled",
+  "profile.push.disabled": "Notifications disabled",
+  "profile.push.enableFailed": "Could not enable notifications",
+
+  // Documents
+  "documents.uploadFailed": "File upload failed: {message}",
+  "documents.fileInvalid": "Invalid file.",
+
+  // Validation messages (zod schemas emit dictionary keys; the toast seam translates)
+  "validation.note.tooLong": "The note cannot exceed 2000 characters.",
+  "validation.driveLink.invalid": "The Google Drive link is not valid.",
+  "validation.driveLink.notDrive": "The link must point to Google Drive.",
+  "validation.absence.required": "Please provide a note, a file, or a Google Drive link.",
+  "validation.message.empty": "The message cannot be empty.",
+  "validation.message.tooLong": "The message cannot exceed 5000 characters.",
+  "validation.channelId.invalid": "Invalid channel identifier.",
+  "validation.uuid.invalid": "Invalid identifier.",
+  "validation.file.tooBig": "The file cannot exceed {max} MB.",
+  "validation.file.type": "Unauthorized file type. Accepted formats: PDF, PNG, JPEG, WebP.",
+
+  // Common
+  "common.send": "Send",
+
+  // T-187 network-error key (fr existed, en was missing — parity gap fixed)
+  "activation.code.error.network":
+    "Unable to reach the server. Check your internet connection and try again. " +
+    "If the problem persists, contact the administration.",
 };
 
 export const dictionaries: Record<Locale, Dict> = { fr, ar, en };
