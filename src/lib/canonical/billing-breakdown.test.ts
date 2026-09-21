@@ -91,6 +91,8 @@ function kid(overrides: Partial<StudentRow>): StudentRow {
     grade_level_id: null,
     grade_level_code: null,
     class_id: null,
+    filiere_code: null,
+    specialite_code: null,
     enrollment_date: "2025-09-01",
     enrollment_status: "active",
     medical_notes: null,

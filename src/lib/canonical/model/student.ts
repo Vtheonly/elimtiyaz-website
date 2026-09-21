@@ -261,6 +261,10 @@ export interface Student {
   readonly gradeYear: number; // 1..5 (primaire) | 1..4 (cem) | 1..3 (lycee)
   /** Canonical granular grade level — preferred over `level` + `gradeYear`. */
   readonly gradeLevel: GradeLevel;
+  /** T-401: academic stream (null/absent = untagged/general). */
+  readonly filiereCode?: string | null;
+  /** T-401: spécialité (null/absent = none). */
+  readonly specialiteCode?: string | null;
   readonly classId: string | null;
   readonly photoUrl: string | null;
   readonly medicalNotes: string | null;

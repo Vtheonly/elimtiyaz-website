@@ -184,6 +184,10 @@ export type StudentRow = {
    *  since 0028; the exhaustive per-service pricing profile reads it. */
   grade_level_code: string | null;
   class_id: string | null;
+  /** T-401 (0107): academic stream (null = untagged/general; optional-tolerant for pre-0107 fixtures). */
+  filiere_code?: string | null;
+  /** T-401 (0107): spécialité (null = none). */
+  specialite_code?: string | null;
   enrollment_date: string;
   enrollment_status:
     | "inquiry"
@@ -213,6 +217,10 @@ export type StudentAcademicHistoryRow = {
   rank: number | null;
   decision: "promoted" | "repeated" | "graduated" | "transferred";
   narrative: string | null;
+  /** T-401 (0107): the classification in force during the archived year (optional-tolerant for pre-0107 fixtures). */
+  filiere_code?: string | null;
+  /** T-401 (0107): the spécialité in force during the archived year. */
+  specialite_code?: string | null;
   recorded_at: string;
 };
 

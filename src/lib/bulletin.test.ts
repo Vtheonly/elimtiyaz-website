@@ -73,6 +73,8 @@ function makeAttendance(
     tenant_id: "t1",
     student_id: "stu-1",
     class_id: "cls-1",
+    filiere_code: null,
+    specialite_code: null,
     class_subject_id: null,
     date: "2025-09-15",
     status: (o.status as AttendanceRecordRow["status"]) ?? "present",
