@@ -187,6 +187,10 @@ export interface AcademicHistoryEntry {
   readonly rank: number | null;
   readonly decision: PromotionDecision;
   readonly narrative: string | null;
+  /** T-401 (0107): the classification in force during the archived year. */
+  readonly filiereCode?: string | null;
+  /** T-401 (0107): the spécialité in force during the archived year. */
+  readonly specialiteCode?: string | null;
   readonly recordedAt?: string;
 }
 
@@ -297,4 +301,33 @@ export function calculateAttendanceRate(
     (r) => r.status === "present" || r.status === "late",
   ).length;
   return Number((presentCount / records.length).toFixed(2));
+}
+
+/**
+ * T-401 (0107): FR labels for the canonical classification codes — the
+ * display-only mirror of the desktop's src/domain/model/filiere.ts and the
+ * seeded `filieres` catalog. Display concern only; no business logic lives
+ * here (the compatibility predicate stays server-side).
+ */
+export const TRACK_LABELS_FR: Readonly<Record<string, string>> = {
+  general: "Générale",
+  tronc_commun_sciences: "Tronc Commun Sciences",
+  tronc_commun_lettres: "Tronc Commun Lettres",
+  tronc_commun_technologie: "Tronc Commun Technologie",
+  lettres_philosophie: "Lettres et Philosophie",
+  langues_etrangeres: "Langues Étrangères",
+  sciences_experimentales: "Sciences Expérimentales",
+  mathematiques: "Mathématiques",
+  gestion_economie: "Gestion et Économie",
+  technique_mathematique: "Technique Mathématique",
+  genie_mecanique: "Génie Mécanique",
+  genie_civil: "Génie Civil",
+  genie_electrique: "Génie Électrique",
+  genie_procedes: "Génie des Procédés",
+};
+
+/** FR label of a track code; falls back to the raw code when unknown. */
+export function trackLabelFr(code: string | null | undefined): string {
+  if (!code) return "";
+  return TRACK_LABELS_FR[code] ?? code;
 }

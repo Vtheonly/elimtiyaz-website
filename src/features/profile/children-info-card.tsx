@@ -71,7 +71,7 @@ import {
 } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useState } from "react";
-import { PROMOTION_DECISION_LABELS_FR } from "@/lib/canonical/model/academic";
+import { PROMOTION_DECISION_LABELS_FR, trackLabelFr } from "@/lib/canonical/model/academic";
 import { cn } from "@/lib/utils";
 
 export const genderLabels: Record<string, string> = {
@@ -411,6 +411,13 @@ function StudentDossierDialog({
                               </p>
                               <p className="text-sm font-medium">
                                 {h.class_name ?? h.grade_code}
+                                {h.filiere_code && h.filiere_code !== "general" ? (
+                                  <span className="text-muted-foreground font-normal">
+                                    {" · "}
+                                    {trackLabelFr(h.filiere_code)}
+                                    {h.specialite_code ? ` — ${trackLabelFr(h.specialite_code)}` : ""}
+                                  </span>
+                                ) : null}
                               </p>
                             </div>
                             <div className="text-right">
