@@ -16,6 +16,7 @@ import {
   portalFinancialSummary,
   ledgerAdjustmentEntries,
   displayCredit,
+  parentDebtAgingFromRows,
 } from "@/lib/canonical/portal-derive";
 import {
   parentBillingBreakdown,
@@ -33,6 +34,8 @@ import { useFinancialRealtime } from "@/lib/hooks/use-realtime";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { KpiCard } from "@/features/shared/kpi-card";
 import { StatusPill, paymentStatusTone } from "@/features/shared/status-pill";
+// T-405 — the parent's own debt-aging status (canonical §15 port).
+import type { DebtAgingAnalysis, DebtAgingStatusLevel } from "@/lib/canonical/calc/ledger/debt-aging";
 import {
   SectionHeader,
   EmptyState,
@@ -60,6 +63,7 @@ import {
   ChevronDown,
   ChevronUp,
   Loader2,
+  Hourglass,
 } from "lucide-react";
 import {
   formatCurrency,
@@ -167,6 +171,20 @@ export function FinancialView() {
         : null,
     [ledgerEntries.data, familyInstallments.data, kids, adjustments, balance],
   );
+
+  // T-405 — the parent's OWN cross-year debt-aging analysis: the same
+  // canonical §15 derivation the staff Suivi des Dettes tab shows, computed
+  // read-side from the family's REAL rows (the portal pattern — identical
+  // inputs, identical engine). Shown only when there is an outstanding
+  // balance to explain (resolved parents see the settled KPI instead).
+  const debtAging = useMemo(() => {
+    if (!ledgerEntries.data || !familyInstallments.data || !parentId) {
+      return null;
+    }
+    return parentDebtAgingFromRows(familyInstallments.data, ledgerEntries.data, {
+      parentId,
+    });
+  }, [ledgerEntries.data, familyInstallments.data, parentId]);
 
   const isRestricted = Boolean(parent?.is_financially_restricted);
 
@@ -331,6 +349,14 @@ export function FinancialView() {
             }
           />
         </div>
+      )}
+
+      {/* T-405 — the debt-aging status card: the canonical payment-behavior
+          explanation of the family's outstanding balance (§15 — the same
+          facts the staff Suivi des Dettes view shows; never a second
+          calculation). */}
+      {debtAging && debtAging.outstandingAmount > 0.001 && (
+        <DebtAgingStatusCard analysis={debtAging} />
       )}
 
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as TabKey)}>
@@ -1372,5 +1398,86 @@ function ProvenancePill({
     >
       {label}
     </span>
+  );
+}
+
+/* ============================================================================
+ * T-405 — DebtAgingStatusCard: the parent's own payment-behavior status
+ *
+ * Renders the canonical §15 record (the SAME facts the staff Suivi des
+ * Dettes tab shows — same engine, same inputs). Read-only presentation:
+ * the status pill maps status_level → tone (green→success, yellow→warning,
+ * orange→warning+amber accent, red→danger) and the canonical explanation is
+ * displayed verbatim (INV-16d — never a bare color).
+ * ============================================================================
+ */
+
+const DEBT_AGING_TONE: Record<DebtAgingStatusLevel, "success" | "warning" | "danger"> = {
+  green: "success",
+  yellow: "warning",
+  orange: "warning",
+  red: "danger",
+};
+
+function DebtAgingStatusCard({
+  analysis,
+}: {
+  analysis: DebtAgingAnalysis;
+}) {
+  const { t } = useT();
+  const tone = DEBT_AGING_TONE[analysis.status.level];
+  const statusKey = `finance.debtAging.status.${analysis.status.level}`;
+
+  return (
+    <section
+      className="rounded-lg border border-border bg-card p-4"
+      data-testid="debt-aging-status-card"
+      aria-label={t("finance.debtAging.title")}
+    >
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <Hourglass className="h-4 w-4 text-muted-foreground" />
+          <h3 className="text-sm font-semibold">{t("finance.debtAging.title")}</h3>
+        </div>
+        <StatusPill tone={tone}>
+          {t(statusKey)}
+        </StatusPill>
+      </div>
+
+      <p className="mt-2 text-sm text-muted-foreground leading-relaxed">
+        {analysis.status.explanationFr}
+      </p>
+
+      <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 text-xs sm:grid-cols-3 lg:grid-cols-5">
+        <div>
+          <dt className="text-muted-foreground">{t("finance.debtAging.originYear")}</dt>
+          <dd className="font-mono font-medium">{analysis.originAcademicYear ?? "—"}</dd>
+        </div>
+        <div>
+          <dt className="text-muted-foreground">{t("finance.debtAging.debtAge")}</dt>
+          <dd className="font-mono font-medium">
+            {analysis.debtAgeDays} {t("finance.debtAging.days")}
+          </dd>
+        </div>
+        <div>
+          <dt className="text-muted-foreground">{t("finance.debtAging.lastPayment")}</dt>
+          <dd className="font-medium">
+            {analysis.lastPaymentAt ? formatDate(analysis.lastPaymentAt) : t("finance.debtAging.never")}
+          </dd>
+        </div>
+        <div>
+          <dt className="text-muted-foreground">{t("finance.debtAging.inactivity")}</dt>
+          <dd className="font-mono font-medium">
+            {analysis.inactivityDays} {t("finance.debtAging.days")}
+          </dd>
+        </div>
+        <div>
+          <dt className="text-muted-foreground">{t("finance.debtAging.subsequentPayments")}</dt>
+          <dd className="font-medium">
+            {analysis.hasSubsequentYearPayments ? t("finance.debtAging.yes") : t("finance.debtAging.no")}
+          </dd>
+        </div>
+      </dl>
+    </section>
   );
 }
