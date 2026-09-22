@@ -33,6 +33,12 @@ import type { PaymentStatus, PaymentCategory, PaymentMethod } from "./model/paym
 import type { ParentLedgerSummary } from "./model/ledger";
 import { computeParentSummary } from "./calc/ledger/balance";
 import { buildOverdueDueDateMap } from "./calc/ledger/overdue";
+// T-405 (financial-rules §15) — the debt-aging analysis port.
+import {
+  computeDebtAgingAnalysis,
+  type DebtAgingAnalysis,
+  type AcademicYearWindow,
+} from "./calc/ledger/debt-aging";
 import { computeOverallGpa, calculateAttendanceRate } from "./model/academic";
 import { clampNonNegative } from "./calc/shared/money";
 
@@ -127,6 +133,49 @@ export function installmentRemainingAmount(inst: InstallmentRow): number {
   return clampNonNegative(
     Number(inst.amount_due) - Number(inst.amount_paid) - Number(inst.amount_pending ?? 0),
   );
+}
+
+/**
+ * T-405 — the parent's OWN cross-year debt-aging analysis, derived from the
+ * family's REAL installment rows + ledger rows (the same canonical inputs
+ * the staff `compute_debt_aging_summary` RPC consumes — financial-rules
+ * §15; the portal is read-only so it derives locally from the same facts,
+ * exactly like `parentSummaryFromLedger` derives the balance).
+ *
+ * The outstanding in the result is the installment-basis §15 number
+ * (Σ installmentRemainingAmount over unpaid rows) — the same amount the
+ * staff Suivi des Dettes tab shows for the family.
+ */
+export function parentDebtAgingFromRows(
+  installmentRows: readonly InstallmentRow[],
+  ledgerRows: readonly LedgerEntryRow[],
+  options: {
+    parentId: string;
+    academicYears?: readonly AcademicYearWindow[];
+    now?: Date;
+  },
+): DebtAgingAnalysis {
+  const entries = ledgerRows.map(ledgerEntryFromRow);
+  const installments = installmentRows.map((row) => ({
+    id: row.id,
+    parentId: row.parent_id,
+    studentId: row.student_id ?? null,
+    category: asPaymentCategory(row.category),
+    label: row.label ?? `Tranche ${row.tranche_number}`,
+    amountDue: Number(row.amount_due),
+    amountPaid: Number(row.amount_paid),
+    amountPending: Number(row.amount_pending ?? 0),
+    dueDate: row.due_date,
+    paidDate: row.paid_date ?? null,
+    status: row.status,
+  }));
+  return computeDebtAgingAnalysis({
+    parentId: options.parentId,
+    installments,
+    ledgerEntries: entries,
+    academicYears: options.academicYears,
+    now: options.now,
+  });
 }
 
 // ─── Ledger presentation derivations (read-side, pure) ──────────────────────
