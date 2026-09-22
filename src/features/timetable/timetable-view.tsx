@@ -3,7 +3,7 @@
 /**
  * TimetableView — the child's published weekly schedule (Emploi du temps).
  *
- * T-407 (SCHED-106): the portal consumed NOTHING of the canonical timetable
+ * T-408 (SCHED-106): the portal consumed NOTHING of the canonical timetable
  * before this view — migration 0110 had exposed published versions to
  * tenant-authenticated accounts and 0113 §4 added the
  * v_timetable_published projection (denormalized names, parents cannot

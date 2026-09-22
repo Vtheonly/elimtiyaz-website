@@ -131,7 +131,7 @@ export type ClassRow = {
 };
 
 /**
- * T-407 (SCHED-106): the parent-portal projection of the ONE canonical
+ * T-408 (SCHED-106): the parent-portal projection of the ONE canonical
  * published timetable (migration 0113 §4 — v_timetable_published, a
  * SECURITY DEFINER view over published timetable_versions + entries with
  * denormalized subject/teacher/room names so parents, who cannot SELECT

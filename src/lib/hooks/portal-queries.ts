@@ -973,7 +973,7 @@ export function useStudentAcademicHistories(
   });
 }
 /* -------------------------------------------------------------------------- */
-/* Timetable (Emploi du temps) — T-407 (SCHED-106)                            */
+/* Timetable (Emploi du temps) — T-408 (SCHED-106)                            */
 /* -------------------------------------------------------------------------- */
 
 /*

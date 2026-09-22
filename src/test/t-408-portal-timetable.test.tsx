@@ -1,5 +1,5 @@
 /**
- * T-407 / SCHED-106 tests — the portal's published-timetable view.
+ * T-408 / SCHED-106 tests — the portal's published-timetable view.
  *
  * Problem: the website consumed NOTHING of the canonical timetable. The
  * backend had been ready since 0109/0110 (published-version RLS for every
@@ -122,7 +122,7 @@ afterEach(() => {
 
 // ─── 1. Behavioral: rendering ───────────────────────────────────────────────
 
-describe("T-407 TimetableView — published entries", () => {
+describe("T-408 TimetableView — published entries", () => {
   it("renders the Algerian week (Sunday → Thursday) in order with subject/teacher/room", () => {
     mockClass = { name: "1ère Année Moyenne A", code: "CLS-1AM-A" };
     // Deliberately unsorted input — the view groups by day and orders the week.
@@ -192,7 +192,7 @@ describe("T-407 TimetableView — published entries", () => {
 
 // ─── 3-4. Source guards ─────────────────────────────────────────────────────
 
-describe("T-407 source guards", () => {
+describe("T-408 source guards", () => {
   it("the view reads ONLY the published projection (never the canonical tables)", () => {
     const view = read("features/timetable/timetable-view.tsx");
     expect(view).toContain("usePublishedTimetable");
@@ -228,7 +228,7 @@ describe("T-407 source guards", () => {
 
 // ─── 5. i18n parity ─────────────────────────────────────────────────────────
 
-describe("T-407 i18n parity (fr + ar + en)", () => {
+describe("T-408 i18n parity (fr + ar + en)", () => {
   const TIMETABLE_KEYS = [
     "nav.timetable",
     "timetable.empty",
