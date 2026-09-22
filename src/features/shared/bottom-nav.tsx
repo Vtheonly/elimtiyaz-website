@@ -19,7 +19,7 @@
  * nav, to keep the bar at 5 items (ergonomic maximum).
  */
 
-import { Home, GraduationCap, Wallet, MessageSquare, User, CalendarDays } from "lucide-react";
+import { Home, GraduationCap, Wallet, MessageSquare, User, CalendarDays, Table2 } from "lucide-react";
 import { useAppStore, type AppView } from "@/lib/store/app-store";
 import { useT } from "@/lib/i18n/use-t";
 import { cn } from "@/lib/utils";
@@ -43,6 +43,7 @@ const mobileItems: NavItem[] = [
 const desktopItems: NavItem[] = [
   { view: "home", icon: Home, labelKey: "nav.home" },
   { view: "academic", icon: GraduationCap, labelKey: "nav.academic" },
+  { view: "timetable", icon: Table2, labelKey: "nav.timetable" },
   { view: "attendance", icon: User, labelKey: "nav.attendance" },
   { view: "homework", icon: MessageSquare, labelKey: "nav.homework" },
   { view: "calendar", icon: CalendarDays, labelKey: "nav.calendar" },

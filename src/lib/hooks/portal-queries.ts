@@ -50,6 +50,7 @@ import {
   DiscountRow,
   AdditionalServiceRow,
   ComplementaryServiceRow,
+  TimetablePublishedRow,
 } from "@/lib/types/database";
 
 /* -------------------------------------------------------------------------- */
@@ -969,5 +970,34 @@ export function useStudentAcademicHistories(
       return (data ?? []) as StudentAcademicHistoryRow[];
     },
     enabled: Boolean(studentId),
+  });
+}
+/* -------------------------------------------------------------------------- */
+/* Timetable (Emploi du temps) — T-407 (SCHED-106)                            */
+/* -------------------------------------------------------------------------- */
+
+/*
+ * The parent-portal projection of the ONE canonical published timetable:
+ * v_timetable_published (migration 0113 §4) exposes the entries of the
+ * PUBLISHED version for the child's class with denormalized subject /
+ * teacher / room names. Drafts and trials are never visible to parents
+ * (0109/0110 RLS + the view's published-only join).
+ */
+export function usePublishedTimetable(
+  classId: string | null | undefined,
+): UseQueryResult<TimetablePublishedRow[]> {
+  return useQuery({
+    queryKey: ["timetable-published", classId],
+    queryFn: async () => {
+      if (!classId || !supabase) return [];
+      const { data, error } = await supabase
+        .from("v_timetable_published")
+        .select("*")
+        .eq("class_id", classId)
+        .order("period_index", { ascending: true });
+      if (error) throw error;
+      return (data ?? []) as TimetablePublishedRow[];
+    },
+    enabled: Boolean(classId),
   });
 }

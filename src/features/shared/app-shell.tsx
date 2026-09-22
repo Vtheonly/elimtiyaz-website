@@ -62,6 +62,10 @@ const CalendarView = dynamic(
   () => import("@/features/calendar/calendar-view").then((m) => m.CalendarView),
   { loading: () => <ListSkeleton count={4} /> }
 );
+const TimetableView = dynamic(
+  () => import("@/features/timetable/timetable-view").then((m) => m.TimetableView),
+  { loading: () => <ListSkeleton count={4} /> }
+);
 const MessagesView = dynamic(
   () => import("@/features/messages/messages-view").then((m) => m.MessagesView),
   { loading: () => <ListSkeleton count={4} /> }
@@ -130,6 +134,7 @@ export function AppShell() {
             {activeView === "attendance" && <AttendanceView />}
             {activeView === "homework" && <HomeworkView />}
             {activeView === "calendar" && <CalendarView />}
+            {activeView === "timetable" && <TimetableView />}
             {activeView === "messages" && <MessagesView />}
             {activeView === "notifications" && <NotificationsView />}
             {activeView === "profile" && <ProfileView />}

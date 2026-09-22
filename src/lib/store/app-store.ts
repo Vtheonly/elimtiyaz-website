@@ -24,6 +24,7 @@ export type AppView =
   | "attendance"
   | "homework"
   | "calendar"
+  | "timetable"
   | "messages"
   | "notifications"
   | "profile";

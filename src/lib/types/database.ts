@@ -130,6 +130,43 @@ export type ClassRow = {
   is_active: boolean;
 };
 
+/**
+ * T-407 (SCHED-106): the parent-portal projection of the ONE canonical
+ * published timetable (migration 0113 §4 — v_timetable_published, a
+ * SECURITY DEFINER view over published timetable_versions + entries with
+ * denormalized subject/teacher/room names so parents, who cannot SELECT
+ * personnel/rooms under RLS, still see the published schedule).
+ */
+export type TimetablePublishedRow = {
+  id: string;
+  tenant_id: string;
+  academic_year_id: string;
+  version_id: string;
+  class_id: string;
+  class_code: string;
+  class_name: string;
+  subject_id: string;
+  subject_name_fr: string;
+  subject_name_ar: string | null;
+  teacher_id: string | null;
+  teacher_name: string | null;
+  room_id: string | null;
+  room_label: string | null;
+  day:
+    | "monday"
+    | "tuesday"
+    | "wednesday"
+    | "thursday"
+    | "friday"
+    | "saturday"
+    | "sunday";
+  period_index: number;
+  start_minutes: number;
+  end_minutes: number;
+  lesson_group: number;
+  notes: string | null;
+};
+
 export type SubjectRow = {
   id: string;
   tenant_id: string;
@@ -1118,6 +1155,10 @@ export type Database = {
       };
       vw_audit_log_with_actor: {
         Row: VwAuditLogWithActorRow;
+        Relationships: [];
+      };
+      v_timetable_published: {
+        Row: TimetablePublishedRow;
         Relationships: [];
       };
     };

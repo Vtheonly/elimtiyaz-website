@@ -32,7 +32,7 @@ import {
 } from "@/features/shared/state-views";
 import { StudentSwitcherDropdown } from "@/features/students/student-switcher";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { GraduationCap, Award, TrendingUp, Download } from "lucide-react";
+import { GraduationCap, Award, TrendingUp, Download, Table2 } from "lucide-react";
 import { formatFullName } from "@/lib/format";
 import { useMemo, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
@@ -61,6 +61,7 @@ export function AcademicView() {
   const { t } = useT();
   const { children: kids } = useAuth();
   const activeStudentId = useAppStore((s) => s.activeStudentId);
+  const setActiveView = useAppStore((s) => s.setActiveView);
   const activeKid = kids.find((k) => k.id === activeStudentId);
 
   const grades = useGradesForStudent(activeKid?.id ?? null);
@@ -177,6 +178,16 @@ export function AcademicView() {
       <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
         <h1 className="min-w-0 text-xl font-semibold">{t("nav.academic")}</h1>
         <div className="flex flex-wrap items-center gap-2">
+          {/* T-407 (SCHED-106): mobile entry to the published timetable (the
+              desktop rail has its own entry; the bottom nav is fixed at 5). */}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setActiveView("timetable")}
+          >
+            <Table2 className="mr-1 h-3.5 w-3.5" />
+            {t("nav.timetable")}
+          </Button>
           {activeKid && (
             <Button variant="outline" size="sm" onClick={handleDownloadBulletin} disabled={grades.isLoading}>
               <Download className="mr-1 h-3.5 w-3.5" />

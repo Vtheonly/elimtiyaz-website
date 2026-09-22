@@ -73,6 +73,20 @@ const fr: Dict = {
   "nav.attendance": "Absences",
   "nav.homework": "Travaux",
   "nav.calendar": "Agenda",
+  "nav.timetable": "Emploi du temps",
+
+  // Timetable (T-407 — the published weekly schedule)
+  "timetable.empty": "Aucun emploi du temps publié pour le moment. Il sera visible ici dès sa publication par l'établissement.",
+  "timetable.period": "S{index}",
+  "timetable.double": "Séance double",
+  "timetable.publishedHint": "Emploi du temps officiel publié par l'établissement — toute modification est validée par l'administration avant publication.",
+  "timetable.day.sunday": "Dimanche",
+  "timetable.day.monday": "Lundi",
+  "timetable.day.tuesday": "Mardi",
+  "timetable.day.wednesday": "Mercredi",
+  "timetable.day.thursday": "Jeudi",
+  "timetable.day.friday": "Vendredi",
+  "timetable.day.saturday": "Samedi",
 
   // Dashboard
   "dashboard.greeting.morning": "Bonjour",
@@ -784,6 +798,20 @@ const ar: Dict = {
   "nav.attendance": "الغيابات",
   "nav.homework": "الواجبات",
   "nav.calendar": "الأجندة",
+  "nav.timetable": "التوقيت",
+
+  // Timetable (T-407 — the published weekly schedule)
+  "timetable.empty": "لم يتم نشر جدول الحصص بعد. سيظهر هنا فور نشره من قبل المؤسسة.",
+  "timetable.period": "ح{index}",
+  "timetable.double": "حصة مزدوجة",
+  "timetable.publishedHint": "الجدول الرسمي المنشور من قبل المؤسسة — كل تعديل يتم التحقق منه من قبل الإدارة قبل النشر.",
+  "timetable.day.sunday": "الأحد",
+  "timetable.day.monday": "الاثنين",
+  "timetable.day.tuesday": "الثلاثاء",
+  "timetable.day.wednesday": "الأربعاء",
+  "timetable.day.thursday": "الخميس",
+  "timetable.day.friday": "الجمعة",
+  "timetable.day.saturday": "السبت",
 
   "finance.status.paid": "مدفوع",
   "finance.status.partial": "جزئي",
@@ -1480,6 +1508,20 @@ const en: Dict = {
   "nav.attendance": "Attendance",
   "nav.homework": "Homework",
   "nav.calendar": "Calendar",
+  "nav.timetable": "Timetable",
+
+  // Timetable (T-407 — the published weekly schedule)
+  "timetable.empty": "No timetable has been published yet. It will appear here as soon as the school publishes it.",
+  "timetable.period": "P{index}",
+  "timetable.double": "Double period",
+  "timetable.publishedHint": "Official timetable published by the school — every change is validated by the administration before publication.",
+  "timetable.day.sunday": "Sunday",
+  "timetable.day.monday": "Monday",
+  "timetable.day.tuesday": "Tuesday",
+  "timetable.day.wednesday": "Wednesday",
+  "timetable.day.thursday": "Thursday",
+  "timetable.day.friday": "Friday",
+  "timetable.day.saturday": "Saturday",
 
   "calendar.title": "Calendar",
   "calendar.today": "Today",
