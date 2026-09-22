@@ -157,13 +157,15 @@ export function LedgerTimeline({
               {items
                 .slice()
                 .reverse()
-                .map(({ entry, runningBalance }) => {
+                .map(({ entry, runningBalance }, index) => {
                   const { icon: Icon, cls } = entryIcon(entry.entry_type);
                   const amount = Number(entry.amount);
                   const isDebit = amount < 0;
                   return (
                     <div
-                      key={entry.entry_number ?? entry.id ?? Math.random()}
+                      // DATA-032/B8 (T-411): a STABLE fallback key —
+                      // Math.random() remounts the row on every render.
+                      key={entry.entry_number ?? entry.id ?? `${entry.at}-${index}`}
                       className="flex items-center gap-3 rounded-lg border border-border/50 bg-card p-3"
                     >
                       <div

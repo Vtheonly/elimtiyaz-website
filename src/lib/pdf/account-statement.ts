@@ -60,7 +60,14 @@ export async function generateAccountStatementPdf(
   drawKeyValue(page, font, MARGIN + 15, y - 18, "Famille:", parent.fullName);
   drawKeyValue(page, font, MARGIN + 15, y - 36, "Code:", parent.code ?? "-");
   drawKeyValue(page, font, MARGIN + 15, y - 54, "Telephone:", parent.phone ?? "-");
-  drawKeyValue(page, font, MARGIN + 280, y - 18, "Annee:", options.academicYear ?? "2026-2027");
+  // DATA-032/B4 (T-411): the year fallback derives from the clock
+  // (September rollover) instead of the frozen "2026-2027".
+  const fallbackYear = (() => {
+    const now = new Date();
+    const start = now.getMonth() >= 8 ? now.getFullYear() : now.getFullYear() - 1;
+    return `${start}-${start + 1}`;
+  })();
+  drawKeyValue(page, font, MARGIN + 280, y - 18, "Annee:", options.academicYear ?? fallbackYear);
   drawKeyValue(page, font, MARGIN + 280, y - 36, "Documents:", String(payments.length));
   drawKeyValue(page, font, MARGIN + 280, y - 54, "Genere le:", formatPdfDate(new Date().toISOString()));
 

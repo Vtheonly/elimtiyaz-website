@@ -160,6 +160,25 @@ export function useFinancialRealtime(parentId: string | null | undefined) {
       enabled: Boolean(parentId),
     }
   );
+  // DATA-032/B3 (T-411): the ledger stream subscription — every
+  // ledger-derived surface (KPIs, Relevé, Facturation, Ajustements, the
+  // debt-aging card) previously waited for the 5-minute poll after a
+  // staff-side financial mutation. NOTE: this subscription only delivers
+  // events once `ledger_entries` joins the realtime publication
+  // (REALTIME-105's PORTAL set — the desktop hub owns that migration);
+  // until then it is inert, never broken.
+  useRealtimeInvalidation(
+    "ledger_entries",
+    [
+      ["ledger-entries", parentId],
+      ["installments", parentId],
+      ["payments", parentId],
+    ],
+    {
+      filter: parentId ? `parent_id=eq.${parentId}` : undefined,
+      enabled: Boolean(parentId),
+    }
+  );
 }
 
 /**

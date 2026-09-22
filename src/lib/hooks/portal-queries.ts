@@ -209,6 +209,41 @@ export function useHomeworkForClass(
 /* Financial                                                                  */
 /* -------------------------------------------------------------------------- */
 
+/**
+ * DATA-032/B9 (T-411): PAGINATED installments fetch — the §15 debt-aging
+ * and the pricing profiles consumed a 100/200-row cap, silently truncating
+ * for large families (PostgREST's 1000-row ceiling made a bare select
+ * equally lossy). Same convention as fetchAllLedgerEntries: 1000/page.
+ */
+export async function fetchAllInstallments(
+  client: SupabaseClient,
+  parentId: string,
+  studentId?: string | null,
+  limit?: number,
+): Promise<InstallmentRow[]> {
+  const PAGE_SIZE = 1000;
+  const all: InstallmentRow[] = [];
+  let from = 0;
+  for (;;) {
+    let q = client
+      .from("installments")
+      .select("*")
+      .eq("parent_id", parentId)
+      .order("due_date", { ascending: true })
+      .range(from, from + PAGE_SIZE - 1);
+    if (studentId) q = q.eq("student_id", studentId);
+    const { data, error } = await q;
+    if (error) throw error;
+    const page = (data ?? []) as unknown as InstallmentRow[];
+    all.push(...page);
+    if (page.length < PAGE_SIZE) break; // short page = last page
+    if (limit !== undefined && all.length >= limit) break;
+    from += PAGE_SIZE;
+  }
+  if (limit !== undefined && limit > 0) return all.slice(0, limit);
+  return all;
+}
+
 export function useInstallments(
   parentId: string | null | undefined,
   options: { studentId?: string | null; limit?: number } = {},
@@ -217,16 +252,7 @@ export function useInstallments(
     queryKey: ["installments", parentId, options.studentId, options.limit],
     queryFn: async () => {
       if (!parentId || !supabase) return [];
-      let q = supabase
-        .from("installments")
-        .select("*")
-        .eq("parent_id", parentId)
-        .order("due_date", { ascending: true });
-      if (options.studentId) q = q.eq("student_id", options.studentId);
-      if (options.limit) q = q.limit(options.limit);
-      const { data, error } = await q;
-      if (error) throw error;
-      return (data ?? []) as InstallmentRow[];
+      return fetchAllInstallments(supabase, parentId, options.studentId, options.limit);
     },
     enabled: Boolean(parentId),
   });

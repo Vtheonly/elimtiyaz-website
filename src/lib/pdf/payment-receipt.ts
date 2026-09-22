@@ -47,14 +47,22 @@ const STATUS_LABELS: Record<PaymentRow["status"], string> = {
   pending_clearance: "Encaissement en cours",
 };
 
+// DATA-032/B6 (T-411): the CANONICAL enum key set (the old map carried
+// retired fictional keys — registration/supplies/therapy/club — and missed
+// the real ones, so canonical categories printed raw codes while null
+// printed "Scolarité"). A NULL category is a multi-service payment
+// (ADR-023) — "Multi-services", never a tuition assumption.
 const CATEGORY_LABELS: Record<string, string> = {
   tuition: "Scolarité",
-  registration: "Inscription",
   transport: "Transport",
   canteen: "Cantine",
-  supplies: "Fournitures",
-  therapy: "Thérapie",
-  club: "Club",
+  uniform: "Uniforme",
+  books: "Livres",
+  extracurricular: "Activité parascolaire",
+  therapy_psychology: "Psychologie",
+  therapy_speech: "Orthophonie",
+  second_apron: "2ème Tablier",
+  parent_credit: "Crédit Parent",
   other: "Autre",
 };
 
@@ -116,7 +124,9 @@ export async function generatePaymentReceiptPdf(
 
   const amountStr = formatDzdPlain(payment.amount);
   const methodLabel = METHOD_LABELS[payment.method] ?? payment.method;
-  const categoryLabel = payment.category ? CATEGORY_LABELS[payment.category] ?? payment.category : "Scolarite";
+  const categoryLabel = payment.category
+    ? CATEGORY_LABELS[payment.category] ?? payment.category
+    : "Multi-services";
 
   // Check reference line when the payment is a cheque.
   const designation =

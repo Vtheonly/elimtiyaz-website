@@ -21,6 +21,7 @@ import {
   useFinancialRealtime,
 } from "@/lib/hooks/use-realtime";
 import { KpiCard } from "@/features/shared/kpi-card";
+import { displayCredit } from "@/lib/canonical/portal-derive";
 import { StatusPill } from "@/features/shared/status-pill";
 import {
   SectionHeader,
@@ -205,13 +206,24 @@ export function DashboardView() {
               }
               onClick={() => setActiveView("finance")}
             />
+            {/* DATA-032/B2 (T-411): the canonical ADR-010 derivation —
+                displayCredit(outstanding, unallocatedCredit) — instead of
+                the raw |unallocatedCredit|, which showed phantom credit in
+                the double-count case where the finance tab correctly
+                showed 0. */}
             <KpiCard
               label={t("finance.balance.credit")}
-              value={formatCurrency(Math.abs(summary?.unallocatedCredit ?? 0))}
-              tone={(summary?.unallocatedCredit ?? 0) < 0 ? "info" : "default"}
+              value={formatCurrency(
+                displayCredit(summary?.outstanding ?? 0, summary?.unallocatedCredit ?? 0),
+              )}
+              tone={
+                displayCredit(summary?.outstanding ?? 0, summary?.unallocatedCredit ?? 0) > 0
+                  ? "info"
+                  : "default"
+              }
               icon={<PiggyBank className="h-6 w-6" />}
               hint={
-                (summary?.unallocatedCredit ?? 0) < 0
+                displayCredit(summary?.outstanding ?? 0, summary?.unallocatedCredit ?? 0) > 0
                   ? t("finance.balance.creditHint")
                   : t("finance.balance.noCredit")
               }
@@ -271,8 +283,18 @@ export function DashboardView() {
                       }
                       subtitle={`${t(`finance.payment.method.${p.method}`)} • ${formatDate(p.collected_at)}`}
                       trailing={
-                        <StatusPill tone="success">
-                          {t("finance.status.paid")}
+                        <StatusPill
+                          tone={
+                            p.status === "paid"
+                              ? "success"
+                              : p.status === "pending" || p.status === "pending_clearance"
+                                ? "warning"
+                                : p.status === "refunded"
+                                  ? "danger"
+                                  : "muted"
+                          }
+                        >
+                          {t(`finance.status.${p.status}`)}
                         </StatusPill>
                       }
                       onClick={() => setActiveView("finance")}

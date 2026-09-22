@@ -104,6 +104,14 @@ export interface PortalFinancialSummary {
   totalCharged: number;
   totalPaid: number;
   totalPending: number;
+  /**
+   * DATA-032 (T-411): the canonical adjustment total (signed — negative
+   * = net remises) and the CLEARED-paid total, exposed so the statement
+   * PDF and the reconciliation footer consume the same canonical numbers
+   * the desktop dossier does (C-10/B5/B7/B11).
+   */
+  totalAdjusted: number;
+  totalCleared: number;
 }
 
 export function portalFinancialSummary(
@@ -119,6 +127,8 @@ export function portalFinancialSummary(
     totalCharged: summary.totalCharged,
     totalPaid: summary.totalPaid,
     totalPending: summary.totalPending,
+    totalAdjusted: summary.totalAdjusted,
+    totalCleared: summary.totalCleared,
   };
 }
 

@@ -131,6 +131,8 @@ export function FinancialView() {
         pending: 0,
         charged: 0,
         paid: 0,
+        adjusted: 0,
+        cleared: 0,
       };
     }
     const summary = portalFinancialSummary(ledgerEntries.data, parentId);
@@ -141,6 +143,10 @@ export function FinancialView() {
       pending: summary.totalPending,
       charged: summary.totalCharged,
       paid: summary.totalPaid,
+      // DATA-032 (T-411): the canonical adjustment/cleared totals for the
+      // statement PDF + the reconciliation footer.
+      adjusted: summary.totalAdjusted,
+      cleared: summary.totalCleared,
     };
   }, [ledgerEntries.data, parentId]);
 
@@ -152,7 +158,9 @@ export function FinancialView() {
 
   const familyInstallments = useInstallments(parentId, {
     studentId: null,
-    limit: 200,
+    // DATA-032/B9 (T-411): UNLIMITED (paginated at 1000/page) — this feed
+    // drives the §15 debt-aging and the pricing profiles; the 200-row cap
+    // silently truncated large families.
   });
   const billing = useMemo(
     () =>
@@ -163,7 +171,10 @@ export function FinancialView() {
             kids,
             {
               adjustmentRows: adjustments,
-              clearedPaid: Math.max(0, balance.paid - balance.pending),
+              // DATA-032/B7 (T-411): the canonical totalCleared — the
+              // `paid − pending` approximation diverged on
+              // partial/pending_clearance/refunded states.
+              clearedPaid: balance.cleared,
               pendingPaid: balance.pending,
               serverOutstanding: balance.outstanding,
             },
@@ -240,11 +251,17 @@ export function FinancialView() {
         parentInfo,
         familyPayments.data,
         {
-          totalDue: balance.charged - balance.unallocatedCredit,
-          totalPaid: balance.paid,
+          // DATA-032/B5+B11 (T-411): the canonical statement totals —
+          // net due = charges + adjustments (adjustment-aware, not
+          // `charged − unallocatedCredit`); total payé = CLEARED payments
+          // only (uncleared funds are pending, not paid).
+          totalDue: balance.charged + balance.adjusted,
+          totalPaid: balance.cleared,
           balance: balance.outstanding,
         },
-        { academicYear: null },
+        // DATA-032/B4 (T-411): the RESOLVED academic year — the old null
+        // made the PDF print the hardcoded "2026-2027" forever.
+        { academicYear: billing?.academicYear ?? null },
       );
     } catch (e) {
       toast.error(t("common.error"));
