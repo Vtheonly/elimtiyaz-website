@@ -160,31 +160,72 @@ export function AuthProvider({ children: reactChildren }: { children: ReactNode 
       return "pending";
     }
 
-    if (!parentRow) {
-      // Active user but no parent binding yet — admin activated the account
-      // but hasn't linked it to a parent profile. Treat as pending.
-      setParent(null);
-      setChildrenList([]);
-      return "pending";
+    if (parentRow) {
+      setParent(parentRow as ParentRow);
+
+      const { data: kids, error: kidsErr } = await supabase
+        .from("students")
+        .select("*")
+        .eq("parent_id", (parentRow as ParentRow).id)
+        .is("deleted_at", null)
+        .order("first_name", { ascending: true });
+
+      if (kidsErr) {
+        console.error("[auth] error fetching students:", kidsErr);
+        setChildrenList([]);
+      } else {
+        setChildrenList((kids ?? []) as StudentRow[]);
+      }
+
+      return "active";
     }
 
-    setParent(parentRow as ParentRow);
-
-    const { data: kids, error: kidsErr } = await supabase
+    // T-413 (STUDENT-103): the account may be STUDENT-bound — the desktop's
+    // student-application approval binds students.auth_user_id (migration
+    // 0116). Resolve the caller's OWN student row (the students_student_self
+    // RLS policy) and, through it, their family context:
+    //   - childrenList = the student themselves (self-scoped — a student
+    //     never sees their siblings through their own login);
+    //   - parent = the family row read through parents_student_sees_own
+    //     (0116 — the portal's family-context header; the FINANCIAL rows
+    //     remain parent-role-gated by design: the parent's own portal owns
+    //     the billing surfaces).
+    const { data: selfStudent, error: selfStudentErr } = await supabase
       .from("students")
       .select("*")
-      .eq("parent_id", (parentRow as ParentRow).id)
+      .eq("auth_user_id", authUser.id)
       .is("deleted_at", null)
-      .order("first_name", { ascending: true });
+      .maybeSingle();
 
-    if (kidsErr) {
-      console.error("[auth] error fetching students:", kidsErr);
-      setChildrenList([]);
-    } else {
-      setChildrenList((kids ?? []) as StudentRow[]);
+    if (selfStudentErr) {
+      console.error("[auth] error fetching self student:", selfStudentErr);
     }
 
-    return "active";
+    if (selfStudent) {
+      setChildrenList([selfStudent as StudentRow]);
+
+      const { data: selfParent, error: selfParentErr } = await supabase
+        .from("parents")
+        .select("*")
+        .eq("id", (selfStudent as StudentRow).parent_id)
+        .is("deleted_at", null)
+        .maybeSingle();
+
+      if (selfParentErr) {
+        console.error("[auth] error fetching own parent row:", selfParentErr);
+        setParent(null);
+      } else {
+        setParent((selfParent as ParentRow) ?? null);
+      }
+
+      return "active";
+    }
+
+    // Active user but no parent binding yet — admin activated the account
+    // but hasn't linked it to a parent profile. Treat as pending.
+    setParent(null);
+    setChildrenList([]);
+    return "pending";
   }, []);
 
   const refresh = useCallback(async () => {

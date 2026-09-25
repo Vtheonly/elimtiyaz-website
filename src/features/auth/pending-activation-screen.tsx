@@ -40,6 +40,7 @@ import {
   KeyRound,
 } from "lucide-react";
 import { ActivationCodeScreen } from "@/features/auth/activation-code-screen";
+import { StudentApplicationForm } from "@/features/auth/student-application-form";
 
 type Variant = "pending" | "suspended" | "rejected";
 
@@ -153,6 +154,13 @@ export function PendingActivationScreen({ variant = "pending" }: Props) {
           </div>
         </CardContent>
       </Card>
+
+      {/* T-413 (STUDENT-102): the enrollment application form — the pending
+          parent submits their child's details BEFORE the admin approves; the
+          payload rides the approval into the composite enrollment RPC
+          (migration 0116). Renders nothing when no pending request row is
+          visible (the honest degradation). */}
+      {variant === "pending" && <StudentApplicationForm />}
 
       <p className="mt-6 flex items-center gap-1.5 text-xs text-muted-foreground">
         <Mail className="h-3.5 w-3.5" />

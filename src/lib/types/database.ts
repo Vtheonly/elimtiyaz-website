@@ -59,6 +59,15 @@ export type AccountApprovalRequestRow = {
   phone: string | null;
   full_name: string | null;
   notes_from_user: string | null;
+  /**
+   * T-413 (STUDENT-102, migration 0116): the structured enrollment
+   * application a pending user attaches through this portal —
+   * { student: {first_name, last_name, date_of_birth, gender},
+   *   grade_level_code, note }. The desktop ApprovalsTab consumes it to
+   * pre-fill the student-creation form; approve_student_application
+   * enrolls the child at approval.
+   */
+  student_application: StudentApplicationPayload | null;
   target_parent_id: string | null;
   target_student_id: string | null;
   status: "pending" | "approved" | "rejected" | "expired";
@@ -68,6 +77,24 @@ export type AccountApprovalRequestRow = {
   created_at: string;
   updated_at: string;
   expires_at: string;
+};
+
+/**
+ * T-413: the shape of account_approval_requests.student_application
+ * (migration 0116 §1 — this portal's self-service enrollment form payload).
+ * All fields optional client-side; the approval RPC validates the required
+ * set at submit time.
+ */
+export type StudentApplicationPayload = {
+  student?: {
+    first_name?: string;
+    middle_name?: string;
+    last_name?: string;
+    date_of_birth?: string;
+    gender?: "male" | "female" | "other";
+  };
+  grade_level_code?: string;
+  note?: string;
 };
 
 export type RoleRow = {
