@@ -22,7 +22,7 @@ import {
   ListSkeleton,
   ErrorState,
 } from "@/features/shared/state-views";
-import { MessageSquare, Send, ArrowLeft, Megaphone, BellRing, Building2, Loader2 } from "lucide-react";
+import { MessageSquare, Send, ArrowLeft, Megaphone, BellRing, Building2, Loader2, Paperclip, FileText, X, Download } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -32,7 +32,7 @@ import { formatRelative } from "@/lib/format";
 import { supabase } from "@/lib/supabase/client";
 import { toast } from "sonner";
 import { chatMessageSchema } from "@/lib/validation";
-import type { ChatChannelRow, ChatMessageRow } from "@/lib/types/database";
+import type { ChatChannelRow, ChatMessageRow, ChatMessageAttachment } from "@/lib/types/database";
 
 export function MessagesView() {
   const { t } = useT();
@@ -203,6 +203,65 @@ function Conversation({
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  // T-464 / MEDIA-300 (hub 0136): the PARENT-side attachment lifecycle —
+  // parents may now attach documents to their own inquiries (the member-
+  // scoped chat_attachments_member_write policy authorizes exactly their
+  // own conversation folders).
+  const [pendingFiles, setPendingFiles] = useState<File[]>([]);
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const MAX_BYTES = 10 * 1024 * 1024;
+  const ALLOWED_TYPES = [
+    "image/jpeg", "image/png", "image/webp",
+    "application/pdf",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    "text/plain",
+  ];
+
+  function pickFiles(files: FileList | null): void {
+    if (!files) return;
+    const accepted: File[] = [];
+    for (const f of Array.from(files)) {
+      if (f.size > MAX_BYTES || !ALLOWED_TYPES.includes(f.type)) {
+        toast.error(t("messages.attachments.rejected", { name: f.name }));
+        continue;
+      }
+      accepted.push(f);
+    }
+    if (accepted.length > 0) setPendingFiles((s) => [...s, ...accepted]);
+  }
+
+  /**
+   * Upload one file into the conversation's folder (the 0136 path canon:
+   * {tenant}/{channel}/{timestamp}-{name}) — the parent-side Store step.
+   * `objectPath` is tenant-first by construction (the UPLOAD-101/T-360
+   * rule — the storage policies read folder[1] as the tenant).
+   */
+  async function uploadToChannel(file: File): Promise<ChatMessageAttachment | null> {
+    if (!supabase) return null;
+    const safeName = file.name.replace(/[^\w.\-]+/g, "_");
+    const objectPath = `${channel.tenant_id}/${channel.id}/${Date.now()}-${Math.random()
+      .toString(36)
+      .slice(2, 8)}-${safeName}`;
+    const { error } = await supabase.storage
+      .from("chat-attachments")
+      .upload(objectPath, file, {
+        cacheControl: "0",
+        upsert: false,
+        contentType: file.type || "application/octet-stream",
+      });
+    if (error) {
+      toast.error(error.message);
+      return null;
+    }
+    return {
+      file_name: file.name,
+      storage_path: objectPath,
+      mime_type: file.type || "application/octet-stream",
+      size_bytes: file.size,
+    };
+  }
 
   // VAULT §05 — mark incoming messages as READ when the channel is open.
   // Without this, read_by is only ever written for one's OWN messages, so
@@ -261,26 +320,46 @@ function Conversation({
   const send = async () => {
     if (!supabase || !user) return;
     const body = draft.trim();
-    // Validate the message body with Zod (5000-char ceiling, non-empty).
+    const hasAttachments = pendingFiles.length > 0;
+    // Validate the message body with Zod (5000-char ceiling; a non-empty
+    // body is only required when there is nothing attached — T-464 lets an
+    // attachment stand alone as the message).
     const parsed = chatMessageSchema.safeParse({ body, channelId: channel.id });
-    if (!parsed.success) {
+    if (!parsed.success && !hasAttachments) {
       // T-385: the schema emits dictionary keys — translate at the seam.
       toast.error(t(parsed.error.issues[0]?.message ?? "validation.message.empty"));
       return;
     }
     setSending(true);
+    // T-464 / MEDIA-300: Upload → Store happens BEFORE the insert; a failed
+    // upload aborts the send (no message referencing a missing file).
+    const attachments: ChatMessageAttachment[] = [];
+    if (hasAttachments) {
+      setUploading(true);
+      for (const file of pendingFiles) {
+        const uploaded = await uploadToChannel(file);
+        if (!uploaded) {
+          setUploading(false);
+          setSending(false);
+          return;
+        }
+        attachments.push(uploaded);
+      }
+      setUploading(false);
+    }
     const { error } = await supabase.from("chat_messages").insert({
       tenant_id: channel.tenant_id,
       channel_id: channel.id,
       author_id: user.id,
-      body: parsed.data.body,
-      attachments: [],
+      body: parsed.success ? parsed.data.body : body,
+      attachments,
       read_by: [{ user_id: user.id, read_at: new Date().toISOString() }],
     });
     if (error) {
       toast.error(error.message);
     } else {
       setDraft("");
+      setPendingFiles([]);
       messages.refetch();
     }
     setSending(false);
@@ -349,8 +428,51 @@ function Conversation({
 
       {/* Composer */}
       {!isAnnouncement && (
-        <div className="border-t border-border/60 p-3">
+        <div className="border-t border-border/60 p-3 space-y-2">
+          {/* T-464 / MEDIA-300: the pending-attachment chips. */}
+          {pendingFiles.length > 0 && (
+            <div className="flex flex-wrap gap-1.5">
+              {pendingFiles.map((f, i) => (
+                <span
+                  key={`${f.name}-${i}`}
+                  className="inline-flex items-center gap-1 rounded-md border border-border/60 bg-muted/50 pl-2 pr-1 py-0.5 text-[11px] max-w-[220px]"
+                >
+                  <FileText className="h-3 w-3 shrink-0 text-muted-foreground" />
+                  <span className="truncate flex-1">{f.name}</span>
+                  <button
+                    type="button"
+                    aria-label={t("messages.attachments.remove", { name: f.name })}
+                    className="rounded p-0.5 hover:bg-muted"
+                    onClick={() => setPendingFiles((s) => s.filter((_, j) => j !== i))}
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </span>
+              ))}
+            </div>
+          )}
           <div className="flex items-end gap-2">
+            <input
+              ref={fileInputRef}
+              type="file"
+              multiple
+              accept={ALLOWED_TYPES.join(",")}
+              className="hidden"
+              onChange={(e) => {
+                pickFiles(e.target.files);
+                e.target.value = "";
+              }}
+            />
+            <Button
+              variant="outline"
+              size="icon"
+              aria-label={t("messages.attachments.add")}
+              className="touch-target shrink-0"
+              disabled={uploading || sending}
+              onClick={() => fileInputRef.current?.click()}
+            >
+              {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Paperclip className="h-4 w-4" />}
+            </Button>
             <Textarea
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
@@ -364,7 +486,12 @@ function Conversation({
                 }
               }}
             />
-            <Button onClick={send} disabled={sending || !draft.trim()} size="icon" className="touch-target shrink-0">
+            <Button
+              onClick={send}
+              disabled={sending || uploading || (!draft.trim() && pendingFiles.length === 0)}
+              size="icon"
+              className="touch-target shrink-0"
+            >
               <Send className="h-4 w-4" />
             </Button>
           </div>
@@ -376,6 +503,7 @@ function Conversation({
 
 function MessageBubble({ msg, ownId }: { msg: ChatMessageRow; ownId?: string }) {
   const isOwn = msg.author_id === ownId;
+  const attachments = Array.isArray(msg.attachments) ? msg.attachments : [];
   return (
     <div className={cn("flex", isOwn ? "justify-end" : "justify-start")}>
       <div
@@ -386,11 +514,117 @@ function MessageBubble({ msg, ownId }: { msg: ChatMessageRow; ownId?: string }) 
             : "bg-muted text-foreground"
         )}
       >
-        <p className="whitespace-pre-wrap break-words">{msg.body}</p>
+        {msg.body && <p className="whitespace-pre-wrap break-words">{msg.body}</p>}
+        {/* T-464 / MEDIA-300: the receive half — images preview inline, every
+            type gets the open/download affordances via fresh signed URLs. */}
+        {attachments.length > 0 && (
+          <div className="mt-1.5 space-y-1.5">
+            {attachments.map((a) => (
+              <MessageAttachment key={a.storage_path} attachment={a} />
+            ))}
+          </div>
+        )}
         <p className={cn("mt-1 text-[10px]", isOwn ? "text-primary-foreground/70" : "text-muted-foreground")}>
           {formatRelative(msg.sent_at)}
         </p>
       </div>
+    </div>
+  );
+}
+
+/** Open (or download) a vaulted chat attachment through a fresh signed URL. */
+async function openChatAttachment(attachment: ChatMessageAttachment, download: boolean): Promise<void> {
+  if (!supabase) return;
+  const { data, error } = await supabase.storage
+    .from("chat-attachments")
+    .createSignedUrl(attachment.storage_path, 300, download ? { download: attachment.file_name } : undefined);
+  if (error || !data?.signedUrl) {
+    toast.error(error?.message ?? "Signed URL failed");
+    return;
+  }
+  window.open(data.signedUrl, "_blank", "noopener,noreferrer");
+}
+
+/** T-464 / MEDIA-300: one attachment — inline image preview or a document chip. */
+function MessageAttachment({ attachment }: { attachment: ChatMessageAttachment }) {
+  const isImage = (attachment.mime_type ?? "").startsWith("image/");
+  const [url, setUrl] = useState<string | null>(null);
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (isImage && supabase) {
+      supabase.storage
+        .from("chat-attachments")
+        .createSignedUrl(attachment.storage_path, 300)
+        .then(({ data }) => {
+          if (!cancelled) setUrl(data?.signedUrl ?? null);
+        })
+        .catch(() => setFailed(true));
+    }
+    return () => {
+      cancelled = true;
+    };
+  }, [isImage, attachment.storage_path]);
+
+  const sizeLabel =
+    attachment.size_bytes == null
+      ? ""
+      : attachment.size_bytes >= 1024 * 1024
+        ? `${(attachment.size_bytes / (1024 * 1024)).toFixed(1)} Mo`
+        : `${Math.max(1, Math.round(attachment.size_bytes / 1024))} Ko`;
+
+  if (isImage && url && !failed) {
+    return (
+      <div className="space-y-1">
+        <button
+          type="button"
+          className="block overflow-hidden rounded-md border border-border/40 hover:opacity-90"
+          onClick={() => void openChatAttachment(attachment, false)}
+        >
+          <img src={url} alt={attachment.file_name} className="max-h-44 max-w-[260px] object-cover" />
+        </button>
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] opacity-75 truncate">
+            {attachment.file_name}{sizeLabel ? ` · ${sizeLabel}` : ""}
+          </span>
+          <button
+            type="button"
+            className="inline-flex items-center gap-1 text-[10px] opacity-80 hover:opacity-100 underline underline-offset-2"
+            onClick={() => void openChatAttachment(attachment, true)}
+          >
+            <Download className="h-3 w-3" />
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="inline-flex items-center gap-2 rounded-md border border-border/50 bg-card/60 px-2 py-1.5 max-w-[280px]">
+      <FileText className="h-4 w-4 shrink-0" />
+      <div className="min-w-0 flex-1">
+        <p className="text-[11px] font-medium truncate" title={attachment.file_name}>
+          {attachment.file_name}
+        </p>
+        {sizeLabel && <p className="text-[10px] opacity-70">{sizeLabel}</p>}
+      </div>
+      <button
+        type="button"
+        aria-label={`Ouvrir ${attachment.file_name}`}
+        className="rounded p-1 hover:bg-muted"
+        onClick={() => void openChatAttachment(attachment, false)}
+      >
+        <FileText className="h-3.5 w-3.5" />
+      </button>
+      <button
+        type="button"
+        aria-label={`Télécharger ${attachment.file_name}`}
+        className="rounded p-1 hover:bg-muted"
+        onClick={() => void openChatAttachment(attachment, true)}
+      >
+        <Download className="h-3.5 w-3.5" />
+      </button>
     </div>
   );
 }
