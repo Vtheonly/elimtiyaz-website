@@ -447,6 +447,11 @@ const fr: Dict = {
     "Conversation avec l'administration ouverte.",
   "messages.contactAdmin.error":
     "Impossible d'ouvrir la conversation. Veuillez réessayer.",
+  // T-464 / MEDIA-300 — the parent-side attachments (hub 0136 policies).
+  "messages.attachments.add": "Joindre une image ou un document",
+  "messages.attachments.remove": "Retirer {{name}}",
+  "messages.attachments.rejected":
+    "{{name}} dépasse les limites (10 Mo max ; images, PDF, XLSX ou texte).",
 
   // Notifications
   "notifications.title": "Notifications",
@@ -1194,6 +1199,11 @@ const ar: Dict = {
     "اطرحوا أسئلتكم وتابعوا التقارير المدرسية مباشرة مع الإدارة.",
   "messages.contactAdmin.success": "تم فتح المحادثة مع الإدارة.",
   "messages.contactAdmin.error": "تعذر فتح المحادثة. يرجى إعادة المحاولة.",
+  // T-464 / MEDIA-300 — the parent-side attachments (hub 0136 policies).
+  "messages.attachments.add": "إرفاق صورة أو مستند",
+  "messages.attachments.remove": "إزالة {{name}}",
+  "messages.attachments.rejected":
+    "{{name}} يتجاوز الحدود (10 ميغابايت كحد أقصى؛ صور أو PDF أو XLSX أو نص).",
 
   // Notifications (complete)
   "notifications.title": "الإشعارات",
@@ -1832,6 +1842,11 @@ const en: Dict = {
     "Conversation with the administration opened.",
   "messages.contactAdmin.error":
     "Could not open the conversation. Please try again.",
+  // T-464 / MEDIA-300 — the parent-side attachments (hub 0136 policies).
+  "messages.attachments.add": "Attach an image or document",
+  "messages.attachments.remove": "Remove {{name}}",
+  "messages.attachments.rejected":
+    "{{name}} exceeds the limits (10 MB max; images, PDF, XLSX or text).",
 
   // Notifications (complete)
   "notifications.title": "Notifications",
