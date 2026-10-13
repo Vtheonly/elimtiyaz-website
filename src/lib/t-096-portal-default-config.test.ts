@@ -63,10 +63,12 @@ describe("T-096 — out-of-the-box portal configuration", () => {
     expect(env.NEXT_PUBLIC_SUPABASE_ANON_KEY).toMatch(/^sb_publishable_[A-Za-z0-9_-]+$/);
   });
 
-  it("fresh clone: FCM web push stays truthfully DISABLED (no web app id / VAPID key known)", async () => {
+  it("fresh clone: FCM web push stays truthfully DISABLED (no VAPID key issued for the new project)", async () => {
     const { isFcmConfigured } = await import("./env");
-    // The known Firebase app id is the ANDROID one — the WEB app id and the
-    // VAPID key were never issued. The flag must stay false (push disabled),
+    // T-519 / CONFIG-501 (2026-10-13): the committed Firebase defaults now
+    // point at the NEW `elimtiyaz-production` project WITH its real WEB app
+    // id — the only still-missing value is the web-push VAPID key (never
+    // issued for the new project). The flag must stay false (push disabled),
     // never claim a half-configured push pipeline works.
     expect(isFcmConfigured).toBe(false);
   });

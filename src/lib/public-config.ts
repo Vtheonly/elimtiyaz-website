@@ -43,6 +43,25 @@
  *   dual-accepted per ADR-009; agents who need a rollback value must retrieve
  *   it from the dashboard, never from this file.
  *
+ * FIREBASE PROJECT CUTOVER (T-519 / CONFIG-501, 2026-10-13):
+ *   The owner created the NEW Firebase project `elimtiyaz-production`
+ *   (nr. 944201689219) with a real WEB app and supplied its full public web
+ *   config. The committed Firebase defaults were cut over from the OLD
+ *   `elimtiyaz-android` project (which never had a web app registered — only
+ *   the Android app was known, so the WEB app id was left empty since T-096).
+ *   The WEB app id is now KNOWN and COMMITTED; the ONLY remaining empty value
+ *   is the web-push VAPID key (the owner must generate a Web Push certificate
+ *   in the new Firebase console → Project settings → Cloud Messaging).
+ *   isFcmConfigured therefore still returns false (push disabled, truthful)
+ *   until that key arrives. NOTE: this Firebase config serves FCM push ONLY —
+ *   the portal's AUTH goes through Supabase Auth (Google provider), never
+ *   Firebase Auth; the auth-chain consequence of the new project is that the
+ *   owner will register the OAuth client on the new project's Google Cloud
+ *   Console (owner-gated, see hub `docs/operations/portal-google-oauth.md`).
+ *   The `measurementId` (G-G3YGN1WZF3) is Analytics-only; the portal imports
+ *   no firebase/analytics, so it is recorded in the hub credentials sheet
+ *   §9.6 but intentionally NOT wired here (no dead config slots).
+ *
  * OVERRIDE BEHAVIOUR:
  *   `src/lib/env.ts` reads `process.env.NEXT_PUBLIC_*` FIRST and falls back
  *   to these defaults. `.env.local` (gitignored) can still override every
@@ -58,17 +77,20 @@ export const PUBLIC_CONFIG_DEFAULTS = {
   // New-format publishable key (preferred); see the migration note above.
   NEXT_PUBLIC_SUPABASE_ANON_KEY:
     "sb_publishable_IPUtQMYQzr1wNnfGTcl5MA_wuz3RUdg",
-  // Firebase web (FCM) — public web config for project elimtiyaz-android.
-  // NOTE: the Firebase *web* app id and the VAPID key are intentionally left
-  // unset: the app id known today is the ANDROID app id (a different app in
-  // the same Firebase project) and the web push VAPID key has never been
-  // issued. isFcmConfigured therefore stays FALSE (push disabled) until the
-  // owner supplies the real web values — a truthful state, not a broken one.
-  NEXT_PUBLIC_FIREBASE_API_KEY: "AIzaSyAzDjnuF7QMh3jWZAoJYiIxohfAD7Ba3_8",
-  NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: "elimtiyaz-android.firebaseapp.com",
-  NEXT_PUBLIC_FIREBASE_PROJECT_ID: "elimtiyaz-android",
-  NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: "elimtiyaz-android.firebasestorage.app",
-  NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: "259221439109",
-  NEXT_PUBLIC_FIREBASE_APP_ID: "",
+  // Firebase web (FCM) — public web config for project elimtiyaz-production.
+  // T-519 / CONFIG-501 (2026-10-13): cutover from the OLD `elimtiyaz-android`
+  // project (which had NO web app registered — the known app id was the
+  // ANDROID one, so the WEB app id stayed empty since T-096) to the owner's
+  // NEW `elimtiyaz-production` project, whose WEB app id is now known and
+  // committed below. The ONLY intentionally-unset value left is the web-push
+  // VAPID key (never issued for the new project) — isFcmConfigured therefore
+  // stays FALSE (push disabled) until the owner generates the Web Push
+  // certificate in the Firebase console — a truthful state, not a broken one.
+  NEXT_PUBLIC_FIREBASE_API_KEY: "AIzaSyByguKxez7hNjkGcdLnbTCHLI5nJzEFqvY",
+  NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: "elimtiyaz-production.firebaseapp.com",
+  NEXT_PUBLIC_FIREBASE_PROJECT_ID: "elimtiyaz-production",
+  NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: "elimtiyaz-production.firebasestorage.app",
+  NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: "944201689219",
+  NEXT_PUBLIC_FIREBASE_APP_ID: "1:944201689219:web:b5fbe39a56e09c7629d3b6",
   NEXT_PUBLIC_FIREBASE_VAPID_KEY: "",
 } as const;

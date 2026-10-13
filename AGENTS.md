@@ -93,10 +93,12 @@ npm run build         # next build (strict after T-049)
 ```
 
 > **Out-of-the-box config (T-096, session 14):** a fresh clone works WITHOUT `.env.local` —
-> public identifiers (Supabase URL + anon key + Firebase web config sans VAPID/web-app-id) are
-> committed in `src/lib/public-config.ts` and `env.ts` falls back to them. `.env.local` still
-> overrides every value. NEVER commit server secrets (service_role / sb_secret / sbp_) — a
-> regression test scans for them (`src/lib/t-096-portal-default-config.test.ts`).
+> public identifiers (Supabase URL + anon key + the Firebase web config of the current
+> `elimtiyaz-production` project, T-519/CONFIG-501 — sans the web-push VAPID key, the only
+> value still unset) are committed in `src/lib/public-config.ts` and `env.ts` falls back to
+> them. `.env.local` still overrides every value. NEVER commit server secrets
+> (service_role / sb_secret / sbp_) — a regression test scans for them
+> (`src/lib/t-096-portal-default-config.test.ts`).
 
 ## 9. Forbidden in this repository
 
