@@ -51,7 +51,12 @@ describe("T-096 — out-of-the-box portal configuration", () => {
     // login-screen uses to decide between the config-error banner and the
     // Google sign-in button.
     expect(isSupabaseConfigured).toBe(true);
-    expect(env.NEXT_PUBLIC_SUPABASE_URL).toBe("https://hkvkefubghbbotgnteir.supabase.co");
+    // T-516 / CONFIG-500 (2026-10-13): the committed default was cutover
+    // from the abandoned `hkvkefubghbbotgnteir` project to the live
+    // `vebfehrpzajhstyhinnw` project (live since 2026-09-17). The old
+    // assertion on `hkvkefubghbbotgnteir.supabase.co` was a stale pin to
+    // the abandoned project and is replaced here with the live URL.
+    expect(env.NEXT_PUBLIC_SUPABASE_URL).toBe("https://vebfehrpzajhstyhinnw.supabase.co");
     // T-107 / MIG-KEYS-201 (2026-09-01): the committed default is now the
     // new-format PUBLISHABLE key (ADR-009 — dual acceptance, publishable-
     // preferred). Previously pinned to the legacy JWT shape (/^eyJ/).

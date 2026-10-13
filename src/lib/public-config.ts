@@ -26,13 +26,22 @@
  *   The committed default below is the project's `sb_publishable_…` key —
  *   the new-format public identifier that Supabase issues alongside (and
  *   intended to replace) the legacy `anon` JWT. supabase-js ^2.111 sends
- *   either format opaquely as the `apikey` header; the backend accepts both
- *   (live-verified 2026-09-01 against auth/health, REST and the password
- *   grant). The legacy anon JWT remains VALID and is kept here in a comment
- *   for emergency rollback until Supabase deprecates legacy keys — do not
- *   delete it before the hub credentials sheet retires it.
- *   Legacy anon JWT (still valid, rollback value):
- *   eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhrdmtlZnViZ2hiYm90Z250ZWlyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODUwMDQ2ODQsImV4cCI6MjEwMDU4MDY4NH0.GDQiKjp4YBbCpsgoJXeSUqUT8Ag67He2fmngy6NNPmk
+ *   either format opaquely as the `apikey` header; the backend accepts both.
+ *
+ * PROJECT CUTOVER (T-516 / CONFIG-500, 2026-10-13):
+ *   The committed URL + publishable key were updated from the OLD project
+ *   `hkvkefubghbbotgnteir` to the CURRENT live project `vebfehrpzajhstyhinnw`
+ *   (live since the 2026-09-17 switch — PR #8 + cc317a6 on the desktop; the
+ *   website's defaults were never updated in that cutover, which is exactly
+ *   why the freshly-cloned portal hit a dead backend and showed "the site
+ *   doesn't work" — root cause recorded in the hub credentials sheet §1 and
+ *   §9.1). The previous legacy anon JWT rollback comment was for the OLD
+ *   project and is therefore NOT a valid rollback against the new one — it
+ *   was REMOVED in this same change. A NEW legacy anon JWT for
+ *   `vebfehrpzajhstyhinnw` exists in the Supabase dashboard (Settings → API
+ *   Keys, see hub `docs/operations/credentials.md` §9.1) and remains
+ *   dual-accepted per ADR-009; agents who need a rollback value must retrieve
+ *   it from the dashboard, never from this file.
  *
  * OVERRIDE BEHAVIOUR:
  *   `src/lib/env.ts` reads `process.env.NEXT_PUBLIC_*` FIRST and falls back
@@ -41,10 +50,14 @@
  */
 
 export const PUBLIC_CONFIG_DEFAULTS = {
-  NEXT_PUBLIC_SUPABASE_URL: "https://hkvkefubghbbotgnteir.supabase.co",
+  // T-516 / CONFIG-500 (2026-10-13): cutover to the current live project
+  // `vebfehrpzajhstyhinnw` (live since 2026-09-17). The previous default
+  // pointed at the abandoned `hkvkefubghbbotgnteir` project, which broke
+  // every fresh clone of the portal.
+  NEXT_PUBLIC_SUPABASE_URL: "https://vebfehrpzajhstyhinnw.supabase.co",
   // New-format publishable key (preferred); see the migration note above.
   NEXT_PUBLIC_SUPABASE_ANON_KEY:
-    "sb_publishable_YJR7u7BgicV1QZRnc1WdHA_BkGzfVgo",
+    "sb_publishable_IPUtQMYQzr1wNnfGTcl5MA_wuz3RUdg",
   // Firebase web (FCM) — public web config for project elimtiyaz-android.
   // NOTE: the Firebase *web* app id and the VAPID key are intentionally left
   // unset: the app id known today is the ANDROID app id (a different app in
