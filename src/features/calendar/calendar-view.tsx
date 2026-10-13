@@ -16,11 +16,11 @@
 
 import { useT } from "@/lib/i18n/use-t";
 import { useAuth } from "@/app/providers/auth-provider";
-import { useAppStore } from "@/lib/store/app-store";
 import {
   useUpcomingEvents,
+  useEventsInRange,
   useInstallments,
-  useHomeworkForClass,
+  useHomeworkForClasses,
 } from "@/lib/hooks/portal-queries";
 import {
   SectionHeader,
@@ -58,6 +58,12 @@ const MONTHS_FR = [
 // localized labels — it previously showed the raw English enums). This
 // view is now a CONSUMER of the single canonical mapping.
 import { kindToUiType, uiTypeLabelKey } from "@/features/calendar/event-kind";
+// T-525/UI-343: LOCAL date keys — `Date.toISOString()` renders the UTC
+// instant, and local midnight in UTC+ timezones is the PREVIOUS day UTC,
+// so every month-grid cell was keyed one day early (events on the wrong
+// cell, the due-date cell empty, isToday/goToday shifted). The helpers
+// derive keys from the LOCAL calendar components.
+import { localDateKey, todayKey, rangeBoundsFromDateKeys } from "@/features/calendar/date-key";
 
 const eventTypeTone: Record<string, "danger" | "info" | "warning" | "success"> = {
   exam: "danger",
@@ -82,28 +88,50 @@ const eventTypeColor: Record<string, string> = {
 export function CalendarView() {
   const { t } = useT();
   const { parent, children: kids } = useAuth();
-  const activeStudentId = useAppStore((s) => s.activeStudentId);
-  const activeKid = kids.find((k) => k.id === activeStudentId);
-
-  const events = useUpcomingEvents({ limit: 200 });
-
-  // Derived events: payment due dates (from installments) + homework due dates
-  // (from homework_assignments). These are NOT stored as calendar_events —
-  // the plan says they are "auto-derived". We fetch them in parallel and
-  // merge into the calendar grid below.
-  const installments = useInstallments(parent?.id ?? null, { limit: 200 });
-  const homework = useHomeworkForClass(activeKid?.class_id ?? null, { limit: 100 });
 
   const [cursor, setCursor] = useState(() => {
     const d = new Date();
     return new Date(d.getFullYear(), d.getMonth(), 1);
   });
-  const [selectedDate, setSelectedDate] = useState<string>(() =>
-    new Date().toISOString().slice(0, 10)
-  );
+  const [selectedDate, setSelectedDate] = useState<string>(() => todayKey());
   const [activeFilter, setActiveFilter] = useState<string>("all");
 
   const grid = useMemo(() => buildMonthGrid(cursor), [cursor]);
+
+  // T-525/UI-343: the range query covers the FULL 42-cell grid span (the
+  // grid bleeds into the neighbouring months), inclusive of the last day.
+  // Derived BEFORE the query hooks that consume it (no TDZ).
+  const { start: rangeStart, end: rangeEnd } = useMemo(() => {
+    if (grid.length === 0) {
+      return rangeBoundsFromDateKeys(todayKey(), todayKey());
+    }
+    return rangeBoundsFromDateKeys(
+      localDateKey(grid[0].date),
+      localDateKey(grid[grid.length - 1].date),
+    );
+  }, [grid]);
+
+  // T-525/UI-343: the month grid consumes the MONTH-RANGE query (the
+  // purpose-built useEventsInRange — previously unused) so events earlier
+  // today or earlier in the browsed month still render; the future-only
+  // useUpcomingEvents remains the "Prochains examens" section's source.
+  const events = useEventsInRange(rangeStart, rangeEnd);
+  const upcomingEvents = useUpcomingEvents({ limit: 200 });
+
+  // Derived events: payment due dates (from installments) + homework due
+  // dates (from the canonical homework table). These are NOT stored as
+  // calendar_events — the plan says they are "auto-derived". We fetch them
+  // in parallel and merge into the calendar grid below.
+  //
+  // T-525/UI-343: homework covers ALL the parent's children's classes (the
+  // plan's "events relevant to the parent's children"), deduped by id —
+  // previously only the ACTIVE student's class homework appeared.
+  const installments = useInstallments(parent?.id ?? null, { limit: 200 });
+  const homeworkClassIds = useMemo(
+    () => [...new Set(kids.map((k) => k.class_id).filter((c): c is string => Boolean(c)))],
+    [kids],
+  );
+  const homework = useHomeworkForClasses(homeworkClassIds, { limit: 100 });
 
   // Build a unified event map: real calendar_events + derived payment/homework events.
   // Each entry is normalized to { dateKey, uiType, title, time, location }.
@@ -196,18 +224,18 @@ export function CalendarView() {
   }, [eventsByDate, selectedDate, activeFilter]);
 
   const upcomingExams = useMemo(() => {
-    if (!events.data) return [];
-    return events.data
+    if (!upcomingEvents.data) return [];
+    return upcomingEvents.data
       .filter((e) => e.target_entity_type === "exam" || (e.kind === "custom" && /examen|exam/i.test(e.title)))
       .slice(0, 10);
-  }, [events.data]);
+  }, [upcomingEvents.data]);
 
   const prevMonth = () => setCursor((d) => new Date(d.getFullYear(), d.getMonth() - 1, 1));
   const nextMonth = () => setCursor((d) => new Date(d.getFullYear(), d.getMonth() + 1, 1));
   const goToday = () => {
     const now = new Date();
     setCursor(new Date(now.getFullYear(), now.getMonth(), 1));
-    setSelectedDate(now.toISOString().slice(0, 10));
+    setSelectedDate(todayKey());
   };
 
   const filterTypes = ["all", "exam", "holiday", "meeting", "deadline", "activity", "payment"];
@@ -255,10 +283,11 @@ export function CalendarView() {
 
           <div className="grid grid-cols-7 gap-1">
             {grid.map((day, idx) => {
-              const dateKey = day.date.toISOString().slice(0, 10);
+              // T-525/UI-343: the LOCAL date key — never toISOString (UTC).
+              const dateKey = localDateKey(day.date);
               const dayEvents = eventsByDate.get(dateKey) ?? [];
               const isSelected = dateKey === selectedDate;
-              const isToday = dateKey === new Date().toISOString().slice(0, 10);
+              const isToday = dateKey === todayKey();
               const isCurrentMonth = day.isCurrentMonth;
               return (
                 <button
@@ -438,7 +467,8 @@ interface DayCell {
   isCurrentMonth: boolean;
 }
 
-function buildMonthGrid(cursor: Date): DayCell[] {
+/** Exported for the T-525 regression suite (the UI-343 date-key pins). */
+export function buildMonthGrid(cursor: Date): DayCell[] {
   const first = new Date(cursor.getFullYear(), cursor.getMonth(), 1);
   const dayOfWeek = (first.getDay() + 6) % 7; // 0 = Monday
   const start = new Date(first);

@@ -205,6 +205,50 @@ export function useHomeworkForClass(
   });
 }
 
+/**
+ * T-525 (UI-343): homework across SEVERAL classes — the calendar's source.
+ * The portal plan's calendar shows "events relevant to the parent's
+ * CHILDREN" (plural): a parent with kids in different classes sees every
+ * child's homework on one grid, deduped by homework id (two kids in the
+ * same class surface the same row once). Same canonical table, same
+ * ordering, same row shape as useHomeworkForClass — the plural twin.
+ */
+export function useHomeworkForClasses(
+  classIds: readonly string[],
+  options: { limit?: number } = {},
+): UseQueryResult<HomeworkRow[]> {
+  const key = [...classIds].sort().join(",");
+  return useQuery({
+    queryKey: ["homework-classes", key, options.limit],
+    queryFn: async () => {
+      const client = supabase;
+      if (classIds.length === 0 || !client) return [];
+      const perClass = await Promise.all(
+        classIds.map(async (classId) => {
+          let q = client
+            .from("homework")
+            .select("*")
+            .eq("class_id", classId)
+            .order("due_date", { ascending: true });
+          if (options.limit) q = q.limit(options.limit);
+          const { data, error } = await q;
+          if (error) throw error;
+          return (data ?? []) as unknown as HomeworkRow[];
+        }),
+      );
+      // Dedupe by id (siblings sharing a class) + sort by due date.
+      const byId = new Map<string, HomeworkRow>();
+      for (const rows of perClass) {
+        for (const row of rows) byId.set(row.id, row);
+      }
+      return [...byId.values()].sort((a, b) =>
+        a.due_date.localeCompare(b.due_date),
+      );
+    },
+    enabled: classIds.length > 0,
+  });
+}
+
 /* -------------------------------------------------------------------------- */
 /* Financial                                                                  */
 /* -------------------------------------------------------------------------- */
