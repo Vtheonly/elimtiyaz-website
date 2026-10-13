@@ -51,6 +51,41 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
+/** The OAuth failure-redirect params, consumed off the URL after mount. */
+const OAUTH_ERROR_PARAMS = ["error", "error_code", "error_description"] as const;
+
+/**
+ * AUTH-401 / T-521 (2026-10-13): Supabase redirects OAuth FAILURES back to
+ * the site as URL params — the live case is
+ * ?error=server_error&error_code=unexpected_failure&error_description=Unable+to+exchange+external+code%3A+4%2F0A…
+ * (a double-encoded copy may also land in the hash). The app used to ignore
+ * these params entirely: the visitor landed back on the login screen with
+ * no session and NO explanation of what happened (owner-reported: “the
+ * authentication process does not continue”). Read the redirect ONCE at
+ * mount and map the class to a stable code the login screen localizes (the
+ * AUTH-200 pattern). The underlying owner-side fix (correct the Supabase
+ * Google provider's client credentials) is documented in the hub runbook
+ * docs/operations/portal-google-oauth.md §6.
+ */
+function readOauthErrorRedirectCode(): string | null {
+  if (typeof window === "undefined") return null;
+  const searchParams = new URLSearchParams(window.location.search);
+  const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+  const carrier = searchParams.has("error")
+    ? searchParams
+    : hashParams.has("error")
+      ? hashParams
+      : null;
+  if (!carrier) return null;
+  const description = carrier.get("error_description") ?? "";
+  // AUTH-401 signature (live-verified 2026-10-13): Google rejected the token
+  // exchange — actionable only on the owner side (the Supabase Google
+  // provider's client secret is invalid; the hub runbook §6 has the fix).
+  return /unable to exchange external code/i.test(description)
+    ? "oauth_exchange_failed"
+    : "oauth_failed";
+}
+
 export function AuthProvider({ children: reactChildren }: { children: ReactNode }) {
   const router = useRouter();
   const [state, setState] = useState<AuthState>(() =>
@@ -59,7 +94,10 @@ export function AuthProvider({ children: reactChildren }: { children: ReactNode 
   const [user, setUser] = useState<UserProfileRow | null>(null);
   const [parent, setParent] = useState<ParentRow | null>(null);
   const [childrenList, setChildrenList] = useState<StudentRow[]>([]);
-  const [error, setError] = useState<string | null>(null);
+  // AUTH-401 / T-521: seeded from the OAuth failure-redirect params (if any)
+  // on the very first client render; every later mutation flows through
+  // setError as before (signInWithGoogle clears it on retry).
+  const [error, setError] = useState<string | null>(readOauthErrorRedirectCode);
 
   const profileIdRef = useRef<string | null>(null);
 
@@ -244,6 +282,33 @@ export function AuthProvider({ children: reactChildren }: { children: ReactNode 
     const teardown = autoRegisterFcmAfterFirstGesture(user?.id);
     return () => teardown();
   }, [user?.id]);
+
+  // AUTH-401 / T-521 (2026-10-13): Supabase redirects OAuth FAILURES back to
+  // the site as URL params — the live case is
+  // ?error=server_error&error_code=unexpected_failure&error_description=Unable+to+exchange+external+code%3A+4%2F0A…
+  // (a double-encoded copy may also land in the hash). The app used to ignore
+  // these params entirely: the visitor landed back on the login screen with
+  // no session and NO explanation of what happened (owner-reported). The
+  // error state itself is seeded by readOauthErrorRedirectCode (the lazy
+  // initializer above); this effect only cleans the CONSUMED params off the
+  // URL (search + hash copy) so a refresh or bookmark doesn't re-trigger the
+  // message — everything else in the URL survives untouched.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const searchParams = new URLSearchParams(window.location.search);
+    const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+    if (!searchParams.has("error") && !hashParams.has("error")) return;
+    for (const params of [searchParams, hashParams]) {
+      for (const key of OAUTH_ERROR_PARAMS) params.delete(key);
+    }
+    const qs = searchParams.toString();
+    const hs = hashParams.toString();
+    window.history.replaceState(
+      null,
+      "",
+      `${window.location.pathname}${qs ? `?${qs}` : ""}${hs ? `#${hs}` : ""}`,
+    );
+  }, []);
 
   // Subscribe to auth state changes once on mount.
   useEffect(() => {

@@ -79,7 +79,17 @@ export function LoginScreen() {
                     auth-provider when the Supabase Google provider is
                     disabled server-side (the only remaining portal-login
                     blocker — owner runbook in the hub repo). */}
-                {error === "provider_disabled" ? t("auth.signin.providerDisabled") : error}
+                {/* AUTH-401 / T-521: oauth_exchange_failed / oauth_failed are
+                    set when Supabase redirects an OAuth FAILURE back to the
+                    portal (e.g. Google rejecting the sign-in exchange) —
+                    previously these redirects were silently swallowed. */}
+                {error === "provider_disabled"
+                  ? t("auth.signin.providerDisabled")
+                  : error === "oauth_exchange_failed"
+                    ? t("auth.signin.oauthExchangeFailed")
+                    : error === "oauth_failed"
+                      ? t("auth.signin.oauthFailed")
+                      : error}
               </p>
             </div>
           )}

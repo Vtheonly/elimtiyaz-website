@@ -40,6 +40,13 @@ const fr: Dict = {
   // hub repo (docs/operations/portal-google-oauth.md).
   "auth.signin.providerDisabled":
     "La connexion Google n'est pas encore activée sur le portail. Veuillez contacter l'administration de l'école pour terminer la configuration.",
+  // AUTH-401 / T-521 (2026-10-13): shown when Supabase redirects an OAuth
+  // FAILURE back to the portal — e.g. Google rejecting the sign-in exchange
+  // (the owner-side credential fix lives in the hub runbook §6).
+  "auth.signin.oauthExchangeFailed":
+    "La connexion Google n'a pas abouti à l'étape de vérification. Veuillez réessayer dans quelques minutes ; si le problème persiste, contactez l'administration de l'école.",
+  "auth.signin.oauthFailed":
+    "La connexion Google n'a pas abouti. Veuillez réessayer ; si le problème persiste, contactez l'administration de l'école.",
   "auth.signin.configError.title": "Configuration manquante",
   "auth.signin.configError.body":
     "Le portail n'est pas encore connecté à Supabase. Veuillez configurer NEXT_PUBLIC_SUPABASE_URL et NEXT_PUBLIC_SUPABASE_ANON_KEY dans .env.local",
@@ -822,6 +829,10 @@ const ar: Dict = {
   "auth.signin.help": "تحتاجون مساعدة؟ تواصلوا مع إدارة المدرسة.",
   "auth.signin.providerDisabled":
     "لم يُفعَّل تسجيل الدخول عبر Google في البوابة بعد. يرجى التواصل مع إدارة المدرسة لإتمام عملية التهيئة.",
+  "auth.signin.oauthExchangeFailed":
+    "تعذّر إتمام تسجيل الدخول عبر Google عند خطوة التحقق. يرجى إعادة المحاولة بعد دقائق، وإذا استمرت المشكلة فتواصلوا مع إدارة المدرسة.",
+  "auth.signin.oauthFailed":
+    "تعذّر إتمام تسجيل الدخول عبر Google. يرجى إعادة المحاولة، وإذا استمرت المشكلة فتواصلوا مع إدارة المدرسة.",
 
   "activation.pending.title": "لم يتم تفعيل حسابكم بعد",
   "activation.pending.body":
@@ -1572,6 +1583,10 @@ const en: Dict = {
   "auth.signin.help": "Need help? Contact your school's administration.",
   "auth.signin.providerDisabled":
     "Google sign-in is not enabled on the portal yet. Please contact the school administration to finish the setup.",
+  "auth.signin.oauthExchangeFailed":
+    "Google sign-in could not be completed at the verification step. Please try again in a few minutes; if the problem persists, contact the school administration.",
+  "auth.signin.oauthFailed":
+    "Google sign-in could not be completed. Please try again; if the problem persists, contact the school administration.",
 
   "activation.pending.title": "Your account has not yet been activated",
   "activation.pending.body":
