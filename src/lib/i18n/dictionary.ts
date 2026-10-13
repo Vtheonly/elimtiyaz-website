@@ -334,6 +334,8 @@ const fr: Dict = {
   "finance.billing.recon.net": "= Net à payer",
   "finance.billing.recon.cleared": "− Encaissé confirmé",
   "finance.billing.recon.pending": "− En attente (chèque / virement)",
+  "finance.billing.recon.future":
+    "⊕ Encaissements enregistrés à échéance future (non encaissés à ce jour — ancre de période d'import)",
   "finance.billing.recon.remaining": "= Reste net",
   "finance.billing.recon.bridge":
     "± Pont — autres écritures (remboursements, contrepassations)",
@@ -1092,6 +1094,8 @@ const ar: Dict = {
   "finance.billing.recon.net": "= الصافي المستحق",
   "finance.billing.recon.cleared": "− المدفوع المؤكد",
   "finance.billing.recon.pending": "− في الانتظار (شيك / تحويل)",
+  "finance.billing.recon.future":
+    "⊕ مدفوعات مسجلة بتاريخ استحقاق مستقبلي (غير محصلة حتى اليوم — مرتكز فترة الاستيراد)",
   "finance.billing.recon.remaining": "= المتبقي الصافي",
   "finance.billing.recon.bridge":
     "± جسر — كتابات أخرى (استردادات، مقابل كتابات)",
@@ -1952,6 +1956,8 @@ const en: Dict = {
   "finance.billing.recon.net": "= Net due",
   "finance.billing.recon.cleared": "− Cleared payments",
   "finance.billing.recon.pending": "− Pending (cheque / transfer)",
+  "finance.billing.recon.future":
+    "⊕ Payments recorded at a future due period (not collected to date — import period anchor)",
   "finance.billing.recon.remaining": "= Net remaining",
   "finance.billing.recon.bridge":
     "± Bridge — other entries (refunds, counter-passes)",

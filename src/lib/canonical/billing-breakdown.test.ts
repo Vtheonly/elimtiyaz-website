@@ -21,6 +21,10 @@ import {
   resolveBillingAcademicYear,
   serviceLabelOf,
 } from "@/lib/canonical/billing-breakdown";
+import {
+  parentSummaryFromLedger,
+  futureRecordedClearedFromRows,
+} from "@/lib/canonical/portal-derive";
 import type { LedgerEntryRow, InstallmentRow, StudentRow } from "@/lib/types/database";
 
 function ledgerRow(overrides: Partial<LedgerEntryRow>): LedgerEntryRow {
@@ -393,5 +397,115 @@ describe("classifyAdjustmentRows — provenance classification (T-168 parity)", 
     expect(byId.get("adj-b")!.provenance).toBe("documented");
     expect(byId.get("adj-b")!.pairedWithId).toBeNull();
     expect(byId.get("adj-z")!.pairedWithId).toBeNull();
+  });
+});
+
+/* ============================================================ */
+/*  T-521 / BUSINESS-111 parity — the future-recorded split       */
+/*  (mirrors the desktop T-517 suite; the portal's figures were   */
+/*  already as-of — this pins the SURFACING of the future class)  */
+/* ============================================================ */
+
+describe("T-521 futureRecordedClearedFromRows — the future-period split", () => {
+  const NOW = new Date("2026-10-13T12:00:00.000Z");
+
+  it("sums only future-dated cleared payment entries — the exact complement of the as-of replay", () => {
+    const rows = [
+      ledgerRow({ entry_type: "payment", entry_number: "pay-past", amount: -100000, payment_status: "paid", at: "2026-09-15T00:00:00Z" }),
+      ledgerRow({ entry_type: "payment", entry_number: "pay-fut1", amount: -100000, payment_status: "paid", at: "2026-12-15T00:00:00Z" }),
+      ledgerRow({ entry_type: "payment", entry_number: "pay-fut2", amount: -145000, payment_status: "paid", at: "2027-03-15T00:00:00Z" }),
+    ];
+    // Past paid excluded; future paid included (|amount|).
+    expect(futureRecordedClearedFromRows(rows, "p1", NOW)).toBe(245000);
+    // The as-of replay's own cleared figure stays the complement.
+    const summary = parentSummaryFromLedger(rows, "p1", "", NOW);
+    expect(summary.totalCleared).toBe(100000);
+  });
+
+  it("is status-strict, parent-scoped, and excludes reversed targets", () => {
+    const rows = [
+      ledgerRow({ entry_type: "payment", entry_number: "pay-fut-pending", amount: -30000, payment_status: "pending", at: "2026-12-15T00:00:00Z" }),
+      ledgerRow({ entry_type: "payment", entry_number: "pay-fut-refund", amount: -20000, payment_status: "refunded", at: "2026-12-15T00:00:00Z" }),
+      ledgerRow({ entry_type: "payment", entry_number: "pay-fut-rev", amount: -50000, payment_status: "paid", at: "2026-12-15T00:00:00Z" }),
+      ledgerRow({ entry_type: "reversal", entry_number: "rev-1", amount: 50000, reverses_id: "pay-fut-rev", at: "2026-12-16T00:00:00Z" }),
+      // Another parent's future payment — never counted.
+      ledgerRow({ entry_type: "payment", entry_number: "pay-other", parent_id: "p2", amount: -99000, payment_status: "paid", at: "2026-12-15T00:00:00Z" }),
+    ];
+    expect(futureRecordedClearedFromRows(rows, "p1", NOW)).toBe(0);
+  });
+});
+
+describe("T-521 parentBillingBreakdown — the future-recorded recon term", () => {
+  const NOW = new Date("2026-10-13T12:00:00.000Z");
+
+  it("surfaces the future-recorded class as its own term — never subtracted from the remaining (the NACEF shape)", () => {
+    // The NACEF family shape (DZD — the website engine's unit): four
+    // children, per-child Devis 365k/345k/310k/290k; payments V2+T1 past
+    // (441k), V2_ALT+V3 future-anchored (869k).
+    const devis = [365000, 345000, 310000, 290000];
+    const v2 = [100000, 92000, 99000, 70000];
+    const v3 = [145000, 133000, 91000, 100000];
+    const charges = devis.map((amount, i) =>
+      ledgerRow({
+        entry_number: `led-devis-${i}`,
+        student_id: `s${i}`,
+        account_id: `parent:p1:category:tuition:student:s${i}`,
+        amount,
+        at: "2026-09-15T00:00:00Z",
+      }),
+    );
+    const payments: LedgerEntryRow[] = [];
+    devis.forEach((_, i) => {
+      payments.push(
+        ledgerRow({ entry_type: "payment", entry_number: `pay-${i}-V2`, student_id: `s${i}`, account_id: `parent:p1:category:tuition:student:s${i}`, amount: -v2[i], payment_status: "paid", at: "2026-09-15T00:00:00Z" }),
+        ledgerRow({ entry_type: "payment", entry_number: `pay-${i}-T1`, student_id: `s${i}`, account_id: `parent:p1:category:transport:student:s${i}`, amount: -20000, payment_status: "paid", at: "2026-09-15T00:00:00Z" }),
+        ledgerRow({ entry_type: "payment", entry_number: `pay-${i}-V2ALT`, student_id: `s${i}`, account_id: `parent:p1:category:tuition:student:s${i}`, amount: -100000, payment_status: "paid", at: "2026-12-15T00:00:00Z" }),
+        ledgerRow({ entry_type: "payment", entry_number: `pay-${i}-V3`, student_id: `s${i}`, account_id: `parent:p1:category:tuition:student:s${i}`, amount: -v3[i], payment_status: "paid", at: "2027-03-15T00:00:00Z" }),
+      );
+    });
+    const rows = [...charges, ...payments];
+
+    // The canonical derivation pair the view feeds (T-521 wiring).
+    const summary = parentSummaryFromLedger(rows, "p1", "", NOW);
+    const futureRecorded = futureRecordedClearedFromRows(rows, "p1", NOW);
+    expect(summary.totalCleared).toBe(441000);
+    expect(futureRecorded).toBe(869000);
+    expect(summary.totalOutstanding).toBe(869000);
+
+    const breakdown = parentBillingBreakdown(
+      rows,
+      [],
+      devis.map((_, i) => kid({ id: `s${i}`, first_name: `Kid${i}` })),
+      {
+        clearedPaid: summary.totalCleared,
+        pendingPaid: summary.totalPending,
+        futureRecordedPaid: futureRecorded,
+        serverOutstanding: summary.totalOutstanding,
+      },
+    );
+    const r = breakdown.reconciliation;
+    expect(r.netDue).toBe(1310000);
+    expect(r.clearedPaid).toBe(441000);
+    expect(r.futureRecordedPaid).toBe(869000);
+    expect(breakdown.totalFutureRecordedPaid).toBe(869000);
+    // NOT subtracted — the remaining stays as-of honest and the bridge
+    // collapses to 0 (the two populations agree).
+    expect(r.derivedRemaining).toBe(869000);
+    expect(r.bridge).toBe(0);
+    expect(r.hasBridge).toBe(false);
+    // The partition still explains every recorded dinar.
+    expect(r.clearedPaid + r.futureRecordedPaid).toBe(1310000);
+  });
+
+  it("defaults the term to 0 when the caller does not supply it (old callers unchanged)", () => {
+    const breakdown = parentBillingBreakdown(
+      [ledgerRow({ amount: 285000 })],
+      [],
+      [kid({})],
+      { clearedPaid: 125000 },
+    );
+    expect(breakdown.reconciliation.futureRecordedPaid).toBe(0);
+    expect(breakdown.totalFutureRecordedPaid).toBe(0);
+    expect(breakdown.reconciliation.derivedRemaining).toBe(160000);
   });
 });

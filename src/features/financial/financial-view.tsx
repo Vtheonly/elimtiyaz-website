@@ -14,6 +14,7 @@ import {
 import {
   installmentRemainingAmount,
   portalFinancialSummary,
+  futureRecordedClearedFromRows,
   ledgerAdjustmentEntries,
   displayCredit,
   parentDebtAgingFromRows,
@@ -133,9 +134,14 @@ export function FinancialView() {
         paid: 0,
         adjusted: 0,
         cleared: 0,
+        futureRecorded: 0,
       };
     }
-    const summary = portalFinancialSummary(ledgerEntries.data, parentId);
+    // T-521: ONE evaluation clock for the as-of summary AND the
+    // future-recorded split — both figures derive from the same instant so
+    // they can never disagree with each other.
+    const now = new Date();
+    const summary = portalFinancialSummary(ledgerEntries.data, parentId, now);
     return {
       outstanding: summary.outstanding,
       overdue: summary.overdue,
@@ -147,6 +153,10 @@ export function FinancialView() {
       // statement PDF + the reconciliation footer.
       adjusted: summary.totalAdjusted,
       cleared: summary.totalCleared,
+      // T-521 (BUSINESS-111 parity): the FUTURE-period cleared split —
+      // surfaced as its own labelled line in the Facturation tab, never
+      // counted as collected-to-date (mirrors the desktop T-517 term).
+      futureRecorded: futureRecordedClearedFromRows(ledgerEntries.data, parentId, now),
     };
   }, [ledgerEntries.data, parentId]);
 
@@ -176,6 +186,10 @@ export function FinancialView() {
               // partial/pending_clearance/refunded states.
               clearedPaid: balance.cleared,
               pendingPaid: balance.pending,
+              // T-521 (BUSINESS-111 parity): the future-recorded split —
+              // informational only, NOT subtracted (it is not
+              // collected-to-date).
+              futureRecordedPaid: balance.futureRecorded,
               serverOutstanding: balance.outstanding,
             },
           )
@@ -805,6 +819,26 @@ function BillingTab({
                 </span>
                 <span className="font-mono text-warning">
                   − {formatCurrency(breakdown.reconciliation.pendingPaid)}
+                </span>
+              </div>
+            )}
+            {/* T-521 (BUSINESS-111 parity, mirroring the desktop T-517
+                future-recorded row): cleared payments recorded against
+                FUTURE periods (the T-502 import bucket anchors) — NOT
+                subtracted, displayed as its own informational row so the
+                reader can reconcile the tranches' paid state (which the
+                server-side waterfall filled using these records) with the
+                as-of figures above. */}
+            {breakdown.reconciliation.futureRecordedPaid > 0 && (
+              <div
+                className="flex items-center justify-between rounded bg-primary/10 px-3 py-2 text-xs"
+                data-testid="future-recorded-recon-row"
+              >
+                <span className="text-primary font-medium">
+                  {t("finance.billing.recon.future")}
+                </span>
+                <span className="font-mono font-bold text-primary">
+                  {formatCurrency(breakdown.reconciliation.futureRecordedPaid)}
                 </span>
               </div>
             )}

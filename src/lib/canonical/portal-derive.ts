@@ -41,6 +41,9 @@ import {
 } from "./calc/ledger/debt-aging";
 import { computeOverallGpa, calculateAttendanceRate } from "./model/academic";
 import { clampNonNegative } from "./calc/shared/money";
+// T-521: the replay's own epoch parser — the future-recorded split must
+// apply the SAME date semantics as the as-of filter it complements.
+import { toEpochMs } from "./calc/shared/dates";
 
 // ─── Ledger replay ───────────────────────────────────────────────────────────
 
@@ -130,6 +133,48 @@ export function portalFinancialSummary(
     totalAdjusted: summary.totalAdjusted,
     totalCleared: summary.totalCleared,
   };
+}
+
+/**
+ * T-521 (BUSINESS-111 parity, mirroring desktop T-517's
+ * `sumFutureRecordedPaidPayments`): Σ |amount| over the family's CLEARED
+ * payment ledger entries (entry_type "payment", payment_status "paid")
+ * whose `at` is STRICTLY after `now` — the exact complement of the
+ * canonical replay's own `isAtOrBefore(e.at, now)` filter
+ * (calc/ledger/balance.ts). The T-502/DATA-062 import remediation anchored
+ * corpus-wide payments to future tranche periods (2V → Dec 15, v3 → Mar
+ * 15); the as-of replay honestly excludes them, and this figure lets the
+ * Facturation tab surface the class as its own labelled line so the
+ * arithmetic stays auditable (§15.95a: surface, never rewrite the date).
+ *
+ * Conservative on dates, like every canonical helper: an unparseable/blank
+ * `at` maps to NaN → excluded here and included in the replay's scope
+ * (never double-counted, never silently dropped). Entries targeted by a
+ * reversal (`reversesId` pointing at them anywhere in the family's rows)
+ * are excluded — the canonical reversed-entry convention.
+ */
+export function futureRecordedClearedFromRows(
+  rows: readonly LedgerEntryRow[],
+  parentId: string,
+  now: Date = new Date(),
+): number {
+  const parentRows = rows.filter((r) => r.parent_id === parentId);
+  const reversedTargets = new Set(
+    parentRows
+      .map((r) => r.reverses_id)
+      .filter((id): id is string => typeof id === "string" && id.length > 0),
+  );
+  let total = 0;
+  for (const r of parentRows) {
+    if (r.entry_type !== "payment") continue;
+    if (r.payment_status !== "paid") continue;
+    const entryId = r.entry_number ?? r.id ?? "";
+    if (reversedTargets.has(entryId)) continue;
+    const atMs = toEpochMs(r.at);
+    if (!Number.isFinite(atMs) || atMs <= now.getTime()) continue;
+    total += Math.abs(Number(r.amount));
+  }
+  return total;
 }
 
 /**

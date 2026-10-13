@@ -88,6 +88,10 @@ export interface ParentBillingBreakdown {
   readonly academicYear: string;
   /** Σ charge entries (matches the ledger `totalCharged` family figure). */
   readonly totalBilled: number;
+  /** T-521 (BUSINESS-111 parity): cleared payments recorded against FUTURE
+   *  periods — surfaced, never counted as collected-to-date (the T-502
+   *  import bucket anchors; mirrors the desktop T-517 term). */
+  readonly totalFutureRecordedPaid: number;
   readonly byChild: readonly ChildBillingBreakdown[];
   readonly byService: readonly ServiceTotalNode[];
   /** T-168: family-level charges with no child attribution (multi-child). */
@@ -104,6 +108,14 @@ export interface ParentBillingBreakdown {
  *   grossBilled − adjustmentsCredit + adjustmentsDebit = netDue
  *   netDue − clearedPaid − pendingPaid               = derivedRemaining
  *   derivedRemaining + bridge                        = serverOutstanding
+ *
+ * T-521 (BUSINESS-111 parity): `futureRecordedPaid` carries the
+ * FUTURE-period split (cleared payment entries dated after `now` — the
+ * T-502 import bucket anchors) so the Facturation tab can display it as
+ * its own labelled line, mirroring the desktop T-517 surfacing. It is NOT
+ * part of the equation above: it is money the books mark received whose
+ * recorded period has not yet arrived — surfacing it keeps the arithmetic
+ * auditable (§15.95a) while the balance stays as-of honest.
  */
 export interface BillingReconciliation {
   readonly grossBilled: number;
@@ -112,6 +124,9 @@ export interface BillingReconciliation {
   readonly adjustmentsCount: number;
   readonly netDue: number;
   readonly clearedPaid: number;
+  /** Cleared payments recorded against future periods — surfaced, never
+   *  counted as collected-to-date (T-521, mirroring desktop T-517). */
+  readonly futureRecordedPaid: number;
   readonly pendingPaid: number;
   readonly derivedRemaining: number;
   readonly serverOutstanding: number | null;
@@ -233,6 +248,10 @@ export interface BillingReconciliationInput {
   readonly clearedPaid?: number;
   /** Σ pending payments (cheques / transfers not yet cleared). */
   readonly pendingPaid?: number;
+  /** T-521: Σ cleared payments recorded against FUTURE periods
+   *  (`futureRecordedClearedFromRows`) — surfaced as its own labelled line,
+   *  never counted as collected-to-date. */
+  readonly futureRecordedPaid?: number;
   /** Server-replayed balance (`summary.outstanding`). */
   readonly serverOutstanding?: number | null;
 }
@@ -367,6 +386,7 @@ export function parentBillingBreakdown(
   }
   const clearedPaid = reconInput.clearedPaid ?? 0;
   const pendingPaid = reconInput.pendingPaid ?? 0;
+  const futureRecordedPaid = reconInput.futureRecordedPaid ?? 0;
   const netDue = totalBilled + adjustmentsDebit - adjustmentsCredit;
   const derivedRemaining = netDue - clearedPaid - pendingPaid;
   const serverOutstanding = reconInput.serverOutstanding ?? null;
@@ -378,6 +398,7 @@ export function parentBillingBreakdown(
     adjustmentsCount: adjustmentRows.length,
     netDue,
     clearedPaid,
+    futureRecordedPaid,
     pendingPaid,
     derivedRemaining,
     serverOutstanding,
@@ -388,6 +409,7 @@ export function parentBillingBreakdown(
   return {
     academicYear,
     totalBilled,
+    totalFutureRecordedPaid: futureRecordedPaid,
     byChild,
     byService,
     unattributedItems,
