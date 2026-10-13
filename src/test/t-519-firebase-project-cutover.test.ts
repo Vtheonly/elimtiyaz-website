@@ -14,19 +14,24 @@
  * THE FIX (T-519 / CONFIG-501, 2026-10-13): the committed Firebase defaults
  * in `src/lib/public-config.ts` and `.env.example` were cut over to the NEW
  * project — including its real WEB app id. The ONLY intentionally-unset
- * value left is the web-push VAPID key (no Web Push certificate issued for
- * the new project yet), so `isFcmConfigured` stays false (truthful disabled
- * state). NOTE: this Firebase config serves FCM push ONLY — the portal's
- * AUTH goes through Supabase Auth (Google provider), never Firebase Auth.
+ * value was then the web-push VAPID key, so `isFcmConfigured` stayed false.
+ * T-520 / CONFIG-502 (2026-10-13) closed that last gap: the owner supplied
+ * the Web Push certificate's public key and it is now COMMITTED — the
+ * fresh-clone state is fully configured (`isFcmConfigured` true) and the
+ * sole-enabler proof inverts (emptying ONLY the VAPID key disables FCM).
+ * NOTE: this Firebase config serves FCM push ONLY — the portal's AUTH goes
+ * through Supabase Auth (Google provider), never Firebase Auth.
  *
  * These tests pin the behaviours that must hold:
  *   1. The committed Firebase defaults point at the NEW project (all six
- *      public values pinned, VAPID still empty).
+ *      public values pinned; VAPID = the owner's Web Push certificate key).
  *   2. A fresh clone resolves the Firebase env to the NEW project and FCM
- *      stays truthfully disabled (VAPID missing).
- *   3. Setting ONLY the VAPID key (env override) flips isFcmConfigured to
- *      true — proving the VAPID key is the sole remaining gap for web push.
- *   4. `.env.example` ships the NEW project's Firebase values.
+ *      is fully CONFIGURED (all values present, VAPID included).
+ *   3. Emptying ONLY the VAPID key (env override "") flips isFcmConfigured
+ *      to false — proving the committed VAPID key is the sole push enabler
+ *      (the inverted T-519 gap-proof; also the deliberate opt-out path for
+ *      test/staging builds).
+ *   4. `.env.example` ships the NEW project's Firebase values incl. VAPID.
  *   5. NO old-project Firebase residue (old API key / authDomain / storage
  *      bucket / sender id) remains anywhere in the source tree.
  *
@@ -45,6 +50,11 @@ const NEW_FIREBASE_AUTH_DOMAIN = "elimtiyaz-production.firebaseapp.com";
 const NEW_FIREBASE_STORAGE_BUCKET = "elimtiyaz-production.firebasestorage.app";
 const NEW_FIREBASE_SENDER_ID = "944201689219";
 const NEW_FIREBASE_WEB_APP_ID = "1:944201689219:web:b5fbe39a56e09c7629d3b6";
+// T-520 / CONFIG-502: the owner's Web Push certificate public key (the
+// 87-char base64url P-256 application-server key from the new Firebase
+// console → Project settings → Cloud Messaging → Web Push Certificates).
+const NEW_FIREBASE_VAPID_KEY =
+  "BK08KLwqnYj-d6jPE3laBEHvBoR89iqE7i3u-Jssn1NhaiGnniNnUI3Ty_k4Sgqd0QEfWixfNSV4PoynuwWoEo8";
 
 const OLD_FIREBASE_API_KEY = "AIzaSyAzDjnuF7QMh3jWZAoJYiIxohfAD7Ba3_8";
 const OLD_FIREBASE_AUTH_DOMAIN = "elimtiyaz-android.firebaseapp.com";
@@ -94,12 +104,12 @@ describe("T-519 / CONFIG-501 — website Firebase project cutover", () => {
     expect(PUBLIC_CONFIG_DEFAULTS.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET).toBe(NEW_FIREBASE_STORAGE_BUCKET);
     expect(PUBLIC_CONFIG_DEFAULTS.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID).toBe(NEW_FIREBASE_SENDER_ID);
     expect(PUBLIC_CONFIG_DEFAULTS.NEXT_PUBLIC_FIREBASE_APP_ID).toBe(NEW_FIREBASE_WEB_APP_ID);
-    // The VAPID key is the ONLY intentionally-unset value (no Web Push
-    // certificate issued for the new project yet).
-    expect(PUBLIC_CONFIG_DEFAULTS.NEXT_PUBLIC_FIREBASE_VAPID_KEY).toBe("");
+    // T-520 / CONFIG-502: the VAPID key — the LAST open value of the T-096
+    // design — is now the owner's committed Web Push certificate public key.
+    expect(PUBLIC_CONFIG_DEFAULTS.NEXT_PUBLIC_FIREBASE_VAPID_KEY).toBe(NEW_FIREBASE_VAPID_KEY);
   });
 
-  it("fresh clone (no env vars): env.ts resolves to the NEW project and FCM stays truthfully disabled", async () => {
+  it("fresh clone (no env vars): env.ts resolves to the NEW project and FCM is fully CONFIGURED (VAPID included)", async () => {
     vi.resetModules();
     for (const key of FCM_ENV_KEYS) delete process.env[key];
     const { env, isFcmConfigured } = await import("../lib/env");
@@ -109,26 +119,31 @@ describe("T-519 / CONFIG-501 — website Firebase project cutover", () => {
     expect(env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET).toBe(NEW_FIREBASE_STORAGE_BUCKET);
     expect(env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID).toBe(NEW_FIREBASE_SENDER_ID);
     expect(env.NEXT_PUBLIC_FIREBASE_APP_ID).toBe(NEW_FIREBASE_WEB_APP_ID);
-    // Truthful disabled state: only the VAPID key is missing now.
-    expect(isFcmConfigured).toBe(false);
+    expect(env.NEXT_PUBLIC_FIREBASE_VAPID_KEY).toBe(NEW_FIREBASE_VAPID_KEY);
+    // T-520 / CONFIG-502: fully configured — web push is enabled out of the
+    // box for the first time (the T-036 auto-registration path activates).
+    expect(isFcmConfigured).toBe(true);
     for (const key of FCM_ENV_KEYS) delete process.env[key];
   });
 
-  it("setting ONLY the VAPID key flips isFcmConfigured to true — the sole remaining gap for web push", async () => {
+  it("emptying ONLY the VAPID key (env override \"\") flips isFcmConfigured to false — the committed VAPID key is the sole push enabler (the inverted T-519 gap-proof)", async () => {
     vi.resetModules();
     for (const key of FCM_ENV_KEYS) delete process.env[key];
-    process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY = "BP_the_owner_supplied_web_push_certificate";
+    process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY = "";
     try {
       const { env, isFcmConfigured } = await import("../lib/env");
       expect(env.NEXT_PUBLIC_FIREBASE_PROJECT_ID).toBe(NEW_FIREBASE_PROJECT_ID);
-      expect(isFcmConfigured).toBe(true);
+      // The explicit empty override ("" is not nullish — it wins over the
+      // committed default) is the deliberate opt-out path AND the proof that
+      // the committed VAPID value is exactly one value wide as the enabler.
+      expect(isFcmConfigured).toBe(false);
     } finally {
       delete process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY;
       for (const key of FCM_ENV_KEYS) delete process.env[key];
     }
   });
 
-  it(".env.example ships the NEW project's Firebase web config", () => {
+  it(".env.example ships the NEW project's Firebase web config (incl. the VAPID key)", () => {
     const envExample = readSource(".env.example");
     expect(envExample).toContain(`NEXT_PUBLIC_FIREBASE_API_KEY=${NEW_FIREBASE_API_KEY}`);
     expect(envExample).toContain(`NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=${NEW_FIREBASE_AUTH_DOMAIN}`);
@@ -136,6 +151,7 @@ describe("T-519 / CONFIG-501 — website Firebase project cutover", () => {
     expect(envExample).toContain(`NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=${NEW_FIREBASE_STORAGE_BUCKET}`);
     expect(envExample).toContain(`NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=${NEW_FIREBASE_SENDER_ID}`);
     expect(envExample).toContain(`NEXT_PUBLIC_FIREBASE_APP_ID=${NEW_FIREBASE_WEB_APP_ID}`);
+    expect(envExample).toContain(`NEXT_PUBLIC_FIREBASE_VAPID_KEY=${NEW_FIREBASE_VAPID_KEY}`);
   });
 
   it("NO old-project Firebase residue (API key / authDomain / storage bucket / sender id) remains in the source tree", () => {

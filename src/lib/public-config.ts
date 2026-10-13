@@ -17,10 +17,12 @@
  *     is equivalent to what the browser bundle already contains.
  *   - The Firebase web config values are likewise public (restricted by
  *     Google console rules, not by secrecy).
- *   - The VAPID key (web push) is NOT committed: it is not currently known
- *     and FCM web push therefore stays DISABLED (see isFcmConfigured in
- *     env.ts). Do NOT add server secrets (service_role, sb_secret_…) here —
- *     those must never appear in any client repository.
+ *   - The VAPID key (web push) is likewise a PUBLIC identifier — it is the
+ *     Web Push application-server key whose PUBLIC half ships in the browser
+ *     bundle by protocol design (Firebase console → Project settings → Cloud
+ *     Messaging → Web Push Certificates). Committed since T-520 (2026-10-13,
+ *     owner-supplied). Do NOT add server secrets (service_role, sb_secret_…)
+ *     here — those must never appear in any client repository.
  *
  * NEW-FORMAT API KEY (T-107 / MIG-KEYS-201, 2026-09-01 — ADR-009):
  *   The committed default below is the project's `sb_publishable_…` key —
@@ -49,18 +51,29 @@
  *   config. The committed Firebase defaults were cut over from the OLD
  *   `elimtiyaz-android` project (which never had a web app registered — only
  *   the Android app was known, so the WEB app id was left empty since T-096).
- *   The WEB app id is now KNOWN and COMMITTED; the ONLY remaining empty value
- *   is the web-push VAPID key (the owner must generate a Web Push certificate
- *   in the new Firebase console → Project settings → Cloud Messaging).
- *   isFcmConfigured therefore still returns false (push disabled, truthful)
- *   until that key arrives. NOTE: this Firebase config serves FCM push ONLY —
- *   the portal's AUTH goes through Supabase Auth (Google provider), never
- *   Firebase Auth; the auth-chain consequence of the new project is that the
- *   owner will register the OAuth client on the new project's Google Cloud
- *   Console (owner-gated, see hub `docs/operations/portal-google-oauth.md`).
- *   The `measurementId` (G-G3YGN1WZF3) is Analytics-only; the portal imports
- *   no firebase/analytics, so it is recorded in the hub credentials sheet
- *   §9.6 but intentionally NOT wired here (no dead config slots).
+ *   The WEB app id is now KNOWN and COMMITTED. NOTE: this Firebase config
+ *   serves FCM push ONLY — the portal's AUTH goes through Supabase Auth
+ *   (Google provider), never Firebase Auth; the auth-chain consequence of the
+ *   new project is that the owner will register the OAuth client on the new
+ *   project's Google Cloud Console (owner-gated, see hub
+ *   `docs/operations/portal-google-oauth.md`). The `measurementId`
+ *   (G-G3YGN1WZF3) is Analytics-only; the portal imports no
+ *   firebase/analytics, so it is recorded in the hub credentials sheet §9.6
+ *   but intentionally NOT wired here (no dead config slots).
+ *
+ * WEB PUSH ENABLED (T-520 / CONFIG-502, 2026-10-13):
+ *   The owner generated the Web Push certificate key pair in the NEW
+ *   Firebase console and supplied the PUBLIC key ("BK08…o8", the 87-char
+ *   base64url P-256 application-server key — the exact value the console's
+ *   "Web Push Certificates" tab shows as the key pair's public half). It is
+ *   committed below, closing the LAST open value of the T-096 design:
+ *   isFcmConfigured is now TRUE on a fresh clone, the T-121 env warning is
+ *   silenced, and the T-036 first-gesture auto-registration path goes live.
+ *   No Vercel env var is required (the committed default rules the bundle —
+ *   the same T-516/T-519 pattern; `.env.local` can still override). The
+ *   certificate's PRIVATE half never leaves Google's console — nothing in
+ *   this repo (or any repo) needs it; the FCM v1 send side uses the
+ *   server-side FIREBASE_SERVICE_ACCOUNT_JSON secret (owner-gated, PUSH-100).
  *
  * OVERRIDE BEHAVIOUR:
  *   `src/lib/env.ts` reads `process.env.NEXT_PUBLIC_*` FIRST and falls back
@@ -82,15 +95,20 @@ export const PUBLIC_CONFIG_DEFAULTS = {
   // project (which had NO web app registered — the known app id was the
   // ANDROID one, so the WEB app id stayed empty since T-096) to the owner's
   // NEW `elimtiyaz-production` project, whose WEB app id is now known and
-  // committed below. The ONLY intentionally-unset value left is the web-push
-  // VAPID key (never issued for the new project) — isFcmConfigured therefore
-  // stays FALSE (push disabled) until the owner generates the Web Push
-  // certificate in the Firebase console — a truthful state, not a broken one.
+  // committed below.
+  // T-520 / CONFIG-502 (2026-10-13): the owner supplied the Web Push
+  // certificate's PUBLIC key (generated in the new Firebase console) — the
+  // LAST open value of the T-096 design. isFcmConfigured is now TRUE on a
+  // fresh clone: web push is ENABLED out of the box for the first time and
+  // the T-121 env warning silences. The key is PUBLIC by protocol design
+  // (the browser hands it to the push service); only its PRIVATE half — which
+  // never leaves Google's console — is sensitive.
   NEXT_PUBLIC_FIREBASE_API_KEY: "AIzaSyByguKxez7hNjkGcdLnbTCHLI5nJzEFqvY",
   NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: "elimtiyaz-production.firebaseapp.com",
   NEXT_PUBLIC_FIREBASE_PROJECT_ID: "elimtiyaz-production",
   NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: "elimtiyaz-production.firebasestorage.app",
   NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: "944201689219",
   NEXT_PUBLIC_FIREBASE_APP_ID: "1:944201689219:web:b5fbe39a56e09c7629d3b6",
-  NEXT_PUBLIC_FIREBASE_VAPID_KEY: "",
+  NEXT_PUBLIC_FIREBASE_VAPID_KEY:
+    "BK08KLwqnYj-d6jPE3laBEHvBoR89iqE7i3u-Jssn1NhaiGnniNnUI3Ty_k4Sgqd0QEfWixfNSV4PoynuwWoEo8",
 } as const;

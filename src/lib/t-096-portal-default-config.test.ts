@@ -63,14 +63,16 @@ describe("T-096 — out-of-the-box portal configuration", () => {
     expect(env.NEXT_PUBLIC_SUPABASE_ANON_KEY).toMatch(/^sb_publishable_[A-Za-z0-9_-]+$/);
   });
 
-  it("fresh clone: FCM web push stays truthfully DISABLED (no VAPID key issued for the new project)", async () => {
+  it("fresh clone: FCM web push is now FULLY CONFIGURED (the owner supplied the Web Push certificate's public key)", async () => {
     const { isFcmConfigured } = await import("./env");
-    // T-519 / CONFIG-501 (2026-10-13): the committed Firebase defaults now
-    // point at the NEW `elimtiyaz-production` project WITH its real WEB app
-    // id — the only still-missing value is the web-push VAPID key (never
-    // issued for the new project). The flag must stay false (push disabled),
-    // never claim a half-configured push pipeline works.
-    expect(isFcmConfigured).toBe(false);
+    // T-520 / CONFIG-502 (2026-10-13): the owner generated the Web Push
+    // certificate in the new `elimtiyaz-production` Firebase console and
+    // supplied its public key — the LAST open value of the T-096 design.
+    // The flag must now be TRUE out of the box (push enabled, the T-036
+    // auto-registration path activates) — and it must stay truthful: it
+    // flips back to false the moment the VAPID override is emptied
+    // (pinned in the t-519/t-520 suites).
+    expect(isFcmConfigured).toBe(true);
   });
 
   it("real env vars override the committed public defaults", async () => {
