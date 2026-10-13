@@ -102,6 +102,17 @@ npm run build         # next build (strict after T-049)
 > (service_role / sb_secret / sbp_) — a regression test scans for them
 > (`src/lib/t-096-portal-default-config.test.ts`).
 
+> **Zod runs jitless (T-524/SEC-116, 2026-10-13):** `src/lib/env.ts` and
+> `src/lib/validation.ts` — the portal's ONLY Zod importers (census-pinned by
+> `src/test/t-524-zod-jitless-csp.test.ts`) — call `z.config({ jitless: true })`
+> BEFORE defining any schema. Reason: the CSP (src/middleware.ts) deliberately
+> excludes `'unsafe-eval'`, and Zod 4 otherwise probes `Function("")` at
+> schema-definition time — logging a CSP-violation console error on every page
+> load before falling back to its (behaviour-identical) interpreted parser.
+> Never add `'unsafe-eval'` to the CSP to "fix" library console noise — align
+> the library to the policy instead. A NEW Zod-importing file must carry the
+> same declaration before its first schema (the census test fails otherwise).
+
 ## 9. Forbidden in this repository
 
 - Any financial write path (the portal is read-mostly by design).

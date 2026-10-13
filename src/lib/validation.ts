@@ -22,6 +22,14 @@
 
 import { z } from "zod";
 
+// T-524 (SEC-116): Zod runs jitless in this portal — see the full rationale in
+// src/lib/env.ts (the CSP forbids eval; declaring `jitless` up front skips
+// Zod's `Function("")` capability probe, which otherwise logs a CSP-violation
+// console error on every fresh page load). Idempotent with env.ts's identical
+// call: whichever module evaluates first sets it, both before the first
+// schema definition. Keep this BEFORE the first schema below.
+z.config({ jitless: true });
+
 /* -------------------------------------------------------------------------- */
 /* Absence Justification                                                      */
 /* -------------------------------------------------------------------------- */

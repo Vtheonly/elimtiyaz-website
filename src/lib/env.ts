@@ -23,6 +23,21 @@
 import { z } from "zod";
 import { PUBLIC_CONFIG_DEFAULTS } from "./public-config";
 
+// T-524 (SEC-116): declare the eval-free runtime posture to Zod BEFORE the
+// first schema is defined. Zod 4's default JIT path probes `Function("")` at
+// schema-definition time to decide whether code generation is allowed; under
+// this repo's CSP (src/middleware.ts — script-src WITHOUT 'unsafe-eval') that
+// probe throws a CSP-violation console error on every fresh page load before
+// Zod falls back to its interpreted parser. Setting `jitless` up front skips
+// the probe entirely (Zod takes the same interpreted path it would have
+// fallen back to anyway — zero behavioural difference, zero console noise).
+// This module and src/lib/validation.ts are the portal's ONLY Zod consumers
+// (pinned by the t-524 census test) and both carry small schemas, so the JIT
+// parse speedup is not worth an eval-shaped runtime. The call is idempotent
+// (Object.assign into Zod's global config) — whichever module evaluates
+// first wins, and both run before the first schema definition.
+z.config({ jitless: true });
+
 const envSchema = z.object({
   NEXT_PUBLIC_SUPABASE_URL: z.string().default(""),
   NEXT_PUBLIC_SUPABASE_ANON_KEY: z.string().default(""),
