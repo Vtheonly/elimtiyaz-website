@@ -86,7 +86,7 @@ export function TimetableView() {
   const hasData = (timetable.data?.length ?? 0) > 0;
 
   return (
-    <div className="mx-auto max-w-5xl space-y-6 px-4 py-5">
+    <div className="mx-auto w-full max-w-5xl space-y-6 px-4 py-5 sm:px-6 lg:px-8 lg:py-8 xl:max-w-6xl 2xl:max-w-7xl">
       <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
         <h1 className="min-w-0 text-xl font-semibold">{t("nav.timetable")}</h1>
         {kids.length > 1 && <StudentSwitcherDropdown />}

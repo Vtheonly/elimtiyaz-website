@@ -269,12 +269,138 @@
     -webkit-backdrop-filter: saturate(180%) blur(16px);
   }
 
-  /* Brand gradient for hero / login */
+  /* Brand gradient for hero / login (T-531: + the bottom-center glow — a
+   * third radial that anchors the centered column on tall/wide screens;
+   * the two original radials are byte-identical, the brand tokens untouched) */
   .brand-gradient {
     background:
       radial-gradient(1200px 600px at 10% -10%, color-mix(in srgb, var(--primary) 25%, transparent), transparent),
       radial-gradient(900px 500px at 110% 10%, color-mix(in srgb, var(--info) 18%, transparent), transparent),
+      radial-gradient(1100px 700px at 50% 118%, color-mix(in srgb, var(--primary) 14%, transparent), transparent),
       var(--background);
+  }
+  /* Ultrawide: the fixed-px radials would shrink into corner accents on a
+   * 2560px canvas — the same three glows scale up so the backdrop keeps
+   * its presence on the screens the T-531 widescreen pass serves. */
+  @media (min-width: 1536px) {
+    .brand-gradient {
+      background:
+        radial-gradient(1700px 850px at 10% -10%, color-mix(in srgb, var(--primary) 25%, transparent), transparent),
+        radial-gradient(1300px 700px at 110% 10%, color-mix(in srgb, var(--info) 18%, transparent), transparent),
+        radial-gradient(1500px 950px at 50% 118%, color-mix(in srgb, var(--primary) 14%, transparent), transparent),
+        var(--background);
+    }
+  }
+
+  /* ------------------------------------------------------------------------
+   * T-531 (UI-345) — the presentation-polish motion + depth layer.
+   * All colours derive from the EXISTING brand tokens; every animation is
+   * gated by the prefers-reduced-motion guard at the bottom of this file.
+   * ------------------------------------------------------------------------ */
+
+  /* Ambient brand grid — decorative backdrop for the public screens.
+   * 8% primary lines: perceptible on the dark background without ever
+   * competing with content (the first pass at 5% was invisible at
+   * ultrawide — the VLM review could not see it at all). */
+  .brand-grid-overlay {
+    background-image:
+      linear-gradient(color-mix(in srgb, var(--primary) 8%, transparent) 1px, transparent 1px),
+      linear-gradient(90deg, color-mix(in srgb, var(--primary) 8%, transparent) 1px, transparent 1px);
+    background-size: 44px 44px;
+    -webkit-mask-image: radial-gradient(ellipse 90% 75% at 50% 45%, black 20%, transparent 75%);
+    mask-image: radial-gradient(ellipse 90% 75% at 50% 45%, black 20%, transparent 75%);
+  }
+
+  /* Entrance — content blocks rise in (fill-mode "both" so staggered
+   * animation-delay states start invisible, never flash) */
+  .animate-fade-up {
+    animation: fade-up 480ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  /* Gradient text for the brand wordmark (foreground → info, brand tokens) */
+  .brand-text-gradient {
+    background: linear-gradient(120deg, var(--foreground) 42%, color-mix(in srgb, var(--info) 72%, var(--foreground)));
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    color: transparent;
+  }
+
+  /* Ambient card depth — the elevated surface of the public screens */
+  .card-glow {
+    box-shadow:
+      inset 0 1px 0 0 color-mix(in srgb, var(--foreground) 7%, transparent),
+      0 24px 64px -24px rgb(0 0 0 / 0.6),
+      0 0 48px -16px color-mix(in srgb, var(--primary) 30%, transparent);
+  }
+
+  /* Primary-action hover glow (the Google button on the login card) */
+  .btn-glow {
+    transition: box-shadow 250ms ease, border-color 250ms ease, transform 150ms ease;
+  }
+  .btn-glow:hover:not(:disabled) {
+    border-color: color-mix(in srgb, var(--primary) 45%, transparent);
+    box-shadow:
+      0 0 0 1px color-mix(in srgb, var(--primary) 25%, transparent),
+      0 12px 32px -12px color-mix(in srgb, var(--primary) 45%, transparent);
+  }
+  .btn-glow:active:not(:disabled) {
+    transform: translateY(1px);
+  }
+
+  /* ----------------------------------------------------------------------
+   * Progress primitives — ONE shared visual language (T-531 / UI-345):
+   * .progress-track  — the recessed rail (indeterminate + determinate)
+   * .progress-bar-sweep — the indeterminate sweeping bar (splash screen)
+   * .progress-fill   — the determinate gradient fill (financial bars)
+   * .progress-fill-success — the settled/green tone of the determinate fill
+   * ---------------------------------------------------------------------- */
+  .progress-track {
+    background: color-mix(in srgb, var(--foreground) 8%, transparent);
+    box-shadow: inset 0 1px 2px rgb(0 0 0 / 0.4);
+  }
+
+  .progress-bar-sweep {
+    background: linear-gradient(90deg, color-mix(in srgb, var(--primary) 80%, var(--background)), var(--primary) 55%, var(--info));
+    box-shadow: 0 0 12px color-mix(in srgb, var(--info) 55%, transparent);
+    animation: progress-sweep 1.7s cubic-bezier(0.65, 0, 0.35, 1) infinite;
+  }
+
+  .progress-fill {
+    position: relative;
+    overflow: hidden;
+    background: linear-gradient(90deg, color-mix(in srgb, var(--primary) 78%, var(--background)), var(--primary) 50%, var(--info));
+    transition: width 600ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  /* the light streak travelling across the determinate fill */
+  .progress-fill::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(105deg, transparent 40%, rgb(255 255 255 / 0.16) 50%, transparent 60%);
+    background-size: 200% 100%;
+    animation: progress-shimmer 2.4s ease-in-out infinite;
+  }
+
+  .progress-fill-success {
+    background: linear-gradient(90deg, color-mix(in srgb, var(--success) 72%, var(--background)), var(--success) 55%, color-mix(in srgb, var(--success) 70%, var(--info)));
+  }
+
+  /* Skeleton shimmer — the sweep replaces the flat pulse for the lazy-view
+   * loading placeholders (falls back to a static gradient when motion is
+   * reduced — see the guard below) */
+  .skeleton-shimmer {
+    position: relative;
+    overflow: hidden;
+    background: color-mix(in srgb, var(--foreground) 6%, transparent);
+  }
+  .skeleton-shimmer::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--foreground) 9%, transparent), transparent);
+    background-size: 200% 100%;
+    animation: progress-shimmer 1.8s ease-in-out infinite;
   }
 
   /* Touch target — minimum 44px (mobile-first) */
@@ -302,5 +428,72 @@
     font-weight: 600;
     letter-spacing: 0.02em;
     text-transform: uppercase;
+  }
+}
+
+/* ----------------------------------------------------------------------------
+ * T-531 (UI-345) — motion keyframes (top level: keyframes are not utilities)
+ * ---------------------------------------------------------------------------- */
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* The indeterminate sweep: the bar (40% of the track) travels from fully
+ * hidden-left to fully hidden-right. translateX is relative to the bar's
+ * own width: -110% (hidden left) → 255% (track 250% + own 100% → hidden
+ * right at w-2/5). The cubic-bezier on the animation class handles the
+ * accelerate/decelerate rhythm. */
+@keyframes progress-sweep {
+  from {
+    transform: translateX(-110%);
+  }
+  to {
+    transform: translateX(255%);
+  }
+}
+
+/* The light streak travelling across a surface (determinate fill + skeleton) */
+@keyframes progress-shimmer {
+  from {
+    background-position: 130% 0;
+  }
+  to {
+    background-position: -130% 0;
+  }
+}
+
+/* ----------------------------------------------------------------------------
+ * T-531 (UI-345) — the global motion guard.
+ * Every animation introduced by the polish layer stops under
+ * prefers-reduced-motion (the particle canvas is gated separately, in the
+ * ParticleCanvas wrapper — the engine itself never self-gates, §15.107).
+ * The frozen states are all legible: the sweep rests as a partial fill,
+ * the shimmer rests as a static gradient, the entrances render complete.
+ * ---------------------------------------------------------------------------- */
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  .animate-fade-up,
+  .progress-bar-sweep,
+  .progress-fill::after,
+  .skeleton-shimmer::after {
+    animation: none !important;
+  }
+  .progress-fill {
+    transition: none !important;
+  }
+  .card-hover,
+  .card-hover:hover,
+  .btn-glow {
+    transition: none !important;
+    transform: none !important;
   }
 }

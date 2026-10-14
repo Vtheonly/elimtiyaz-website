@@ -74,6 +74,7 @@ import {
 } from "@/lib/format";
 import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { Progress } from "@/components/ui/progress";
 import {
   Dialog,
   DialogContent,
@@ -285,7 +286,7 @@ export function FinancialView() {
   };
 
   return (
-    <div className="mx-auto max-w-6xl space-y-6 px-4 py-5">
+    <div className="mx-auto w-full max-w-6xl space-y-6 px-4 py-5 sm:px-6 lg:px-8 lg:py-8 2xl:max-w-[1440px]">
       <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
         <h1 className="min-w-0 text-xl font-semibold">{t("finance.title")}</h1>
         <div className="flex flex-wrap items-center gap-2">
@@ -671,15 +672,15 @@ function BillingTab({
                               {formatDate(tr.dueDate)}
                             </p>
                           )}
-                          <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
-                            <div
-                              className={cn(
-                                "h-full rounded-full",
-                                settled ? "bg-success" : "bg-primary",
-                              )}
-                              style={{ width: `${progress}%` }}
-                            />
-                          </div>
+                          {/* T-531: the shared Progress component (the
+                              gradient fill + shimmer + progressbar
+                              semantics) replaces the first inline bar */}
+                          <Progress
+                            value={progress}
+                            tone={settled ? "success" : "brand"}
+                            className="h-1.5"
+                            aria-label={tr.label ?? undefined}
+                          />
                           <div className="flex justify-between text-[11px] text-muted-foreground">
                             <span className="text-success font-medium">
                               {formatCurrency(tr.amountPaid)}{" "}
@@ -974,12 +975,9 @@ function InstallmentRowView({
           </p>
         </div>
       </div>
-      <div className="mt-4 h-2 w-full overflow-hidden rounded-full bg-muted">
-        <div
-          className="h-full rounded-full bg-primary transition-all duration-500"
-          style={{ width: `${progress}%` }}
-        />
-      </div>
+      {/* T-531: the shared Progress component replaces the second inline
+          bar (transition + gradient + semantics in one place) */}
+      <Progress value={progress} className="mt-4" aria-label={title} />
       <div className="mt-2 flex justify-between text-xs font-medium text-muted-foreground">
         <span>
           <span className="text-success">

@@ -98,7 +98,7 @@ export function AttendanceView() {
   }, [attendance.data]);
 
   return (
-    <div className="mx-auto max-w-5xl space-y-6 px-4 py-5">
+    <div className="mx-auto w-full max-w-5xl space-y-6 px-4 py-5 sm:px-6 lg:px-8 lg:py-8 xl:max-w-6xl 2xl:max-w-7xl">
       <div className="flex items-center justify-between gap-3">
         <h1 className="text-xl font-semibold">{t("attendance.title")}</h1>
         {kids.length > 1 && <StudentSwitcherDropdown />}

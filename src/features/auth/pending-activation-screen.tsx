@@ -46,7 +46,13 @@ type Variant = "pending" | "suspended" | "rejected";
 
 const config: Record<
   Variant,
-  { icon: typeof Clock; tone: string; titleKey: string; bodyKey: string; contactKey?: string }
+  {
+    icon: typeof Clock;
+    tone: string;
+    titleKey: string;
+    bodyKey: string;
+    contactKey?: string;
+  }
 > = {
   pending: {
     icon: Clock,
@@ -87,85 +93,105 @@ export function PendingActivationScreen({ variant = "pending" }: Props) {
   }
 
   return (
+    /* T-531 (UI-345) — the polish pass: the same ambient backdrop (grid +
+     * brand gradient) and card treatment as the login, so all three public
+     * surfaces read as one family. Structure, actions, and every i18n
+     * contract untouched — presentation only. */
     <main className="brand-gradient relative flex min-h-[100dvh] flex-col items-center justify-center px-5 py-10">
-      <Card className="w-full max-w-md border-border/60 bg-card/95 backdrop-blur">
-        <CardContent className="p-6">
-          <div className="mb-5 flex flex-col items-center text-center">
-            <div
-              className={`flex h-14 w-14 items-center justify-center rounded-full ring-1 ${cfg.tone}`}
-            >
-              <Icon className="h-7 w-7" />
-            </div>
-            <h1 className="mt-4 text-lg font-semibold text-foreground">
-              {t(cfg.titleKey)}
-            </h1>
-            <p className="mt-2 text-sm text-muted-foreground">{t(cfg.bodyKey)}</p>
-            {cfg.contactKey && (
-              <p className="mt-3 text-sm font-medium text-foreground">
-                {t(cfg.contactKey)}
-              </p>
-            )}
-          </div>
-
-          {user && (
-            <div className="mb-4 flex items-center gap-3 rounded-lg border border-border/60 bg-muted/30 p-3">
-              {user.avatar_url ? (
-                <img
-                  src={user.avatar_url}
-                  alt=""
-                  className="h-10 w-10 rounded-full"
-                />
-              ) : (
-                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-muted text-xs font-medium">
-                  {(user.display_name ?? user.email ?? "?").charAt(0).toUpperCase()}
-                </div>
-              )}
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-medium">
-                  {user.display_name ?? user.email}
-                </p>
-                <p className="truncate text-xs text-muted-foreground">{user.email}</p>
-              </div>
-            </div>
-          )}
-
-          <div className="flex flex-col gap-2">
-            {variant === "pending" && (
-              <Button
-                className="w-full touch-target"
-                onClick={() => setShowCodeEntry(true)}
+      <div
+        aria-hidden
+        className="brand-grid-overlay pointer-events-none absolute inset-0"
+      />
+      <div className="animate-fade-up relative flex w-full max-w-md flex-col items-center">
+        <Card className="card-glow w-full max-w-md border-border/60 bg-card/95 backdrop-blur">
+          <CardContent className="p-6 sm:p-8">
+            <div className="mb-5 flex flex-col items-center text-center">
+              <div
+                className={`flex h-14 w-14 items-center justify-center rounded-full ring-1 ${cfg.tone}`}
               >
-                <KeyRound className="mr-2 h-4 w-4" />
-                {t("activation.code.haveCode")}
-              </Button>
-            )}
-            <Button variant="outline" className="w-full touch-target" onClick={refresh}>
-              <RefreshCw className="mr-2 h-4 w-4" />
-              {t("common.refresh")}
-            </Button>
-            <Button
-              variant="ghost"
-              className="w-full touch-target text-muted-foreground"
-              onClick={signOut}
-            >
-              <LogOut className="mr-2 h-4 w-4" />
-              {t("activation.pending.signout")}
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+                <Icon className="h-7 w-7" />
+              </div>
+              <h1 className="mt-4 text-lg font-semibold text-foreground">
+                {t(cfg.titleKey)}
+              </h1>
+              <p className="mt-2 text-sm text-muted-foreground">
+                {t(cfg.bodyKey)}
+              </p>
+              {cfg.contactKey && (
+                <p className="mt-3 text-sm font-medium text-foreground">
+                  {t(cfg.contactKey)}
+                </p>
+              )}
+            </div>
 
-      {/* T-413 (STUDENT-102): the enrollment application form — the pending
+            {user && (
+              <div className="mb-4 flex items-center gap-3 rounded-lg border border-border/60 bg-muted/30 p-3">
+                {user.avatar_url ? (
+                  <img
+                    src={user.avatar_url}
+                    alt=""
+                    className="h-10 w-10 rounded-full"
+                  />
+                ) : (
+                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-muted text-xs font-medium">
+                    {(user.display_name ?? user.email ?? "?")
+                      .charAt(0)
+                      .toUpperCase()}
+                  </div>
+                )}
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium">
+                    {user.display_name ?? user.email}
+                  </p>
+                  <p className="truncate text-xs text-muted-foreground">
+                    {user.email}
+                  </p>
+                </div>
+              </div>
+            )}
+
+            <div className="flex flex-col gap-2">
+              {variant === "pending" && (
+                <Button
+                  className="w-full touch-target"
+                  onClick={() => setShowCodeEntry(true)}
+                >
+                  <KeyRound className="mr-2 h-4 w-4" />
+                  {t("activation.code.haveCode")}
+                </Button>
+              )}
+              <Button
+                variant="outline"
+                className="w-full touch-target"
+                onClick={refresh}
+              >
+                <RefreshCw className="mr-2 h-4 w-4" />
+                {t("common.refresh")}
+              </Button>
+              <Button
+                variant="ghost"
+                className="w-full touch-target text-muted-foreground"
+                onClick={signOut}
+              >
+                <LogOut className="mr-2 h-4 w-4" />
+                {t("activation.pending.signout")}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* T-413 (STUDENT-102): the enrollment application form — the pending
           parent submits their child's details BEFORE the admin approves; the
           payload rides the approval into the composite enrollment RPC
           (migration 0116). Renders nothing when no pending request row is
           visible (the honest degradation). */}
-      {variant === "pending" && <StudentApplicationForm />}
+        {variant === "pending" && <StudentApplicationForm />}
 
-      <p className="mt-6 flex items-center gap-1.5 text-xs text-muted-foreground">
-        <Mail className="h-3.5 w-3.5" />
-        {t("auth.signin.help")}
-      </p>
+        <p className="mt-6 flex items-center gap-1.5 text-xs text-muted-foreground">
+          <Mail className="h-3.5 w-3.5" />
+          {t("auth.signin.help")}
+        </p>
+      </div>
     </main>
   );
 }

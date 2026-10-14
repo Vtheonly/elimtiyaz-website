@@ -74,7 +74,7 @@ export function MessagesView() {
   useChatMessagesRealtime(activeChannelId);
 
   return (
-    <div className="mx-auto max-w-5xl px-4 py-5">
+    <div className="mx-auto w-full max-w-5xl px-4 py-5 sm:px-6 lg:px-8 lg:py-8 xl:max-w-6xl 2xl:max-w-7xl">
       <h1 className="mb-4 text-xl font-semibold">{t("messages.title")}</h1>
 
       <div className="grid h-[calc(100dvh-12rem)] grid-cols-1 overflow-hidden rounded-lg border border-border/60 bg-card lg:grid-cols-[300px_1fr]">

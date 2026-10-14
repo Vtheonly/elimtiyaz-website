@@ -119,7 +119,7 @@ export function DashboardView() {
 
   return (
     <PullToRefresh onRefresh={handleRefresh}>
-      <div className="mx-auto max-w-7xl space-y-8 px-4 py-6 md:py-10">
+      <div className="mx-auto w-full max-w-7xl space-y-8 px-4 py-6 sm:px-6 md:py-10 lg:px-8 2xl:max-w-[1440px]">
         {/* Header Section */}
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
           <div>

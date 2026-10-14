@@ -171,7 +171,7 @@ export function AcademicView() {
   }, [filteredSubjects]);
 
   return (
-    <div className="mx-auto max-w-5xl space-y-6 px-4 py-5">
+    <div className="mx-auto w-full max-w-5xl space-y-6 px-4 py-5 sm:px-6 lg:px-8 lg:py-8 xl:max-w-6xl 2xl:max-w-7xl">
       {/* Header. T-201/UI-302: flex-wrap + gap-y so the action cluster stacks
           below the title on narrow screens (77px of document overflow at
           320px before the fix). */}
