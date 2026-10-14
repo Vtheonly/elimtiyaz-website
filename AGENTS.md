@@ -14,10 +14,21 @@ The **parent web portal** of the El-Imtiyaz school-management system: Next.js 16
 ```
 src/
 ├── app/               # App Router: page.tsx state machine, providers (auth, query)
+├── components/
+│   └── particle-canvas.tsx  # T-530: the desktop's particle-animation wrapper — the login
+│                      #   hero's interactive brand field (the exact desktop logo
+│                      #   public/intro-logo.png formed from its dark pixels;
+│                      #   pointer-reactive, prefers-reduced-motion-gated). The FOUR
+│                      #   website-only adaptations live HERE, never in the engine.
 ├── features/          # views: dashboard, financial, attendance, messages, notifications,
 │                      #   homework, academic/bulletin, profile, auth (login/activation)
 ├── lib/
 │   ├── canonical/     # ported desktop canonical engine (read-side) consumed by portal-derive.ts
+│   ├── particle-engine/  # T-530/UI-344: the VERBATIM §9 port of the hub's
+│                      #   elimtiyaz-desktop/src/shared/particle-engine/** (12 files,
+│                      #   provenance headers, logic byte-equivalent — any change must
+│                      #   be mirrored in the desktop engine). The md5-pinned brand
+│                      #   asset regression test lives here too.
 │   ├── hooks/         # portal-queries.ts (all Supabase queries), use-realtime.ts (6 hooks:
 │   │                  #   useRealtimeInvalidation + notifications/chat-messages/chat-unread/
 │   │                  #   financial/homework subscriptions), fcm-registration.ts
@@ -26,6 +37,10 @@ src/
 │   ├── bulletin.ts    # report-card PDF generation
 │   └── supabase/      # client + middleware helpers
 ├── components/, public/, middleware.ts
+public/
+└── intro-logo.png    # T-530: the EXACT desktop brand pictogram, byte-identical (md5
+                       #   a1efb238f3c433968f6b267db9b8cb9e — JPEG bytes under a .png name,
+                       #   INTENTIONAL: browsers content-sniff; never re-encode/rename)
 supabase/
 └── functions/         # EMPTY since T-146 (2026-09-03): bind-activation-code joined the
                        # hub-owned set (ADR-011 resolved UNKNOWN-001). send-push-notification was
@@ -51,6 +66,7 @@ supabase/
 - **Sign-out (SYNC-105 fixed 2026-08-30):** `AuthProvider.signOut` deactivates this device's FCM token (canonical `deactivate_fcm_tokens` RPC, migration 0050) then revokes with `scope:'local'` — never 'global' (a parent signing out on one device must not kill the family's other sessions).
 - The chat MessagesView is **LIVE since session 14 (2026-08-31)**: chat is a committed feature (ADR-008 — owner decision, UNKNOWN-005 resolved). The portal is **read+reply for staff-opened channels** PLUS the parent-initiated **“Contacter l'administration”** action (T-149, 2026-09-03 — ADR-012 amends ADR-008 per the owner's mandate: the web messenger connects parents to the **Administrator** one-on-one; parent↔parent channels are forbidden and enforced server-side by migration 0067's tightened `chat_messages_insert` policy). Staff still open channels from the desktop's parent-detail-drawer (“Messager” → canonical `create_direct_channel` RPC, migration 0061). Portal-side ordering is by `last_message_at` (0051 read-receipt policy + 0061 trigger maintain the data); archived channels are hidden.
 - The mock-admin authentication system was REMOVED 2026-08-29 (SEC-007 fixed by T-009): Google OAuth is the only auth path; a planted `mock-auth-session` key yields no session (regression-tested). Do not re-introduce any client-side mock auth.
+- **The login brand field (T-530/UI-344, 2026-10-14):** the login hero renders the desktop's particle animation — `ParticleCanvas` + the verbatim `src/lib/particle-engine/` port, the particles forming the EXACT desktop logo (`public/intro-logo.png`, md5-pinned by `src/lib/particle-engine/particle-engine.test.ts`). The canvas is decorative (`aria-hidden`, `prefers-reduced-motion`-gated, pointer-reactive, ~1,600 particles at density 2 — the mobile-first budget). The engine is a VERBATIM §9 port — logic changes must be mirrored in the hub's `elimtiyaz-desktop/src/shared/particle-engine/`; the website-only adaptations (URL constant, pointer events, reduced-motion, resize re-init) live ONLY in `src/components/particle-canvas.tsx` (hub AGENTS.md §15.107). The Android app does NOT carry the particle animation (owner directive).
 
 ## 4. Before changing anything (mandatory)
 
@@ -88,7 +104,7 @@ Every commit body must answer five questions (hub `AGENTS.md` §14, full templat
 
 ```bash
 npm run lint          # eslint
-npm run test          # vitest (49 files / 629 tests, session 75)
+npm run test          # vitest (60 files / 730 tests, session 174)
 npm run build         # next build (strict after T-049)
 ```
 
