@@ -7,11 +7,19 @@
  * login ("Admin" button + localStorage session) was removed by task T-009
  * (SEC-007): it hydrated a staff-grade session from a planted localStorage
  * key with no authentication at all. Do not reintroduce mock auth here.
+ *
+ * BRAND (T-530 / UI-344): the hero block carries the desktop's particle
+ * animation — the ParticleCanvas field whose particles form the ACTUAL
+ * brand pictogram (public/intro-logo.png, the byte-identical desktop
+ * asset). The canvas is decorative (aria-hidden) and never intercepts the
+ * form. The former GraduationCap icon box was a generic placeholder, not a
+ * brand mark — it is retired by this change (documented, deliberate).
  */
 
 import { useAuth } from "@/app/providers/auth-provider";
 import { useT } from "@/lib/i18n/use-t";
-import { AlertCircle, GraduationCap, ShieldCheck } from "lucide-react";
+import { AlertCircle, ShieldCheck } from "lucide-react";
+import { ParticleCanvas } from "@/components/particle-canvas";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { useState } from "react";
@@ -33,10 +41,20 @@ export function LoginScreen() {
 
   return (
     <main className="brand-gradient relative flex min-h-[100dvh] flex-col items-center justify-center px-5 py-10">
-      {/* Brand hero */}
+      {/* Brand hero — the desktop's particle animation forming the actual
+          brand pictogram (interactive: particles repel the pointer). The
+          panel framing (rounded + ring) mirrors the login card's own design
+          language, and the 240px height honors the engine wrapper's minimum
+          canvas dimension (verbatim-port behavior). */}
       <div className="mb-8 flex flex-col items-center gap-4 text-center">
-        <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/15 text-primary ring-1 ring-primary/30">
-          <GraduationCap className="h-9 w-9" />
+        <div
+          className="h-[240px] w-64 overflow-hidden rounded-2xl ring-1 ring-border/60 sm:w-80"
+          aria-hidden
+        >
+          {/* density 2 ≈ 1,600 particles from the brand asset — the desktop
+              login's density-1 parity is intentionally relaxed for the
+              mobile-first portal (performance budget, T-530 contract). */}
+          <ParticleCanvas mode="logo" density={2} fillRatio={0.85} />
         </div>
         <div>
           <h1 className="font-mono text-2xl font-bold tracking-tight text-foreground">
